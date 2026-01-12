@@ -37,6 +37,7 @@ jobs:
           g++ \
           libhdf5-dev \
           libxtensor-dev \
+          libpugixml-dev \
           git
 
     - name: Build and install HighFive (HDF5 C++ bindings)
