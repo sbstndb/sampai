@@ -4,6 +4,7 @@ Tests for samurai Python bindings - HDF5 I/O
 Tests the save(), dump(), and load() functions for fields and meshes.
 """
 
+import os
 import tempfile
 
 import pytest
