@@ -47,6 +47,7 @@ jobs:
           pytest \
           pytest-cov \
           h5py \
+          matplotlib \
           pybind11 \
           scikit-build-core
 
