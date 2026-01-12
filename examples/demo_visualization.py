@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Demonstration of Samurai AMR visualization with matplotlib.
+Demonstration of Sampai AMR visualization with matplotlib.
 
 This script demonstrates the new matplotlib-based visualization capabilities
-for adaptive mesh refinement (AMR) fields in Samurai Python.
+for adaptive mesh refinement (AMR) fields in Sampai.
 
 Features demonstrated:
 - Static scalar field visualization
@@ -12,24 +12,11 @@ Features demonstrated:
 - Real-time plotting during simulation
 """
 
-import os
-import sys
+import matplotlib.pyplot as plt
 from pathlib import Path
 
-# Add build directory to path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
-
-# Add viz directory to path
-viz_dir = os.path.join(os.path.dirname(__file__), "..", "viz")
-if os.path.exists(viz_dir):
-    sys.path.insert(0, viz_dir)
-
-import matplotlib.pyplot as plt
-import samplotlib as svmpl
-
 import sampai as sam
+from sampai.utils import viz
 
 
 def init_circular(u, center=(0.0, 0.0), radius=0.3):
@@ -83,19 +70,19 @@ def demo_static_scalar_field():
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
     # Plot 1: Field with colormap
-    svmpl.plot_field(u, ax=axes[0], cmap='viridis', show_mesh=True)
+    viz.plot_field(u, ax=axes[0], cmap='viridis', show_mesh=True)
     axes[0].set_title('Scalar Field with Mesh')
-    svmpl.set_axes_equal(axes[0])
+    viz.set_axes_equal(axes[0])
 
     # Plot 2: Field colored by refinement level
-    svmpl.plot_field(u, ax=axes[1], show_level=True, show_mesh=False)
+    viz.plot_field(u, ax=axes[1], show_level=True, show_mesh=False)
     axes[1].set_title('Colored by Refinement Level')
-    svmpl.set_axes_equal(axes[1])
+    viz.set_axes_equal(axes[1])
 
     # Plot 3: Mesh structure only
-    svmpl.plot_mesh(u, ax=axes[2], by_level=True, linewidths=1.0)
+    viz.plot_mesh(u, ax=axes[2], by_level=True, linewidths=1.0)
     axes[2].set_title('Mesh Structure by Level')
-    svmpl.set_axes_equal(axes[2])
+    viz.set_axes_equal(axes[2])
 
     plt.tight_layout()
     output_file = Path("./results/viz_demo_scalar.png")
@@ -143,14 +130,14 @@ def demo_vector_field():
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     # Plot 1: Quiver without mesh
-    svmpl.plot_vector(vel, ax=axes[0], scale=20, cmap='plasma')
+    viz.plot_vector(vel, ax=axes[0], scale=20, cmap='plasma')
     axes[0].set_title('Vector Field (Quiver)')
-    svmpl.set_axes_equal(axes[0])
+    viz.set_axes_equal(axes[0])
 
     # Plot 2: Quiver with mesh overlay
-    svmpl.plot_vector(vel, ax=axes[1], scale=20, show_mesh=True, cmap='plasma')
+    viz.plot_vector(vel, ax=axes[1], scale=20, show_mesh=True, cmap='plasma')
     axes[1].set_title('Vector Field with Mesh Overlay')
-    svmpl.set_axes_equal(axes[1])
+    viz.set_axes_equal(axes[1])
 
     plt.tight_layout()
     output_file = Path("./results/viz_demo_vector.png")
@@ -194,7 +181,7 @@ def demo_realtime_plotting():
 
     # Setup real-time plotter
     fig, ax = plt.subplots(figsize=(8, 8))
-    plotter = svmpl.FieldPlotter(u, ax=ax, cmap='RdBu_r',
+    plotter = viz.FieldPlotter(u, ax=ax, cmap='RdBu_r',
                                  vmin=0.0, vmax=1.0, show_mesh=True)
 
     # Time stepping parameters
@@ -282,18 +269,18 @@ def demo_multiple_initial_conditions():
     mra_config.epsilon = 1e-3
     mra_config.regularity = 1.0
     MRadapt1(mra_config)
-    svmpl.plot_field(u1, ax=axes[0, 0], cmap='viridis')
+    viz.plot_field(u1, ax=axes[0, 0], cmap='viridis')
     axes[0, 0].set_title('Circle at Origin')
-    svmpl.set_axes_equal(axes[0, 0])
+    viz.set_axes_equal(axes[0, 0])
 
     # Test 2: Offset circle
     u2 = sam.field.zeros(mesh, "offset_circle")
     init_circular(u2, center=(0.3, 0.3), radius=0.3)
     MRadapt2 = sam.adaptation.make_MRAdapt(u2)
     MRadapt2(mra_config)
-    svmpl.plot_field(u2, ax=axes[0, 1], cmap='plasma')
+    viz.plot_field(u2, ax=axes[0, 1], cmap='plasma')
     axes[0, 1].set_title('Offset Circle')
-    svmpl.set_axes_equal(axes[0, 1])
+    viz.set_axes_equal(axes[0, 1])
 
     # Test 3: Two circles
     u3 = sam.field.zeros(mesh, "two_circles")
@@ -310,18 +297,18 @@ def demo_multiple_initial_conditions():
     sam.algorithms.for_each_cell(mesh, init_two_circles)
     MRadapt3 = sam.adaptation.make_MRAdapt(u3)
     MRadapt3(mra_config)
-    svmpl.plot_field(u3, ax=axes[1, 0], cmap='coolwarm')
+    viz.plot_field(u3, ax=axes[1, 0], cmap='coolwarm')
     axes[1, 0].set_title('Two Circles')
-    svmpl.set_axes_equal(axes[1, 0])
+    viz.set_axes_equal(axes[1, 0])
 
     # Test 4: Refinement levels
     u4 = sam.field.zeros(mesh, "levels")
     init_circular(u4, center=(0.0, 0.0), radius=0.5)
     MRadapt4 = sam.adaptation.make_MRAdapt(u4)
     MRadapt4(mra_config)
-    svmpl.plot_field(u4, ax=axes[1, 1], show_level=True)
+    viz.plot_field(u4, ax=axes[1, 1], show_level=True)
     axes[1, 1].set_title('Refinement Levels')
-    svmpl.set_axes_equal(axes[1, 1])
+    viz.set_axes_equal(axes[1, 1])
 
     plt.tight_layout()
     output_file = Path("./results/viz_demo_multiple.png")
