@@ -122,7 +122,7 @@ Changelog = "https://github.com/hpc-maths/samurai/blob/main/CHANGELOG.md"
 # ============================================================================
 
 [tool.scikit-build]
-minimum-version = "build-system"
+minimum-version = "0.10.0"
 cmake.source-dir = "."
 build-dir = "build/{wheel_tag}"
 
