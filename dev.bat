@@ -109,7 +109,7 @@ if exist dist rmdir /s /q dist
 for /d %%d in (*.egg-info) do rmdir /s /q "%%d"
 if exist __pycache__ rmdir /s /q __pycache__
 if exist src\__pycache__ rmdir /s /q src\__pycache__
-if exist src\samurai_python\__pycache__ rmdir /s /q src\samurai_python\__pycache__
+if exist src\sampai\__pycache__ rmdir /s /q src\sampai\__pycache__
 if exist tests\__pycache__ rmdir /s /q tests\__pycache__
 
 echo.

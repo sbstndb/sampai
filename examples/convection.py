@@ -46,8 +46,8 @@ if os.path.exists(viz_dir):
 import matplotlib.pyplot as plt
 import samplotlib as svmpl
 
-import samurai_python as sam
-from samurai_python.utils import progress
+import sampai as sam
+from sampai.utils import progress
 
 
 def init_rectangle(u):

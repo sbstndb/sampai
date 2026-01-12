@@ -356,7 +356,7 @@ void init_io_bindings(py::module_& m)
 
             Examples
             --------
-            >>> import samurai_python as sam
+            >>> import sampai as sam
             >>> samurai.save("results/solution.h5", field)
             >>> samurai.save("solution.h5", field)  # Current directory
             >>> samurai.save(Path("results/solution.h5"), field)
@@ -487,7 +487,7 @@ void init_io_bindings(py::module_& m)
 
             Examples
             --------
-            >>> import samurai_python as sam
+            >>> import sampai as sam
             >>> samurai.dump("checkpoints/solution.h5", field)
         )pbdoc");
 
@@ -574,7 +574,7 @@ void init_io_bindings(py::module_& m)
 
             Examples
             --------
-            >>> import samurai_python as sam
+            >>> import sampai as sam
             >>> samurai.load("checkpoints/solution.h5", field)
         )pbdoc");
 
@@ -625,7 +625,7 @@ void init_io_bindings(py::module_& m)
 
             Examples
             --------
-            >>> import samurai_python as sam
+            >>> import sampai as sam
             >>> # Save a field
             >>> field.save("results/solution.h5")
             >>> # Open with h5py

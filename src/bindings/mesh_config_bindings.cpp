@@ -476,7 +476,7 @@ void init_mesh_config_bindings(py::module_& m)
                                          "Factory Functions:\n"
                                          "  make(dim, min_level=0, max_level=6, ...) - Create MeshConfig with explicit dimension\n\n"
                                          "Examples:\n"
-                                         "    >>> import samurai_python as sam\n"
+                                         "    >>> import sampai as sam\n"
                                          "    >>> # Factory function\n"
                                          "    >>> cfg = sam.config.make(2, min_level=4, max_level=8)\n");
 
@@ -596,7 +596,7 @@ void init_mesh_config_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> config = sam.config.make(2, min_level=4, max_level=8)
         >>> config = sam.config.make(2, min_level=2, max_level=6, periodic=True)
         >>> config = sam.config.make(3, min_level=0, max_level=5,

@@ -42,7 +42,7 @@ if os.path.exists(viz_dir):
 import matplotlib.pyplot as plt
 import samplotlib as svmpl  # matplotlib visualization
 
-import samurai_python as sam
+import sampai as sam
 
 # Import progress bar from demo_progress
 try:

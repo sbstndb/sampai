@@ -284,7 +284,7 @@ void init_adapt_bindings(py::module_& m)
                                         "Classes:\n"
                                         "  MRAdapt - Multiresolution mesh adaptation callable\n\n"
                                         "Examples:\n"
-                                        "    >>> import samurai_python as sam\n"
+                                        "    >>> import sampai as sam\n"
                                         "    >>> MRadapt = sam.adaptation.make_MRAdapt(field)\n"
                                         "    >>> MRadapt(sam.config.MRAConfig(epsilon=1e-4))\n"
                                         "    >>> sam.adaptation.update_ghost_mr(field)\n");
@@ -298,7 +298,7 @@ void init_adapt_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> config = sam.config.MRAConfig()
         >>> config.epsilon = 2e-4
         >>> config.regularity = 2.0

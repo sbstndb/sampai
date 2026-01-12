@@ -230,7 +230,7 @@ void init_algorithm_bindings(py::module_& m)
                                              "Classes:\n"
                                              "  Cell1D, Cell2D, Cell3D - Cell wrapper objects for iteration\n\n"
                                              "Examples:\n"
-                                             "    >>> import samurai_python as sam\n"
+                                             "    >>> import sampai as sam\n"
                                              "    >>> sam.algorithms.for_each_cell(mesh, lambda cell: print(cell.center()))\n"
                                              "    >>> sam.algorithms.for_each_interval(mesh, lambda interval, index: ...)\n");
 

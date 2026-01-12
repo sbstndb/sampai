@@ -29,7 +29,7 @@ if os.path.exists(viz_dir):
 import matplotlib.pyplot as plt
 import samplotlib as svmpl
 
-import samurai_python as sam
+import sampai as sam
 
 
 def init_circular(u, center=(0.0, 0.0), radius=0.3):

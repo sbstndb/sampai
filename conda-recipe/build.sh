@@ -104,7 +104,7 @@ if [ "$DO_INSTALL" = true ]; then
     echo -e "${GREEN}Package installed!${NC}"
     echo ""
     echo -e "Test the installation:"
-    echo -e "  python -c 'import samurai_python; print(samurai_python.__version__)'"
+    echo -e "  python -c 'import sampai; print(sampai.__version__)'"
 fi
 
 # Prepare for upload if requested

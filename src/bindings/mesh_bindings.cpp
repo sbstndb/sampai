@@ -145,7 +145,7 @@ void bind_mr_mesh(py::module_& m, const std::string& name)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> box = sam.geometry.box([0.], [1.])
         >>> config = sam.config.make(1, min_level=0, max_level=1)
         >>> mesh = sam.mesh.make(box, config)
@@ -231,7 +231,7 @@ void init_mesh_bindings(py::module_& m)
                                               "Factory Functions:\n"
                                               "  make(box_or_domain, config=None, min_level=None, max_level=None, ...) - Create MRMesh\n\n"
                                               "Examples:\n"
-                                              "    >>> import samurai_python as sam\n"
+                                              "    >>> import sampai as sam\n"
                                               "    >>> # Factory function with inline config (recommended)\n"
                                               "    >>> box = sam.geometry.box([0., 0.], [1., 1.])\n"
                                               "    >>> mesh = sam.mesh.make(box, min_level=4, max_level=8)\n"
@@ -790,7 +790,7 @@ void init_mesh_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> box = sam.geometry.box([0., 0.], [1., 1.])
         >>>
         >>> # Method 1: With inline config (recommended)

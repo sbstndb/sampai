@@ -61,7 +61,7 @@ if "%1"=="install" (
     echo Package installed!
     echo.
     echo Test the installation:
-    echo   python -c "import samurai_python; print(samurai_python.__version__)"
+    echo   python -c "import sampai; print(sampai.__version__)"
 )
 
 if "%1"=="upload" (

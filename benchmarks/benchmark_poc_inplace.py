@@ -11,7 +11,7 @@ import timeit
 
 import numpy as np
 
-import samurai_python as sam
+import sampai as sam
 
 
 def setup_mesh_2d():

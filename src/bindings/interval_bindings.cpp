@@ -320,7 +320,7 @@ void init_interval_bindings(py::module_& m)
                                            "Classes:\n"
                                            "  Interval - Half-open interval [start, end) with storage index\n\n"
                                            "Examples:\n"
-                                           "    >>> import samurai_python as sam\n"
+                                           "    >>> import sampai as sam\n"
                                            "    >>> # Factory function\n"
                                            "    >>> interval = sam.interval.make_interval(0, 10)\n"
                                            "    >>> # Direct class access\n"
@@ -358,7 +358,7 @@ void init_interval_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> interval = sam.interval.make_interval(0, 10)
         >>> interval_with_index = sam.interval.make_interval(0, 10, index=5)
         )pbdoc");

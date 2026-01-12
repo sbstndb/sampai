@@ -302,7 +302,7 @@ void init_box_bindings(py::module_& m)
                                            "Factory Functions:\n"
                                            "  box(min_corner, max_corner) - Create Box with inferred dimension\n\n"
                                            "Examples:\n"
-                                           "    >>> import samurai_python as sam\n"
+                                           "    >>> import sampai as sam\n"
                                            "    >>> # Factory function (auto-detects dimension)\n"
                                            "    >>> box = sam.geometry.box([0., 0.], [1., 1.])\n"
                                            "    >>> box_1d = sam.geometry.box([0.0], [1.0])\n"
@@ -377,7 +377,7 @@ void init_box_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> box_1d = sam.geometry.box([0.0], [1.0])
         >>> box_2d = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
         >>> box_3d = sam.geometry.box([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])

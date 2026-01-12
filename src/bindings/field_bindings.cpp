@@ -1684,7 +1684,7 @@ void init_field_bindings(py::module_& m)
                                         "  scalar(mesh, name, init=0.0) - Create ScalarField (dim inferred from mesh)\n"
                                         "  vector(mesh, name, n_components=2, init=0.0) - Create VectorField\n\n"
                                         "Examples:\n"
-                                        "    >>> import samurai_python as sam\n"
+                                        "    >>> import sampai as sam\n"
                                         "    >>> mesh = sam.mesh.make(box, min_level=4, max_level=8)\n"
                                         "    >>> u = sam.field.scalar(mesh, \"u\")\n"
                                         "    >>> vel = sam.field.vector(mesh, \"vel\", n_components=2)\n");
@@ -1735,7 +1735,7 @@ void init_field_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> mesh = sam.MRMesh1D(box, config)
         >>> u = sam.field.scalar(mesh, "u")
         >>> u = sam.field.scalar(mesh, "u", init=1.0)
@@ -1810,7 +1810,7 @@ void init_field_bindings(py::module_& m)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> mesh = sam.MRMesh1D(box, config)
         >>> vel = sam.field.vector(mesh, "velocity", n_components=2)
         >>> vel = sam.field.vector(mesh, "velocity", n_components=3, init=1.0)

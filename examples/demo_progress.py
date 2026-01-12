@@ -15,7 +15,7 @@ Usage:
     python demo_progress.py
 
 This demo requires:
-    - samurai_python module (built from source)
+    - sampai module (built from source)
     - tqdm (pip install tqdm)
     - No actual simulation is run, just demonstrations
 """

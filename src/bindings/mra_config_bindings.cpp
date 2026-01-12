@@ -85,7 +85,7 @@ void bind_mra_config(py::module_& m, const std::string& name)
 
         Examples
         --------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>> config = sam.MRAConfig()
         >>> config.epsilon = 2e-4
         >>> config.regularity = 2.0

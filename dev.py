@@ -114,7 +114,7 @@ def clean_artifacts(script_dir: Path):
         script_dir / "*.egg-info",
         script_dir / "__pycache__",
         script_dir / "src" / "__pycache__",
-        script_dir / "src" / "samurai_python" / "__pycache__",
+        script_dir / "src" / "sampai" / "__pycache__",
         script_dir / "tests" / "__pycache__",
     ]
 

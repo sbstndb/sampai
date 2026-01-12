@@ -41,7 +41,7 @@ PYBIND11_MODULE(sampai, m)
 
         Quick Start
         -----------
-        >>> import samurai_python as sam
+        >>> import sampai as sam
         >>>
         >>> # Create mesh using factory (recommended)
         >>> box = sam.geometry.box([0., 0.], [1., 1.])
@@ -60,14 +60,14 @@ PYBIND11_MODULE(sampai, m)
         .. autosummary::
            :toctree: _generate
 
-           samurai_python.geometry
-           samurai_python.config
-           samurai_python.mesh
-           samurai_python.field
-           samurai_python.interval
-           samurai_python.algorithms
-           samurai_python.adaptation
-           samurai_python.io
+           sampai.geometry
+           sampai.config
+           sampai.mesh
+           sampai.field
+           sampai.interval
+           sampai.algorithms
+           sampai.adaptation
+           sampai.io
 
         Main Module Functions
         ---------------------
