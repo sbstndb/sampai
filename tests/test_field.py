@@ -4,16 +4,8 @@ Tests for samurai Python bindings - ScalarField and VectorField classes
 Tests the samurai::ScalarField and samurai::VectorField class bindings.
 """
 
-import os
-import sys
-
 import numpy as np
 import pytest
-
-# Add the build directory to Python path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 try:
     import sampai as sam

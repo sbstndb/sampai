@@ -11,16 +11,8 @@ Factory API:
     v = sam.field.vector(mesh, "v", n_components=2, init=1.0)
 """
 
-import os
-import sys
-
 import numpy as np
 import pytest
-
-# Add build directory to path
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 import sampai as sam
 

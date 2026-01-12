@@ -2,18 +2,11 @@
 Tests for NumPy-style field creation helpers.
 """
 
-import os
-import sys
-
-# Add the build directory to Python path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
+import pytest
 
 try:
     import sampai as sam
 except ImportError:
-    import pytest
     pytest.skip("sampai module not built", allow_module_level=True)
 
 import numpy as np

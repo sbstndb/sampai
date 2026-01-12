@@ -4,17 +4,6 @@ Simple test script for VectorField WENO5 convection operators (Burgers equation)
 Tests the core functionality without custom initialization
 """
 
-import os
-import sys
-
-# Add the build directory to path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-build_path = os.path.join(project_root, '..', 'build', 'python')
-if os.path.exists(build_path):
-    sys.path.insert(0, build_path)
-else:
-    sys.path.insert(0, os.path.join(os.getcwd(), 'build', 'python'))
-
 import sampai as sam
 
 print("=" * 60)

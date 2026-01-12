@@ -12,17 +12,10 @@ The POC aims to prove that in-place operators:
 This is a PROOF OF CONCEPT - focus on critical functionality.
 """
 
-import os
-import sys
 import time
 
 import numpy as np
 import pytest
-
-# Add build directory to path
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 import sampai as sam
 

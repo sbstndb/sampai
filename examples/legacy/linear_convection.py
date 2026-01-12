@@ -66,8 +66,8 @@ def main():
     regularity = 1.0    # Gradation parameter
 
     # Output parameters
-    output_path = Path("/home/sbstndbs/sbstndbs/samurai/linear_convection_python")
-    filename = "linear_convection_2d_python"
+    output_path = Path("./linear_convection_2d_results")
+    filename = "linear_convection_2d"
     nfiles = 10  # Number of output files
 
     print("=" * 70)
