@@ -117,8 +117,8 @@ def main():
     max_level = 7
 
     # Output
-    output_path = Path("/home/sbstndbs/sbstndbs/samurai/burgers_2d_python")
-    filename = "burgers_2d_python"
+    output_path = Path("./burgers_2d_results")
+    filename = "burgers_2d"
 
     # Visualization option
     enable_realtime_viz = True  # Set to False to disable matplotlib visualization
