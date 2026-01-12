@@ -36,8 +36,17 @@ jobs:
           ninja-build \
           g++ \
           libhdf5-dev \
-          libhighfive-dev \
-          libxtensor-dev
+          libxtensor-dev \
+          git
+
+    - name: Build and install HighFive (HDF5 C++ bindings)
+      run: |
+        git clone https://github.com/BlueBrain/HighFive.git /tmp/highfive
+        cd /tmp/highfive
+        mkdir build && cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake --build . --parallel 2
+        sudo cmake --install .
 
     - name: Install Python dependencies
       run: |
