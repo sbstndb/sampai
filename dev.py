@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Samurai Python Bindings - Development Helper Script
+Sampai - Development Helper Script
 
 This script provides convenient commands for developing the Python bindings.
-It handles building, testing, and installing the package in development mode.
+It handles building, testing, and installing the package using Meson.
 
 Usage:
     python dev.py build          # Build the module
@@ -71,36 +71,34 @@ def run_command(cmd: list, cwd: Path = None, check: bool = True) -> subprocess.C
     return result
 
 
-def check_samurai_installed() -> bool:
-    """Check if samurai C++ library is installed."""
-    print_header("Checking Samurai C++ Library")
+def check_samurai_source() -> bool:
+    """Check if samurai C++ source is available."""
+    print_header("Checking Samurai C++ Source")
 
-    # Try to find samurai via cmake
-    result = run_command(
-        ["cmake", "--find-package", "-DNAME=samurai", "-DCOMPILER_ID=CXX", "-DLANGUAGE=CXX"],
-        check=False,
-    )
+    samurai_path = Path(__file__).parent.parent / "samurai" / "include" / "samurai"
 
-    if result.returncode == 0:
-        print_success("Samurai C++ library found via CMake")
-        return True
-
-    # Check if it's in conda
-    result = run_command(["conda", "list", "samurai"], check=False)
-    if result.returncode == 0 and "samurai" in result.stdout:
-        print_success("Samurai C++ library found in conda")
+    if samurai_path.exists():
+        print_success(f"Samurai C++ source found at {samurai_path.parent.parent}")
         return True
 
     print_warning(
-        "Samurai C++ library not found!\n"
-        "Please install it first:\n"
-        "  - From the samurai_pybind11 root:\n"
-        "      cmake -B build -DCMAKE_BUILD_TYPE=Release\n"
-        "      cmake --build build\n"
-        "      sudo cmake --install build /path/to/prefix\n"
-        "  - Or via conda:\n"
-        "      conda install -c conda-forge samurai"
+        "Samurai C++ source not found!\n"
+        "Please clone the samurai repository next to sampai:\n"
+        "  git clone https://github.com/hpc-maths/samurai.git ../samurai"
     )
+    return False
+
+
+def check_meson_installed() -> bool:
+    """Check if Meson is installed."""
+    result = run_command(["meson", "--version"], check=False)
+    if result.returncode == 0:
+        version = result.stdout.strip().split()[-1]
+        print_success(f"Meson {version} found")
+        return True
+
+    print_warning("Meson not found!")
+    print("Install with: conda install -c conda-forge meson")
     return False
 
 
@@ -109,6 +107,7 @@ def clean_artifacts(script_dir: Path):
     print_header("Cleaning Build Artifacts")
 
     dirs_to_clean = [
+        script_dir / "builddir",
         script_dir / "build",
         script_dir / "dist",
         script_dir / "*.egg-info",
@@ -133,29 +132,26 @@ def clean_artifacts(script_dir: Path):
                 print_success(f"Removed {dir_path.name}")
 
 
-def build_module(script_dir: Path, build_type: str = "Release"):
-    """Build the Python module."""
-    print_header("Building Python Module")
+def build_module(script_dir: Path, build_type: str = "release"):
+    """Build the Python module using Meson."""
+    print_header("Building Python Module with Meson")
 
-    build_dir = script_dir / "build"
+    build_dir = script_dir / "builddir"
 
     # Configure
-    print("Configuring CMake...")
-    run_command(
-        [
-            "cmake",
-            "-B", str(build_dir),
-            "-S", str(script_dir),
-            f"-DCMAKE_BUILD_TYPE={build_type}",
-            "-DSAMURAI_PYTHON_STANDALONE=ON",
-            "-GNinja",
-        ]
-    )
-    print_success("CMake configured")
+    print("Configuring Meson...")
+    meson_args = ["setup", str(build_dir)]
+    if build_type == "debug":
+        meson_args.extend(["-Dbuildtype=debug"])
+    else:
+        meson_args.extend(["-Dbuildtype=release", "-Doptimization=3"])
+
+    run_command(["meson"] + meson_args)
+    print_success("Meson configured")
 
     # Build
     print("Building...")
-    run_command(["cmake", "--build", str(build_dir), "--config", build_type])
+    run_command(["meson", "compile", "-C", str(build_dir)])
     print_success("Build complete")
 
 
@@ -196,7 +192,7 @@ def reinstall_module(script_dir: Path):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Development helper for Samurai Python bindings",
+        description="Development helper for Sampai Python bindings",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -230,7 +226,7 @@ Examples:
     parser.add_argument(
         "--skip-check",
         action="store_true",
-        help="Skip checking for samurai installation",
+        help="Skip checking for samurai source and meson installation",
     )
 
     args = parser.parse_args()
@@ -238,15 +234,17 @@ Examples:
     # Get script directory
     script_dir = Path(__file__).parent.resolve()
 
-    # Check samurai installation unless skipped
+    # Check samurai source and meson unless skipped
     if not args.skip_check and args.command not in ["clean"]:
-        if not check_samurai_installed():
-            print_error("Cannot proceed without samurai C++ library")
+        samurai_ok = check_samurai_source()
+        meson_ok = check_meson_installed()
+        if not samurai_ok or not meson_ok:
+            print_error("Cannot proceed without required dependencies")
             sys.exit(1)
 
     # Execute command
     if args.command == "build":
-        build_type = "Debug" if args.debug else "Release"
+        build_type = "debug" if args.debug else "release"
         build_module(script_dir, build_type)
 
     elif args.command == "install":
@@ -262,7 +260,7 @@ Examples:
         reinstall_module(script_dir)
 
     elif args.command == "all":
-        build_type = "Debug" if args.debug else "Release"
+        build_type = "debug" if args.debug else "release"
         build_module(script_dir, build_type)
         install_module(script_dir, editable=True)
         test_module(script_dir)

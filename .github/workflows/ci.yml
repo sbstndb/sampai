@@ -33,7 +33,6 @@ jobs:
         export PATH="$HOME/miniforge3/bin:$PATH"
         conda create -n sampai-ci -c conda-forge \
           python=3.12 \
-          samurai=0.27.1 \
           xtensor \
           xtensor-blas \
           hdf5 \
@@ -41,30 +40,24 @@ jobs:
           pugixml \
           fmt \
           cli11 \
-          cmake \
+          meson \
           ninja \
           numpy \
           pytest \
           pytest-cov \
           h5py \
           matplotlib \
-          pybind11 \
-          scikit-build-core
+          pybind11
 
-    - name: Build sampai (LOCAL mode for headers, conda for libs)
+    - name: Build sampai with Meson
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda activate sampai-ci
 
         cd sampai
-        mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release \
-          -DSAMURAI_PYTHON_STANDALONE=ON \
-          -DSAMURAI_SOURCE=LOCAL \
-          -DCMAKE_PREFIX_PATH="$HOME/miniforge3/envs/sampai-ci;${{ github.workspace }}/samurai" \
-          -GNinja
-        cmake --build . --parallel 2
+        meson setup builddir
+        meson compile -C builddir --parallel 2
 
     - name: Run tests
       run: |
@@ -82,5 +75,5 @@ jobs:
       with:
         name: test-results-ubuntu-py312
         path: |
-          sampai/build/Testing/
+          sampai/builddir/meson-logs/testlog.txt
           sampai/.pytest_cache/
