@@ -130,15 +130,15 @@ set(BINDING_SOURCES
     src/bindings/io_bindings.cpp
 )
 
-# Create the pybind11 module
-pybind11_add_module(sampai ${BINDING_SOURCES})
+# Create the pybind11 module (with underscore prefix to avoid namespace collision)
+pybind11_add_module(_sampai ${BINDING_SOURCES})
 
 # Set target properties for better symbol visibility and optimization
-set_target_properties(sampai PROPERTIES
+set_target_properties(_sampai PROPERTIES
     CXX_VISIBILITY_PRESET "hidden"
     VISIBILITY_INLINES_HIDDEN ON
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME "sampai"
+    OUTPUT_NAME "_sampai"
 )
 
 # ============================================================================
@@ -146,20 +146,20 @@ set_target_properties(sampai PROPERTIES
 # ============================================================================
 
 # Link against samurai C++ library
-target_link_libraries(sampai
+target_link_libraries(_sampai
     PRIVATE
         samurai::samurai
 )
 
 # Ensure C++20 standard
-target_compile_features(sampai PRIVATE cxx_std_20)
+target_compile_features(_sampai PRIVATE cxx_std_20)
 
 # ============================================================================
 # INCLUDE DIRECTORIES
 # ============================================================================
 
 # Add Python include directories
-target_include_directories(sampai
+target_include_directories(_sampai
     PRIVATE
         ${Python_INCLUDE_DIRS}
 )
@@ -255,11 +255,11 @@ if(SAMURAI_PYTHON_STANDALONE)
     endif()
 
     # Apply the include directories
-    target_include_directories(sampai PRIVATE ${_samurai_include_list})
+    target_include_directories(_sampai PRIVATE ${_samurai_include_list})
 
 else()
     # Non-standalone: use parent project's include directory
-    target_include_directories(sampai
+    target_include_directories(_sampai
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
@@ -273,7 +273,7 @@ endif()
 if(TARGET samurai::samurai)
     get_target_property(SAMURAI_DEFS samurai::samurai INTERFACE_COMPILE_DEFINITIONS)
     if(SAMURAI_DEFS)
-        target_compile_definitions(sampai
+        target_compile_definitions(_sampai
             PRIVATE
                 ${SAMURAI_DEFS}
         )
@@ -282,7 +282,7 @@ endif()
 
 # Platform-specific definitions
 if(WIN32)
-    target_compile_definitions(sampai PRIVATE "WIN32_LEAN_AND_MEAN")
+    target_compile_definitions(_sampai PRIVATE "WIN32_LEAN_AND_MEAN")
 endif()
 
 # ============================================================================
@@ -290,7 +290,7 @@ endif()
 # ============================================================================
 
 # Set output directory for the module
-set_target_properties(sampai PROPERTIES
+set_target_properties(_sampai PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
 )
 
@@ -299,7 +299,7 @@ set_target_properties(sampai PROPERTIES
 # ============================================================================
 
 # Copy pure Python utilities to build directory
-add_custom_command(TARGET sampai POST_BUILD
+add_custom_command(TARGET _sampai POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/src/sampai
         ${CMAKE_CURRENT_BINARY_DIR}/lib/sampai
@@ -325,7 +325,7 @@ else()
 endif()
 
 # Install the compiled Python module
-install(TARGETS sampai
+install(TARGETS _sampai
     LIBRARY DESTINATION ${_sampai_module_dest}
 )
 
@@ -367,7 +367,7 @@ message(STATUS "=== Sampai Configuration Summary ===")
 message(STATUS "  Build type:          ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard:        C++20")
 message(STATUS "  Python version:      ${Python_VERSION}")
-message(STATUS "  Module name:         sampai")
+message(STATUS "  Module name:         _sampai")
 message(STATUS "  Output directory:    ${CMAKE_CURRENT_BINARY_DIR}/lib")
 message(STATUS "  Install directory:   ${Python_SITEARCH}")
 message(STATUS "  Standalone build:    ${SAMURAI_PYTHON_STANDALONE}")

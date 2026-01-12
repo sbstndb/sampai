@@ -10,30 +10,71 @@ import importlib.util
 import os
 import sys
 
-# Get the build directory (project root/src -> project root -> build/lib)
-_package_dir = os.path.dirname(__file__)
-_project_root = os.path.abspath(os.path.join(_package_dir, '..', '..'))
-_build_lib_dir = os.path.join(_project_root, 'build', 'lib')
+# Try to import _sampai using the normal import mechanism first
+# This works with scikit-build-core installations (editable and regular)
+_compiled_module = None
+_import_error = None
 
-# Find the compiled .so file from build directory
-_so_files = []
-if os.path.exists(_build_lib_dir):
-    import glob
-    _so_files = glob.glob(os.path.join(_build_lib_dir, 'sampai*.so'))
+try:
+    _compiled_module = sys.modules.get("_sampai")
+    if _compiled_module is None:
+        import _sampai as _compiled_module
+except ImportError as e:
+    _import_error = e
 
-if _so_files:
-    _so_path = _so_files[0]
-else:
-    raise ImportError(
-        f"Cannot find sampai compiled module in {_build_lib_dir}. "
-        "Please build the project first (run: cmake --build build)."
-    )
+# If normal import failed, try manual discovery for CMake builds
+if _compiled_module is None:
+    # Get the build directory (project root/src -> project root -> build/...)
+    _package_dir = os.path.dirname(__file__)
+    _project_root = os.path.abspath(os.path.join(_package_dir, '..', '..'))
 
-# Load the compiled module using importlib
-spec = importlib.util.spec_from_file_location("sampai", _so_path)
-_compiled_module = importlib.util.module_from_spec(spec)
-sys.modules["sampai_compiled"] = _compiled_module
-spec.loader.exec_module(_compiled_module)
+    # Try multiple possible build directories for scikit-build-core
+    _build_lib_dirs = [
+        os.path.join(_project_root, 'build', 'lib'),  # Direct cmake build
+        # scikit-build-core uses platform-specific directories
+        os.path.join(_project_root, 'build', 'py3-none-linux_x86_64', 'lib'),
+        os.path.join(_project_root, 'build', 'py3-none-linux_x86_64', 'sampai'),
+        os.path.join(_project_root, 'build', 'lib', 'sampai'),
+        # Also check platform-agnostic patterns
+        os.path.join(_project_root, 'build', 'lib.*', 'sampai'),
+        os.path.join(_project_root, 'build', '*-linux_x86_64', 'lib'),
+        os.path.join(_project_root, 'build', '*-linux_x86_64', 'sampai'),
+    ]
+
+    # Find the compiled .so file from build directories
+    _so_files = []
+    for _build_lib_dir in _build_lib_dirs:
+        if '*' in _build_lib_dir:
+            import glob as glob_module
+            _matching_dirs = glob_module.glob(_build_lib_dir)
+            for _expanded_dir in _matching_dirs:
+                if os.path.exists(_expanded_dir):
+                    import glob
+                    _found = glob.glob(os.path.join(_expanded_dir, '_sampai*.so'))
+                    if _found:
+                        _so_files = _found
+                        break
+            if _so_files:
+                break
+        elif os.path.exists(_build_lib_dir):
+            import glob
+            _so_files = glob.glob(os.path.join(_build_lib_dir, '_sampai*.so'))
+            if _so_files:
+                break
+
+    if _so_files:
+        _so_path = _so_files[0]
+        # Load the compiled module using importlib
+        spec = importlib.util.spec_from_file_location("_sampai", _so_path)
+        _compiled_module = importlib.util.module_from_spec(spec)
+        sys.modules["_sampai"] = _compiled_module
+        spec.loader.exec_module(_compiled_module)
+    else:
+        raise ImportError(
+            f"Cannot find _sampai compiled module. "
+            f"Tried normal import (failed: {_import_error}) and manual search in {_build_lib_dirs}. "
+            "Please build the project first (run: pip install . or cmake --build build)."
+        )
 
 # Copy all public symbols from compiled module to this package namespace
 for attr_name in dir(_compiled_module):
