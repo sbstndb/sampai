@@ -36,6 +36,7 @@ jobs:
           ninja-build \
           g++ \
           libhdf5-dev \
+          libhighfive-dev \
           libxtensor-dev
 
     - name: Install Python dependencies
