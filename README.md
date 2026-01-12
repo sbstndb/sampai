@@ -16,7 +16,7 @@ Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and
 - [Documentation](#documentation)
 - [Examples](#examples)
 - [Testing](#testing)
-- [Contributing](#contributing)
+- [Troubleshooting](#troubleshooting)
 - [License](#license)
 
 ---
@@ -258,51 +258,6 @@ pytest tests/test_standalone.py -v
 
 ---
 
-## Contributing
-
-We welcome contributions! Please see the main [Samurai repository](https://github.com/hpc-maths/samurai) for guidelines.
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add/update tests
-5. Run code quality checks: `make check-all`
-6. Submit a pull request
-
----
-
-## Migration from Old Build System
-
-If you were using the old `BUILD_PYTHON_BINDINGS` CMake option, you need to update your workflow:
-
-### Old Way (Deprecated)
-
-```bash
-# From samurai_pybind11 root
-cmake -B build -DBUILD_PYTHON_BINDINGS=ON
-cmake --build build
-```
-
-### New Way
-
-```bash
-# 1. Build and install the C++ library
-cd /path/to/samurai_pybind11
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-sudo cmake --install build --prefix /usr/local
-
-# 2. Build and install Python bindings separately
-cd python/
-pip install .
-```
-
-See [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detailed migration instructions.
-
----
-
 ## Troubleshooting
 
 ### "samurai C++ library not found"
@@ -337,34 +292,3 @@ conda install -c conda-forge samurai=0.27.1
 ## License
 
 This project is licensed under the **BSD-3-Clause License**. See the [LICENSE](../LICENSE) file for details.
-
----
-
-## Citation
-
-If you use Samurai in your research, please cite:
-
-```bibtex
-@software{samurai,
-  author = {Samurai Development Team},
-  title = {Samurai: Adaptive Mesh Refinement Library},
-  url = {https://github.com/hpc-maths/samurai},
-  year = {2024}
-}
-```
-
----
-
-## Contact
-
-- **Issues:** [GitHub Issues](https://github.com/hpc-maths/samurai/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/hpc-maths/samurai/discussions)
-- **Email:** samurai@lists.sciencesconf.org
-
----
-
-## Acknowledgments
-
-- Built with [pybind11](https://github.com/pybind/pybind11)
-- Uses [scikit-build-core](https://github.com/scikit-build/scikit-build-core) for modern Python packaging
-- Depends on [xtensor](https://github.com/xtensor-stack/xtensor) for array operations
