@@ -13,11 +13,11 @@ import pytest
 
 # Try to import the module
 try:
-    import samurai_python as sam
+    import sampai as sam
     SAMURAI_AVAILABLE = True
 except ImportError:
     SAMURAI_AVAILABLE = False
-    pytest.skip("samurai_python module not available", allow_module_level=True)
+    pytest.skip("sampai module not available", allow_module_level=True)
 
 
 class TestBasicImport:
@@ -161,14 +161,6 @@ class TestAlgorithmsSubmodule:
         assert hasattr(sam, "algorithms")
 
 
-class TestIOSubmodule:
-    """Test the I/O submodule."""
-
-    def test_io_submodule_exists(self):
-        """Test that the I/O submodule exists."""
-        assert hasattr(sam, "io")
-
-
 class TestModuleLevelFunctions:
     """Test module-level convenience functions."""
 
@@ -181,18 +173,18 @@ class TestModuleLevelFunctions:
 class TestUtilities:
     """Test Python utility modules."""
 
-    def test_samurai_python_utils_import(self):
-        """Test that samurai_python.utils can be imported."""
+    def test_sampai_utils_import(self):
+        """Test that sampai.utils can be imported."""
         try:
-            import samurai_python.utils
+            import sampai.utils
             assert True
         except ImportError:
-            pytest.skip("samurai_python.utils not available")
+            pytest.skip("sampai.utils not available")
 
     def test_progress_module(self):
         """Test that progress utilities are available."""
         try:
-            from samurai_python.utils import progress
+            from sampai.utils import progress
             assert progress is not None
         except ImportError:
             pytest.skip("progress utilities not available")

@@ -5,8 +5,8 @@ This module provides a simple, intuitive API for tracking progress in
 time-dependent adaptive mesh refinement simulations.
 
 Example usage:
-    >>> import samurai_python as sam
-    >>> from samurai_python.utils import progress
+    >>> import sampai as sam
+    >>> from sampai.utils import progress
     >>>
     >>> # Time stepping loop with mesh statistics
     >>> with progress.time_loop(Tf=1.0, dt=0.01) as pbar:

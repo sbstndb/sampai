@@ -15,7 +15,7 @@ if os.path.exists(build_path):
 else:
     sys.path.insert(0, os.path.join(os.getcwd(), 'build', 'python'))
 
-import samurai_python as sam
+import sampai as sam
 
 print("=" * 60)
 print("Testing VectorField WENO5 Convection Operators")

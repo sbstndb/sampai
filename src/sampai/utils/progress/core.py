@@ -17,7 +17,7 @@ except ImportError:
     tqdm_class = None  # type: ignore
 
 if TYPE_CHECKING:
-    import samurai_python
+    import sampai
 
 from .stats import MeshStatistics
 
@@ -217,7 +217,7 @@ class TimeLoop(ProgressManager):
 
     def update_stats(
         self,
-        mesh: Optional["samurai_python.Mesh"] = None,
+        mesh: Optional["sampai.Mesh"] = None,
         **stats
     ) -> None:
         """Update progress bar with mesh and custom statistics.
@@ -343,7 +343,7 @@ class IterationLoop(ProgressManager):
 
 @contextmanager
 def mesh_adaptation(
-    mesh: "samurai_python.Mesh",
+    mesh: "sampai.Mesh",
     desc: str = "Mesh adaptation",
     disable: bool = False
 ):

@@ -27,7 +27,7 @@ if os.path.exists(build_dir):
     sys.path.insert(0, build_dir)
 
 try:
-    import samurai_python as sam
+    import sampai as sam
     # Progress API v0.30.0: all in sam.progress submodule
     MeshStatistics = sam.progress.MeshStatistics
     compute_mesh_stats = sam.progress.compute_mesh_stats

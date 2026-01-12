@@ -10,22 +10,23 @@ import importlib.util
 import os
 import sys
 
-# Get the build directory (parent of sampai package)
+# Get the build directory (project root/src -> project root -> build/lib)
 _package_dir = os.path.dirname(__file__)
-_build_dir = os.path.abspath(os.path.join(_package_dir, '..'))
+_project_root = os.path.abspath(os.path.join(_package_dir, '..', '..'))
+_build_lib_dir = os.path.join(_project_root, 'build', 'lib')
 
 # Find the compiled .so file from build directory
 _so_files = []
-if os.path.exists(_build_dir):
+if os.path.exists(_build_lib_dir):
     import glob
-    _so_files = glob.glob(os.path.join(_build_dir, 'sampai*.so'))
+    _so_files = glob.glob(os.path.join(_build_lib_dir, 'sampai*.so'))
 
 if _so_files:
     _so_path = _so_files[0]
 else:
     raise ImportError(
-        f"Cannot find sampai compiled module in {_build_dir}. "
-        "Please build the project first."
+        f"Cannot find sampai compiled module in {_build_lib_dir}. "
+        "Please build the project first (run: cmake --build build)."
     )
 
 # Load the compiled module using importlib

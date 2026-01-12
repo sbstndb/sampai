@@ -22,7 +22,7 @@ build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python
 if os.path.exists(build_dir):
     sys.path.insert(0, build_dir)
 
-import samurai_python as sam
+import sampai as sam
 
 # ============================================================
 # Test Fixtures

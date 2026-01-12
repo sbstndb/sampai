@@ -15,9 +15,9 @@ if os.path.exists(build_dir):
     sys.path.insert(0, build_dir)
 
 try:
-    import samurai_python as sam
+    import sampai as sam
 except ImportError:
-    pytest.skip("samurai_python module not built", allow_module_level=True)
+    pytest.skip("sampai module not built", allow_module_level=True)
 
 
 class TestForEachInterval1D:

@@ -8,7 +8,7 @@ refinement simulations, including cell counts and refinement levels.
 from typing import TYPE_CHECKING, Dict
 
 if TYPE_CHECKING:
-    import samurai_python
+    import sampai
 
 
 class MeshStatistics:
@@ -63,7 +63,7 @@ class MeshStatistics:
         """
         return self._level_counts.copy()
 
-    def update(self, mesh: "samurai_python.Mesh") -> None:
+    def update(self, mesh: "sampai.Mesh") -> None:
         """Update statistics from current mesh state.
 
         This method efficiently computes mesh statistics by iterating over
@@ -91,8 +91,8 @@ class MeshStatistics:
             if self._enable_level_breakdown:
                 self._level_counts[level] = self._level_counts.get(level, 0) + 1
 
-        import samurai_python
-        samurai_python.algorithms.for_each_cell(mesh, count_cell)
+        import sampai
+        sampai.algorithms.for_each_cell(mesh, count_cell)
 
         # Store results
         self._min_level = int(min_level) if self._n_cells > 0 else 0
@@ -144,7 +144,7 @@ class MeshStatistics:
         return f"MeshStatistics({self.get_summary()})"
 
 
-def compute_mesh_stats(mesh: "samurai_python.Mesh") -> Dict[str, int]:
+def compute_mesh_stats(mesh: "sampai.Mesh") -> Dict[str, int]:
     """Convenience function to compute mesh statistics in one call.
 
     This is useful for one-off computations where you don't need the

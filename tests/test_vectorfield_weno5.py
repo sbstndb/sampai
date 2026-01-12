@@ -18,7 +18,7 @@ else:
 
 import numpy as np
 
-import samurai_python as sam
+import sampai as sam
 
 print("=" * 60)
 print("Testing VectorField WENO5 Convection Operators")
