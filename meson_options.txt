@@ -1,0 +1,17 @@
+# Samurai Python Bindings - Meson Build Options
+#
+# Usage:
+#   meson setup builddir
+#   meson configure builddir -Dbuild_python_tests=true
+
+option('build_python_tests',
+    type: 'boolean',
+    value: false,
+    description: 'Build Python tests'
+)
+
+option('tests',
+    type: 'feature',
+    value: 'auto',
+    description: 'Build tests (for meson-python compatibility)'
+)
