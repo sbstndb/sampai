@@ -127,7 +127,7 @@ cmake.source-dir = "."
 build-dir = "build/{wheel_tag}"
 
 # Use Ninja for faster builds (except on Windows)
-cmake.args = ["-GNinja"]
+cmake.args = ["-GNinja", "-DSAMURAI_PYTHON_STANDALONE=ON"]
 
 # Build in release mode for optimization
 cmake.build-type = "Release"
@@ -138,11 +138,6 @@ logging.level = "INFO"
 # Wheel configuration
 wheel.py-api = "py3"
 wheel.install-dir = "sampai"
-
-# Don't build isolated (allows finding installed samurai)
-build.tool-args = [
-    "-DSAMURAI_PYTHON_STANDALONE=ON",
-]
 
 # Strip symbols for smaller wheel size (comment out for debugging)
 # strip = true
