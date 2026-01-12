@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        include:
+          - os: macos-13
+            python-version: '3.11'
+          - os: windows-2022
+            python-version: '3.11'
+
+    steps:
+    - name: Checkout sampai
+      uses: actions/checkout@v4
+      with:
+        path: sampai
+
+    - name: Checkout samurai C++ (sibling directory)
+      uses: actions/checkout@v4
+      with:
+        repository: hpc-maths/samurai
+        path: samurai
+        ref: main
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          ninja-build \
+          g++ \
+          libhdf5-dev \
+          libxtensor-dev
+
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install cmake ninja hdf5 xtensor
+
+    - name: Install system dependencies (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        choco install cmake ninja -y
+        echo "C:\Program Files\Meson" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy pytest pytest-cov h5py pybind11 scikit-build-core
+
+    - name: Build samurai C++ (from source)
+      shell: bash
+      run: |
+        cd samurai
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release -GNinja \
+          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/samurai-install
+        cmake --build . --parallel 2
+        cmake --install . || echo "Install step had issues but continuing..."
+
+    - name: Build sampai (LOCAL mode - use samurai from source)
+      shell: bash
+      run: |
+        cd sampai
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release \
+          -DSAMURAI_PYTHON_STANDALONE=ON \
+          -DSAMURAI_SOURCE=LOCAL \
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/samurai-install;${{ github.workspace }}/samurai" \
+          -GNinja
+        cmake --build . --parallel 2
+
+    - name: Install sampai
+      shell: bash
+      run: |
+        cd sampai/build
+        cmake --install . || pip install -e ../
+
+    - name: Run tests
+      shell: bash
+      run: |
+        cd sampai
+        pip install -e .
+        pytest tests/ -v --tb=short
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: |
+          sampai/build/Testing/
+          sampai/.pytest_cache/

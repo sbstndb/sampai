@@ -1,5 +1,7 @@
 # Sampai - Python Interface for Samurai AMR Library
 
+[![CI](https://github.com/sbstndb/sampai/actions/workflows/ci.yml/badge.svg)](https://github.com/sbstndb/sampai/actions/workflows/ci.yml)
+
 Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and Multiresolution Analysis for numerical PDE solvers.
 
 ## Status: Standalone Package
