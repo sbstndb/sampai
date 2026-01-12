@@ -33,7 +33,7 @@ jobs:
         export PATH="$HOME/miniforge3/bin:$PATH"
         conda create -n sampai-ci -c conda-forge \
           python=3.12 \
-          samurai \
+          samurai=0.27.1 \
           xtensor \
           xtensor-blas \
           hdf5 \
