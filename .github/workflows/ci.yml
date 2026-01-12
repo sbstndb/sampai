@@ -16,74 +16,61 @@ jobs:
       with:
         path: sampai
 
-    - name: Checkout samurai C++ (sibling directory)
+    - name: Checkout samurai C++ (sibling directory for headers)
       uses: actions/checkout@v4
       with:
         repository: hpc-maths/samurai
         path: samurai
         ref: main
 
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-
-    - name: Install system dependencies
+    - name: Install Miniforge
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
+        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+
+    - name: Create conda environment with all dependencies
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        conda create -n sampai-ci -c conda-forge \
+          python=3.12 \
+          samurai \
+          xtensor \
+          xtensor-blas \
+          hdf5 \
+          highfive \
+          pugixml \
+          fmt \
+          cli11 \
           cmake \
-          ninja-build \
-          g++ \
-          libhdf5-dev \
-          libxtensor-dev \
-          libpugixml-dev \
-          libfmt-dev \
-          libcli11-dev \
-          git
+          ninja \
+          numpy \
+          pytest \
+          pytest-cov \
+          h5py \
+          pybind11 \
+          scikit-build-core
 
-    - name: Build and install HighFive (HDF5 C++ bindings)
+    - name: Build sampai (LOCAL mode for headers, conda for libs)
       run: |
-        git clone https://github.com/BlueBrain/HighFive.git /tmp/highfive
-        cd /tmp/highfive
-        mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
-          -DHIGHFIVE_UNIT_TESTS=OFF -DHIGHFIVE_EXAMPLES=OFF
-        cmake --build . --parallel 2
-        sudo cmake --install .
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-ci
 
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install numpy pytest pytest-cov h5py pybind11 scikit-build-core
-
-    - name: Build samurai C++ (from source)
-      run: |
-        cd samurai
-        mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -GNinja \
-          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}/samurai-install
-        cmake --build . --parallel 2
-        cmake --install . || echo "Install step had issues but continuing..."
-
-    - name: Build sampai (LOCAL mode - use samurai from source)
-      run: |
         cd sampai
         mkdir build && cd build
         cmake .. -DCMAKE_BUILD_TYPE=Release \
           -DSAMURAI_PYTHON_STANDALONE=ON \
           -DSAMURAI_SOURCE=LOCAL \
-          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/samurai-install;${{ github.workspace }}/samurai" \
+          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/samurai;$HOME/miniforge3/envs/sampai-ci" \
           -GNinja
         cmake --build . --parallel 2
 
-    - name: Install sampai
-      run: |
-        cd sampai/build
-        cmake --install . || pip install -e ../
-
     - name: Run tests
       run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-ci
+
         cd sampai
         pip install -e .
         pytest tests/ -v --tb=short
