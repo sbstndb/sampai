@@ -312,14 +312,26 @@ add_custom_command(TARGET sampai POST_BUILD
 
 include(GNUInstallDirs)
 
+# Install destinations: use relative paths for scikit-build-core compatibility
+# scikit-build-core sets CMAKE_INSTALL_PREFIX to the wheel's platlib directory
+if(DEFINED ENV{SKBUILD_PLATLIB_DIR} OR DEFINED ENV{SKBUILD})
+    # Building with scikit-build-core: use relative paths
+    set(_sampai_module_dest ".")
+    set(_sampai_utils_dest "sampai")
+else()
+    # Normal install: use absolute Python paths
+    set(_sampai_module_dest ${Python_SITEARCH})
+    set(_sampai_utils_dest ${Python_SITEROOT}/sampai)
+endif()
+
 # Install the compiled Python module
 install(TARGETS sampai
-    LIBRARY DESTINATION ${Python_SITEARCH}
+    LIBRARY DESTINATION ${_sampai_module_dest}
 )
 
 # Install pure Python utilities
 install(DIRECTORY src/sampai/
-    DESTINATION ${Python_SITEROOT}/sampai
+    DESTINATION ${_sampai_utils_dest}
     FILES_MATCHING PATTERN "*.py"
 )
 
@@ -371,7 +383,7 @@ add_custom_target(dev-install
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR} --target install
             --prefix ${CMAKE_CURRENT_BINARY_DIR}/install
     COMMAND ${CMAKE_COMMAND} -E env
-            PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}/install/${Python_SITEROOT}:$ENV{PYTHONPATH}
+            PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}/install/${_sampai_utils_dest}:$ENV{PYTHONPATH}
             ${Python_EXECUTABLE} -c "import sampai; print(f'Development install successful: {sampai.__version__}')"
     COMMENT "Building and installing for development"
 )
