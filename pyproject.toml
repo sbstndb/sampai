@@ -135,9 +135,6 @@ cmake.build-type = "Release"
 # Set verbose output for debugging (logging.level used instead of cmake.verbose for 0.10+)
 logging.level = "INFO"
 
-# Build in parallel
-jobs = 4
-
 # Wheel configuration
 wheel.py-api = "py3"
 wheel.install-dir = "sampai"
