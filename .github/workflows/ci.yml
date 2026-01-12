@@ -44,7 +44,8 @@ jobs:
         git clone https://github.com/BlueBrain/HighFive.git /tmp/highfive
         cd /tmp/highfive
         mkdir build && cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+          -DHIGHFIVE_UNIT_TESTS=OFF -DHIGHFIVE_EXAMPLES=OFF
         cmake --build . --parallel 2
         sudo cmake --install .
 
