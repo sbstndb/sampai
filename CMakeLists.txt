@@ -314,7 +314,7 @@ include(GNUInstallDirs)
 
 # Install destinations: use relative paths for scikit-build-core compatibility
 # scikit-build-core sets CMAKE_INSTALL_PREFIX to the wheel's platlib directory
-if(DEFINED ENV{SKBUILD_PLATLIB_DIR} OR DEFINED ENV{SKBUILD})
+if(DEFINED SKBUILD_PLATLIB_DIR OR DEFINED SKBUILD)
     # Building with scikit-build-core: use relative paths
     set(_sampai_module_dest ".")
     set(_sampai_utils_dest "sampai")
