@@ -61,7 +61,7 @@ jobs:
         cmake .. -DCMAKE_BUILD_TYPE=Release \
           -DSAMURAI_PYTHON_STANDALONE=ON \
           -DSAMURAI_SOURCE=LOCAL \
-          -DCMAKE_PREFIX_PATH="${{ github.workspace }}/samurai;$HOME/miniforge3/envs/sampai-ci" \
+          -DCMAKE_PREFIX_PATH="$HOME/miniforge3/envs/sampai-ci;${{ github.workspace }}/samurai" \
           -GNinja
         cmake --build . --parallel 2
 
