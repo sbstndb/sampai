@@ -1,6 +1,6 @@
-# Samurai Python Bindings - Conda Recipe
+# Sampai - Python Interface for Samurai AMR Library - Conda Recipe
 #
-# This recipe builds the samurai-python package for conda distribution.
+# This recipe builds the sampai package for conda distribution.
 # It requires the samurai C++ library to be available as a conda package.
 #
 # Build instructions:
@@ -8,17 +8,18 @@
 #   conda build --no-test -c conda-forge conda-recipe/
 #
 # Local installation:
-#   conda install --use-local samurai-python
+#   conda install --use-local sampai
 #
 # For conda-forge submission:
 #   1. Fork https://github.com/conda-forge/staged-recipes
-#   2. Add recipe to recipes/samurai-python/
+#   2. Add recipe to recipes/sampai/
 #   3. Submit PR
 
 {% set version = "0.30.0" %}
+{% set samurai_version = "0.27.1" %}
 
 package:
-  name: samurai-python
+  name: sampai
   version: {{ version }}
 
 source:
@@ -43,7 +44,7 @@ build:
 
   # Run-time exports
   run_exports:
-    - samurai >={{ version }}
+    - samurai >={{ samurai_version }}
 
 requirements:
   build:
@@ -62,7 +63,7 @@ requirements:
     - scikit-build-core >=0.10
     - pybind11 >=2.13
     # Samurai C++ library (must be built first)
-    - samurai >={{ version }}
+    - samurai {{ samurai_version }}
     # Transitive dependencies (inherited from samurai)
     - xtensor >=0.26
     - highfive >=2.10
@@ -77,7 +78,7 @@ requirements:
     # Python
     - python >=3.9
     # Samurai C++ library
-    - samurai >={{ version }}
+    - samurai {{ samurai_version }}
     # Runtime dependencies
     - numpy >=1.20
     # Transitive dependencies
@@ -90,21 +91,21 @@ test:
     - numpy
 
   imports:
-    - samurai_python
-    - samurai_python.utils
+    - sampai
+    - sampai.utils
 
   source_files:
     - tests/
 
   commands:
     # Test that version is accessible
-    - python -c "import samurai_python; print(samurai_python.__version__)"
+    - python -c "import sampai; print(sampai.__version__)"
 
     # Test basic import
-    - python -c "from samurai_python import sam"
+    - python -c "from sampai import sam"
 
     # Test basic functionality (if samurai C++ is available)
-    - python -c "from samurai_python import sam; box = sam.geometry.box([0., 0.], [1., 1.]); print(box)"
+    - python -c "from sampai import sam; box = sam.geometry.box([0., 0.], [1., 1.]); print(box)"
 
     # Run basic tests
     - pytest tests/test_basic.py -v  # [not win]
@@ -146,7 +147,7 @@ about:
     - HPC
 
   # Identifiers for citation
-  identifier: samurai-python
+  identifier: sampai
 
 extra:
   recipe-maintainers:

@@ -1,5 +1,5 @@
 """
-Samurai Python: Adaptive Mesh Refinement library
+Sampai: Python Interface for Samurai AMR Library
 
 This package provides the Python bindings for Samurai, combining:
 - Native C++ implementations (via pybind11 compiled module)
@@ -10,7 +10,7 @@ import importlib.util
 import os
 import sys
 
-# Get the build/python directory (parent of samurai_python package)
+# Get the build directory (parent of sampai package)
 _package_dir = os.path.dirname(__file__)
 _build_dir = os.path.abspath(os.path.join(_package_dir, '..'))
 
@@ -18,20 +18,20 @@ _build_dir = os.path.abspath(os.path.join(_package_dir, '..'))
 _so_files = []
 if os.path.exists(_build_dir):
     import glob
-    _so_files = glob.glob(os.path.join(_build_dir, 'samurai_python*.so'))
+    _so_files = glob.glob(os.path.join(_build_dir, 'sampai*.so'))
 
 if _so_files:
     _so_path = _so_files[0]
 else:
     raise ImportError(
-        f"Cannot find samurai_python compiled module in {_build_dir}. "
+        f"Cannot find sampai compiled module in {_build_dir}. "
         "Please build the project first."
     )
 
 # Load the compiled module using importlib
-spec = importlib.util.spec_from_file_location("samurai_python", _so_path)
+spec = importlib.util.spec_from_file_location("sampai", _so_path)
 _compiled_module = importlib.util.module_from_spec(spec)
-sys.modules["samurai_python_compiled"] = _compiled_module
+sys.modules["sampai_compiled"] = _compiled_module
 spec.loader.exec_module(_compiled_module)
 
 # Copy all public symbols from compiled module to this package namespace

@@ -14,7 +14,7 @@
 #   conda build conda-recipe/
 
 cmake_minimum_required(VERSION 3.20)
-project(samurai_python LANGUAGES CXX C)
+project(sampai LANGUAGES CXX C)
 
 # ============================================================================
 # OPTIONS
@@ -23,12 +23,16 @@ project(samurai_python LANGUAGES CXX C)
 option(SAMURAI_PYTHON_STANDALONE "Build as standalone package (requires installed samurai)" ON)
 option(BUILD_PYTHON_TESTS "Build Python tests" OFF)
 
+# Samurai source selection: CONDA, LOCAL, or AUTO
+set(SAMURAI_SOURCE "AUTO" CACHE STRING "Samurai headers source: CONDA (conda package), LOCAL (../samurai), or AUTO (conda first, then local fallback)")
+set_property(CACHE SAMURAI_SOURCE PROPERTY STRINGS "CONDA;LOCAL;AUTO")
+
 # ============================================================================
 # FIND DEPENDENCIES
 # ============================================================================
 
 message(STATUS "")
-message(STATUS "=== Samurai Python Bindings - Standalone Build ===")
+message(STATUS "=== Sampai - Python Interface for Samurai AMR Library ===")
 message(STATUS "")
 
 # Find Python
@@ -127,14 +131,14 @@ set(BINDING_SOURCES
 )
 
 # Create the pybind11 module
-pybind11_add_module(samurai_python ${BINDING_SOURCES})
+pybind11_add_module(sampai ${BINDING_SOURCES})
 
 # Set target properties for better symbol visibility and optimization
-set_target_properties(samurai_python PROPERTIES
+set_target_properties(sampai PROPERTIES
     CXX_VISIBILITY_PRESET "hidden"
     VISIBILITY_INLINES_HIDDEN ON
     POSITION_INDEPENDENT_CODE ON
-    OUTPUT_NAME "samurai_python"
+    OUTPUT_NAME "sampai"
 )
 
 # ============================================================================
@@ -142,58 +146,120 @@ set_target_properties(samurai_python PROPERTIES
 # ============================================================================
 
 # Link against samurai C++ library
-target_link_libraries(samurai_python
+target_link_libraries(sampai
     PRIVATE
         samurai::samurai
 )
 
 # Ensure C++20 standard
-target_compile_features(samurai_python PRIVATE cxx_std_20)
+target_compile_features(sampai PRIVATE cxx_std_20)
 
 # ============================================================================
 # INCLUDE DIRECTORIES
 # ============================================================================
 
 # Add Python include directories
-target_include_directories(samurai_python
+target_include_directories(sampai
     PRIVATE
         ${Python_INCLUDE_DIRS}
 )
 
 # Include directories for bindings to find samurai headers
-# When using installed samurai, the headers are in the install location
+# Explicitly choose between CONDA, LOCAL, or AUTO (fallback)
 if(SAMURAI_PYTHON_STANDALONE)
-    # For standalone build, we need to explicitly add samurai headers
-    # Try to use the samurai target first, then fallback to paths
-    if(TARGET samurai::samurai)
-        get_target_property(SAMURAI_INCLUDE_DIRS samurai::samurai INTERFACE_INCLUDE_DIRECTORIES)
-        if(SAMURAI_INCLUDE_DIRS)
-            target_include_directories(samurai_python
-                PRIVATE
-                    ${SAMURAI_INCLUDE_DIRS}
-            )
-        endif()
-    else()
-        # Fallback: Add include paths manually
-        # First try the installation prefix, then the parent project's include dir
-        if(CMAKE_INSTALL_PREFIX)
-            target_include_directories(samurai_python
-                PRIVATE
-                ${CMAKE_INSTALL_PREFIX}/include
-            )
+    set(_samurai_include_list "")
+
+    if(SAMURAI_SOURCE STREQUAL "LOCAL")
+        # Force use local samurai source ONLY
+        if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../samurai/include/samurai)
+            list(APPEND _samurai_include_list ${CMAKE_CURRENT_SOURCE_DIR}/../samurai/include)
+            message(STATUS "=== Using LOCAL samurai source ===")
+            message(STATUS "  Path: ${CMAKE_CURRENT_SOURCE_DIR}/../samurai/include")
+        else()
+            message(FATAL_ERROR "SAMURAI_SOURCE=LOCAL but ../samurai/include/samurai not found!")
         endif()
 
-        # Also add parent project's include directory (for non-installed build)
-        if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../include)
-            target_include_directories(samurai_python
-                PRIVATE
-                ${CMAKE_CURRENT_SOURCE_DIR}/../include
-            )
+    elseif(SAMURAI_SOURCE STREQUAL "CONDA")
+        # Force use conda samurai ONLY - no fallback
+        set(_conda_found FALSE)
+
+        # Search CMAKE_PREFIX_PATH for conda samurai
+        foreach(prefix ${CMAKE_PREFIX_PATH})
+            if(EXISTS ${prefix}/include/samurai)
+                list(APPEND _samurai_include_list ${prefix}/include)
+                set(_conda_found TRUE)
+            endif()
+        endforeach()
+
+        # Also try to get include dirs from the samurai target (if available)
+        if(NOT _conda_found AND TARGET samurai::samurai)
+            get_target_property(_target_includes samurai::samurai INTERFACE_INCLUDE_DIRECTORIES)
+            if(_target_includes)
+                list(APPEND _samurai_include_list ${_target_includes})
+                set(_conda_found TRUE)
+            endif()
+        endif()
+
+        if(_conda_found)
+            message(STATUS "=== Using CONDA samurai ONLY ===")
+            message(STATUS "  Include dirs: ${_samurai_include_list}")
+        else()
+            message(FATAL_ERROR "SAMURAI_SOURCE=CONDA but conda samurai not found! "
+                "Install with: conda install -c conda-forge samurai")
+        endif()
+
+    else()  # AUTO mode (default)
+        # Try conda first, then fallback to local
+        set(_conda_found FALSE)
+        set(_local_found FALSE)
+
+        # Check conda samurai
+        if(TARGET samurai::samurai)
+            get_target_property(_target_includes samurai::samurai INTERFACE_INCLUDE_DIRECTORIES)
+            if(_target_includes)
+                list(APPEND _samurai_include_list ${_target_includes})
+                set(_conda_found TRUE)
+            endif()
+        endif()
+
+        foreach(prefix ${CMAKE_PREFIX_PATH})
+            if(EXISTS ${prefix}/include/samurai)
+                list(APPEND _samurai_include_list ${prefix}/include)
+                set(_conda_found TRUE)
+            endif()
+        endforeach()
+
+        # Check local source as fallback
+        if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/../samurai/include/samurai)
+            list(APPEND _samurai_include_list ${CMAKE_CURRENT_SOURCE_DIR}/../samurai/include)
+            set(_local_found TRUE)
+        endif()
+
+        # Remove duplicates
+        list(REMOVE_DUPLICATES _samurai_include_list)
+        list(FILTER _samurai_include_list EXCLUDE REGEX ".*-NOTFOUND")
+
+        if(_samurai_include_list)
+            message(STATUS "=== AUTO mode: samurai include sources ===")
+            if(_conda_found)
+                message(STATUS "  - CONDA: found")
+            endif()
+            if(_local_found)
+                message(STATUS "  - LOCAL: found (fallback)")
+            endif()
+            message(STATUS "  Using: ${_samurai_include_list}")
+        else()
+            message(FATAL_ERROR "AUTO mode: Could not find samurai headers anywhere! "
+                "Either install conda samurai or ensure ../samurai exists.")
         endif()
     endif()
+
+    # Apply the include directories
+    target_include_directories(sampai PRIVATE ${_samurai_include_list})
+
 else()
     # Non-standalone: use parent project's include directory
-    target_include_directories(samurai_python
+    target_include_directories(sampai
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/../include
     )
@@ -207,7 +273,7 @@ endif()
 if(TARGET samurai::samurai)
     get_target_property(SAMURAI_DEFS samurai::samurai INTERFACE_COMPILE_DEFINITIONS)
     if(SAMURAI_DEFS)
-        target_compile_definitions(samurai_python
+        target_compile_definitions(sampai
             PRIVATE
                 ${SAMURAI_DEFS}
         )
@@ -216,7 +282,7 @@ endif()
 
 # Platform-specific definitions
 if(WIN32)
-    target_compile_definitions(samurai_python PRIVATE "WIN32_LEAN_AND_MEAN")
+    target_compile_definitions(sampai PRIVATE "WIN32_LEAN_AND_MEAN")
 endif()
 
 # ============================================================================
@@ -224,7 +290,7 @@ endif()
 # ============================================================================
 
 # Set output directory for the module
-set_target_properties(samurai_python PROPERTIES
+set_target_properties(sampai PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
 )
 
@@ -233,10 +299,10 @@ set_target_properties(samurai_python PROPERTIES
 # ============================================================================
 
 # Copy pure Python utilities to build directory
-add_custom_command(TARGET samurai_python POST_BUILD
+add_custom_command(TARGET sampai POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/samurai_python
-        ${CMAKE_CURRENT_BINARY_DIR}/lib/samurai_python
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/sampai
+        ${CMAKE_CURRENT_BINARY_DIR}/lib/sampai
     COMMENT "Copying Python utilities to build directory"
 )
 
@@ -247,19 +313,14 @@ add_custom_command(TARGET samurai_python POST_BUILD
 include(GNUInstallDirs)
 
 # Install the compiled Python module
-install(TARGETS samurai_python
+install(TARGETS sampai
     LIBRARY DESTINATION ${Python_SITEARCH}
 )
 
 # Install pure Python utilities
-install(DIRECTORY src/samurai_python/
-    DESTINATION ${Python_SITEROOT}/samurai_python
+install(DIRECTORY src/sampai/
+    DESTINATION ${Python_SITEROOT}/sampai
     FILES_MATCHING PATTERN "*.py"
-)
-
-# Install __init__.py for main package (wraps the compiled module)
-install(FILES src/samurai/__init__.py
-    DESTINATION ${Python_SITEROOT}/samurai
 )
 
 # ============================================================================
@@ -271,7 +332,7 @@ if(BUILD_PYTHON_TESTS)
 
     # Add test directory
     add_test(NAME python_import
-        COMMAND ${Python_EXECUTABLE} -c "import sys; sys.path.insert(0, '${CMAKE_CURRENT_BINARY_DIR}/lib'); import samurai_python; print(samurai_python.__version__)"
+        COMMAND ${Python_EXECUTABLE} -c "import sys; sys.path.insert(0, '${CMAKE_CURRENT_BINARY_DIR}/lib'); import sampai; print(sampai.__version__)"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib
     )
 
@@ -290,11 +351,11 @@ endif()
 # ============================================================================
 
 message(STATUS "")
-message(STATUS "=== Samurai Python Bindings Configuration Summary ===")
+message(STATUS "=== Sampai Configuration Summary ===")
 message(STATUS "  Build type:          ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard:        C++20")
 message(STATUS "  Python version:      ${Python_VERSION}")
-message(STATUS "  Module name:         samurai_python")
+message(STATUS "  Module name:         sampai")
 message(STATUS "  Output directory:    ${CMAKE_CURRENT_BINARY_DIR}/lib")
 message(STATUS "  Install directory:   ${Python_SITEARCH}")
 message(STATUS "  Standalone build:    ${SAMURAI_PYTHON_STANDALONE}")
@@ -311,13 +372,13 @@ add_custom_target(dev-install
             --prefix ${CMAKE_CURRENT_BINARY_DIR}/install
     COMMAND ${CMAKE_COMMAND} -E env
             PYTHONPATH=${CMAKE_CURRENT_BINARY_DIR}/install/${Python_SITEROOT}:$ENV{PYTHONPATH}
-            ${Python_EXECUTABLE} -c "import samurai_python; print(f'Development install successful: {samurai_python.__version__}')"
+            ${Python_EXECUTABLE} -c "import sampai; print(f'Development install successful: {sampai.__version__}')"
     COMMENT "Building and installing for development"
 )
 
 # Print helpful development message
 message(STATUS "Development targets:")
-message(STATUS "  cmake --build . --target samurai_python  - Build the module")
-message(STATUS "  cmake --build . --target dev-install     - Build and install locally")
+message(STATUS "  cmake --build . --target sampai       - Build the module")
+message(STATUS "  cmake --build . --target dev-install    - Build and install locally")
 message(STATUS "  cmake --install . --prefix /path/to/install - Install to specific location")
 message(STATUS "")

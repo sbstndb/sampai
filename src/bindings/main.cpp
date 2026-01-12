@@ -1,4 +1,4 @@
-// Samurai Python Bindings - Main Module
+// Sampai - Python Interface for Samurai AMR Library - Main Module
 //
 // This file serves as the entry point for the Python bindings.
 // Bindings will be added progressively following the phased approach:
@@ -28,7 +28,7 @@ namespace py = pybind11;
 // Version information (will be read from version.txt in production)
 #define SAMURAI_PYTHON_VERSION "0.30.0"
 
-PYBIND11_MODULE(samurai_python, m)
+PYBIND11_MODULE(sampai, m)
 {
     // Module documentation
     m.doc() = R"pbdoc(

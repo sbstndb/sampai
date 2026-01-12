@@ -1,0 +1,55 @@
+# Sampai Development Environment
+#
+# Usage:
+#   conda env create -f environment.yml
+#   conda activate sampai
+#
+# Or for existing environment:
+#   conda env update -f environment.yml --prune
+
+name: sampai
+
+channels:
+  - conda-forge
+
+dependencies:
+  # Core C++ dependencies (via samurai conda package)
+  - samurai=0.27.1
+
+  # Python dependencies for sampai
+  - python>=3.9
+  - numpy>=1.20
+  - pybind11>=2.13
+
+  # Build tools
+  - cmake>=3.20
+  - ninja>=1.10
+  - scikit-build-core>=0.10
+
+  # Development tools
+  - pip
+  - build
+
+  # Testing
+  - pytest>=7.0
+  - pytest-cov>=3.0
+
+  # Optional: HDF5 support
+  - h5py>=3.0
+
+  # Optional: Visualization
+  - matplotlib>=3.0
+
+  # Optional: Documentation
+  - sphinx>=5.0
+  - sphinx-rtd-theme>=1.0
+  - myst-parser>=0.18
+
+  # Code quality
+  - black>=22.0
+  - isort>=5.0
+  - ruff>=0.1.0
+
+  # Pip packages (if needed from PyPI instead of conda-forge)
+  - pip:
+      - mypy>=1.0

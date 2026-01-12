@@ -1,10 +1,10 @@
-# Samurai Python Bindings
+# Sampai - Python Interface for Samurai AMR Library
 
 Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and Multiresolution Analysis for numerical PDE solvers.
 
 ## Status: Standalone Package
 
-**As of v0.30.0, the Python bindings are now a standalone package!** This directory contains a complete, independently buildable Python package that requires the Samurai C++ library to be installed separately.
+**Sampai** (formerly samurai-python) is now a standalone package that uses the **Samurai C++ library as a conda dependency**. The Samurai C++ library (version 0.27.1) is automatically installed from conda-forge during the build process.
 
 ## Table of Contents
 
@@ -21,51 +21,74 @@ Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and
 
 ## Installation
 
-### Prerequisites
+### Option 1: Install via Conda Environment (Recommended)
 
-The Python bindings require the **Samurai C++ library** to be installed on your system. The C++ library must be installed in a location where CMake can find it (via `CMAKE_PREFIX_PATH` or standard system paths).
-
-### Option 1: Install via Conda (Recommended)
+Create a new conda environment with all dependencies:
 
 ```bash
-# Install the C++ library
-conda install -c conda-forge samurai
+# Create the environment from the environment file
+conda env create -f environment.yml
 
-# Install the Python bindings
-conda install -c conda-forge samurai-python
+# Activate the environment
+conda activate sampai
 ```
 
-### Option 2: Build from Source with pip
-
-**Step 1: Install the C++ library**
+Or create manually:
 
 ```bash
-# From the samurai_pybind11 root directory
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-sudo cmake --install build --prefix /usr/local
-```
+# Create environment and install samurai C++ library
+conda create -n sampai -c conda-forge python=3.11 samurai=0.27.1
+conda activate sampai
 
-**Step 2: Install the Python bindings**
-
-```bash
-cd python/
+# Install sampai from source
 pip install .
 ```
 
-### Option 3: Development Installation
+### Option 2: Build from Source with pip (Auto-install samurai)
 
-For active development, install in editable mode:
+The setup.py will automatically install the samurai C++ library if it's not found:
 
 ```bash
-cd python/
+# pip will automatically install samurai from conda-forge
+pip install .
+```
+
+For development/editable mode:
+
+```bash
 pip install -e .
+```
+
+### Option 3: Build with CMake Directly
+
+```bash
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DSAMURAI_PYTHON_STANDALONE=ON
+cmake --build . -j4
+cmake --install .
+```
+
+**Samurai Headers Source (`SAMURAI_SOURCE` option):**
+- `AUTO` (default): conda first, fallback to `../samurai` if needed
+- `CONDA`: conda-only (fails if not found) - for reproducible builds
+- `LOCAL`: `../samurai/include` only - for development with latest headers
+
+> **Note:** conda-forge samurai 0.27.1 is missing `mesh_config.hpp`. Use `LOCAL` if you need newer headers.
+
+### Option 4: Build Conda Package
+
+```bash
+# Build the conda package
+conda build conda-recipe/
+
+# Install locally
+conda install --use-local sampai
 ```
 
 ### Verify Installation
 
 ```python
-import samurai_python as sam
+import sampai as sam
 print(sam.__version__)  # Should print version number
 ```
 
@@ -76,7 +99,7 @@ print(sam.__version__)  # Should print version number
 Here's a minimal example to get you started:
 
 ```python
-import samurai_python as sam
+import sampai as sam
 
 # 1. Create a computational domain
 box = sam.geometry.box([0., 0.], [1., 1.])
@@ -108,69 +131,36 @@ For more detailed tutorials, see the [examples/](examples/) directory.
 ### Setting Up Development Environment
 
 ```bash
-# Create a conda environment
-conda create -n samurai-dev python=3.11
-conda activate samurai-dev
+# Create a conda environment from the environment file
+conda env create -f environment.yml
+conda activate sampai
 
-# Install dependencies
+# Or create manually
+conda create -n sampai-dev -c conda-forge python=3.11 samurai=0.27.1
+conda activate sampai-dev
 pip install numpy pytest black isort ruff mypy
 
 # Install in editable mode
-cd python/
 pip install -e .
 ```
 
 ### Building from Source
 
-#### Using the dev.py script (recommended)
-
-```bash
-cd python/
-
-# Build only
-python dev.py build
-
-# Build and install (editable mode)
-python dev.py install
-
-# Run tests
-python dev.py test
-
-# Clean build artifacts
-python dev.py clean
-
-# Do everything
-python dev.py all
-```
-
 #### Using CMake directly
 
 ```bash
-cd python/
 mkdir build && cd build
 
-# Configure
+# Configure (samurai must be installed via conda first)
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
-    -DSAMURAI_PYTHON_STANDALONE=ON \
-    -DCMAKE_PREFIX_PATH=/path/to/samurai/install
+    -DSAMURAI_PYTHON_STANDALONE=ON
 
 # Build
-cmake --build .
+cmake --build . -j4
 
 # Test
-python -c "import samurai_python; print(samurai_python.__version__)"
-```
-
-#### Using Make
-
-```bash
-cd python/
-make build          # Build
-make install        # Install (editable mode)
-make test           # Run tests
-make clean          # Clean
-make all            # Build + install + test
+python -c "import sampai; print(sampai.__version__)"
 ```
 
 ### Code Quality
@@ -317,20 +307,17 @@ See [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detailed migration instructions
 
 **Error:** `Could not find samurai`
 
-**Solution:** Make sure the C++ library is installed:
+**Solution:** Install the samurai C++ library via conda:
 ```bash
-cmake --install build --prefix /usr/local
-# Or set CMAKE_PREFIX_PATH:
-cmake -B build -DCMAKE_PREFIX_PATH=/path/to/samurai/install
+conda install -c conda-forge samurai=0.27.1
 ```
 
 ### Import Errors
 
-**Error:** `ImportError: cannot import name 'samurai_python'`
+**Error:** `ImportError: cannot import name 'sampai'`
 
 **Solution:** Make sure you've installed the package:
 ```bash
-cd python/
 pip install -e .
 ```
 
@@ -338,7 +325,10 @@ pip install -e .
 
 **Error:** Compilation errors or template instantiation failures
 
-**Solution:** Make sure the C++ library and Python bindings are built with the same configuration options (container types, etc.)
+**Solution:** Make sure you have the correct version of samurai installed:
+```bash
+conda install -c conda-forge samurai=0.27.1
+```
 
 ---
 

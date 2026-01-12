@@ -24,9 +24,9 @@ requires = [
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "samurai-python"
+name = "sampai"
 version = "0.30.0"
-description = "Python bindings for Samurai AMR library"
+description = "Sampai - Python interface for Samurai AMR library"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "BSD-3-Clause"}
@@ -78,7 +78,7 @@ test = [
 
 # Development dependencies
 dev = [
-    "samurai-python[test]",
+    "sampai[test]",
     "black >=22.0",
     "isort >=5.0",
     "mypy >=1.0",
@@ -107,7 +107,7 @@ progress = [
 
 # All optional dependencies
 all = [
-    "samurai-python[test,dev,docs,viz,progress]",
+    "sampai[test,dev,docs,viz,progress]",
 ]
 
 [project.urls]
@@ -141,7 +141,7 @@ jobs = 4
 
 # Wheel configuration
 wheel.py-api = "py3"
-wheel.install-dir = "samurai"
+wheel.install-dir = "sampai"
 
 # Don't build isolated (allows finding installed samurai)
 build.tool-args = [
@@ -171,7 +171,7 @@ regex = "(?P<version>.+)"
 # ============================================================================
 
 [tool.coverage.run]
-source = ["src/samurai_python"]
+source = ["src/sampai"]
 omit = [
     "tests/*",
     "*/test_*.py",
@@ -213,7 +213,7 @@ exclude = '''
 [tool.isort]
 profile = "black"
 line_length = 100
-known_first_party = ["samurai", "samurai_python"]
+known_first_party = ["samurai", "sampai"]
 skip_gitignore = true
 
 # ============================================================================
@@ -345,7 +345,7 @@ replace = "#define SAMURAI_PYTHON_VERSION \"{new_version}\""
 # Skip 32-bit builds and PyPy
 skip = ["pp*", "*-win32", "*-manylinux_i686"]
 # Test command to run after building
-test-command = "python -c 'import samurai_python; print(samurai_python.__version__)'"
+test-command = "python -c 'import sampai; print(sampai.__version__)'"
 test-extras = ["test"]
 # Environment variables
 environment = { CMAKE_ARGS = "-DSAMURAI_PYTHON_STANDALONE=ON" }
