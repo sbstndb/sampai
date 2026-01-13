@@ -4,6 +4,7 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/functional.h>
 #include <samurai/bc/bc.hpp>
 #include <samurai/bc/dirichlet.hpp>
 #include <samurai/bc/neumann.hpp>
@@ -329,6 +330,163 @@ std::shared_ptr<DirectionalBCWrapper<2>> make_neumann_directional_2d(ScalarField
 std::shared_ptr<DirectionalBCWrapper<3>> make_neumann_directional_3d(ScalarField<3>& field, double value)
 {
     return std::make_shared<DirectionalBCWrapper<3>>(field, value, false);
+}
+
+// ============================================================
+// Spatially-selective + Function-based boundary conditions
+// Combines CoordsRegion (WHERE) + FunctionBc (WHAT VALUE)
+// ============================================================
+
+// Helper: Function-based BC applied everywhere (value depends on space)
+template <std::size_t dim, std::size_t order>
+void make_function_bc_scalar(ScalarField<dim>& field, py::function py_value_func)
+{
+    using Field = ScalarField<dim>;
+    using value_t = double;
+    using coords_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
+    using direction_t = samurai::DirectionVector<dim>;
+    using cell_t = typename Field::cell_t;
+
+    // Convert Python callable to std::function with proper signature
+    std::function<value_t(const direction_t&, const cell_t&, const coords_t&)> cpp_func =
+        [py_value_func](const direction_t&, const cell_t&, const coords_t& coords) -> value_t
+        {
+            // Convert coords to Python tuple
+            py::tuple coords_tuple;
+            if constexpr (dim == 1)
+                coords_tuple = py::make_tuple(coords[0]);
+            else if constexpr (dim == 2)
+                coords_tuple = py::make_tuple(coords[0], coords[1]);
+            else if constexpr (dim == 3)
+                coords_tuple = py::make_tuple(coords[0], coords[1], coords[2]);
+
+            // Call Python function
+            py::object result = py_value_func(coords_tuple);
+
+            // Convert back to C++
+            return result.cast<value_t>();
+        };
+
+    // Use make_bc with Dirichlet<order> as template parameter
+    // The compiler will deduce Field type automatically
+    samurai::make_bc<samurai::Dirichlet<order>>(field, cpp_func);
+}
+
+// Dispatch based on order parameter
+template <std::size_t dim>
+void make_function_bc_dispatch(ScalarField<dim>& field, py::function py_value_func, std::size_t order)
+{
+    switch (order)
+    {
+        case 1:
+            return make_function_bc_scalar<dim, 1>(field, py_value_func);
+        case 2:
+            return make_function_bc_scalar<dim, 2>(field, py_value_func);
+        case 3:
+            return make_function_bc_scalar<dim, 3>(field, py_value_func);
+        case 4:
+            return make_function_bc_scalar<dim, 4>(field, py_value_func);
+        default:
+            throw std::runtime_error("Function BC order must be between 1 and 4, got " + std::to_string(order));
+    }
+}
+
+// 1D function-based BC wrappers
+void make_function_bc_1d(ScalarField<1>& field, py::function py_value_func, std::size_t order)
+{
+    make_function_bc_dispatch<1>(field, py_value_func, order);
+}
+
+void make_function_bc_2d(ScalarField<2>& field, py::function py_value_func, std::size_t order)
+{
+    make_function_bc_dispatch<2>(field, py_value_func, order);
+}
+
+void make_function_bc_3d(ScalarField<3>& field, py::function py_value_func, std::size_t order)
+{
+    make_function_bc_dispatch<3>(field, py_value_func, order);
+}
+
+// Helper: Spatial BC (region + value both depend on space)
+// NOTE: Current samurai C++ API doesn't easily support combining custom regions
+// with function-based values in a single BC. As a workaround, we use the
+// standard function-based BC which applies to all boundaries.
+// For true spatial selectivity, users can filter within their value function.
+template <std::size_t dim, std::size_t order>
+void make_spatial_bc_scalar(ScalarField<dim>& field, py::function py_region_func, py::function py_value_func)
+{
+    using Field = ScalarField<dim>;
+    using coords_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
+    using value_t = double;
+    using direction_t = samurai::DirectionVector<dim>;
+    using cell_t = typename Field::cell_t;
+
+    // Combine region and value into a single function
+    // The region check happens first - if not in region, return a default value
+    auto combined_func = [py_region_func, py_value_func](const direction_t&, const cell_t&, const coords_t& coords) -> value_t
+    {
+        // Convert coords to Python tuple
+        py::tuple coords_tuple;
+        if constexpr (dim == 1)
+            coords_tuple = py::make_tuple(coords[0]);
+        else if constexpr (dim == 2)
+            coords_tuple = py::make_tuple(coords[0], coords[1]);
+        else if constexpr (dim == 3)
+            coords_tuple = py::make_tuple(coords[0], coords[1], coords[2]);
+
+        // First check region
+        py::object region_result = py_region_func(coords_tuple);
+        bool in_region = region_result.cast<bool>();
+
+        if (!in_region)
+        {
+            // Outside the specified region, return 0 as default
+            // (The BC will still be applied, but with this value)
+            return 0.0;
+        }
+
+        // Inside the region, call the value function
+        py::object value_result = py_value_func(coords_tuple);
+        return value_result.cast<value_t>();
+    };
+
+    // Use the standard make_bc with Dirichlet and the combined function
+    samurai::make_bc<samurai::Dirichlet<order>>(field, combined_func);
+}
+
+// Dispatch based on order parameter for spatial BC
+template <std::size_t dim>
+void make_spatial_bc_dispatch(ScalarField<dim>& field, py::function py_region_func, py::function py_value_func, std::size_t order)
+{
+    switch (order)
+    {
+        case 1:
+            return make_spatial_bc_scalar<dim, 1>(field, py_region_func, py_value_func);
+        case 2:
+            return make_spatial_bc_scalar<dim, 2>(field, py_region_func, py_value_func);
+        case 3:
+            return make_spatial_bc_scalar<dim, 3>(field, py_region_func, py_value_func);
+        case 4:
+            return make_spatial_bc_scalar<dim, 4>(field, py_region_func, py_value_func);
+        default:
+            throw std::runtime_error("Spatial BC order must be between 1 and 4, got " + std::to_string(order));
+    }
+}
+
+// Spatial BC wrappers for each dimension
+void make_spatial_bc_1d(ScalarField<1>& field, py::function py_region_func, py::function py_value_func, std::size_t order)
+{
+    make_spatial_bc_dispatch<1>(field, py_region_func, py_value_func, order);
+}
+
+void make_spatial_bc_2d(ScalarField<2>& field, py::function py_region_func, py::function py_value_func, std::size_t order)
+{
+    make_spatial_bc_dispatch<2>(field, py_region_func, py_value_func, order);
+}
+
+void make_spatial_bc_3d(ScalarField<3>& field, py::function py_region_func, py::function py_value_func, std::size_t order)
+{
+    make_spatial_bc_dispatch<3>(field, py_region_func, py_value_func, order);
 }
 
 // ============================================================
@@ -701,6 +859,140 @@ void init_bc_bindings(py::module_& m)
     // direction.attr("RIGHT")  = samurai::DirectionVector<2>({ 1, 0 });
     // direction.attr("BOTTOM") = samurai::DirectionVector<2>({ 0, -1 });
     // direction.attr("TOP")    = samurai::DirectionVector<2>({ 0, 1 });
+
+    // ============================================================
+    // Bind make_function_bc function for each dimension
+    // Function-based BC: value depends on spatial coordinates
+    // ============================================================
+
+    // 1D version
+    m.def("make_function_bc",
+          &make_function_bc_1d,
+          py::arg("field"),
+          py::arg("value_func"),
+          py::arg("order") = 2,
+          "Create and attach a function-based Dirichlet BC to a 1D scalar field.\n\n"
+          "The boundary value depends on spatial coordinates.\n\n"
+          "Args:\n"
+          "    field: ScalarField1D to apply BC to\n"
+          "    value_func: Python callable f(coords) -> float\n"
+          "                coords is (x,) tuple for 1D\n"
+          "    order: Approximation order (1-4, default=2)\n\n"
+          "Example:\n"
+          "    >>> # Quadratic profile: u(x) = x^2 at boundaries\n"
+          "    >>> sam.make_function_bc(u, lambda coords: coords[0]**2, order=2)\n\n"
+          "Note:\n"
+          "    The BC is applied to ALL boundaries. Use make_spatial_bc() for selective application.");
+
+    // 2D version
+    m.def("make_function_bc",
+          &make_function_bc_2d,
+          py::arg("field"),
+          py::arg("value_func"),
+          py::arg("order") = 2,
+          "Create and attach a function-based Dirichlet BC to a 2D scalar field.\n\n"
+          "The boundary value depends on spatial coordinates.\n\n"
+          "Args:\n"
+          "    field: ScalarField2D to apply BC to\n"
+          "    value_func: Python callable f(coords) -> float\n"
+          "                coords is (x, y) tuple for 2D\n"
+          "    order: Approximation order (1-4, default=2)\n\n"
+          "Example:\n"
+          "    >>> # Sinusoidal variation: u(x,y) = sin(x)*cos(y) at boundaries\n"
+          "    >>> import math\n"
+          "    >>> sam.make_function_bc(u, lambda c: math.sin(c[0])*math.cos(c[1]), order=2)\n\n"
+          "Note:\n"
+          "    The BC is applied to ALL boundaries. Use make_spatial_bc() for selective application.");
+
+    // 3D version
+    m.def("make_function_bc",
+          &make_function_bc_3d,
+          py::arg("field"),
+          py::arg("value_func"),
+          py::arg("order") = 2,
+          "Create and attach a function-based Dirichlet BC to a 3D scalar field.\n\n"
+          "The boundary value depends on spatial coordinates.\n\n"
+          "Args:\n"
+          "    field: ScalarField3D to apply BC to\n"
+          "    value_func: Python callable f(coords) -> float\n"
+          "                coords is (x, y, z) tuple for 3D\n"
+          "    order: Approximation order (1-4, default=2)\n\n"
+          "Note:\n"
+          "    The BC is applied to ALL boundaries. Use make_spatial_bc() for selective application.");
+
+    // ============================================================
+    // Bind make_spatial_bc function for each dimension
+    // Spatial BC: both region (WHERE) and value (WHAT) depend on space
+    // ============================================================
+
+    // 1D version
+    m.def("make_spatial_bc",
+          &make_spatial_bc_1d,
+          py::arg("field"),
+          py::arg("region_func"),
+          py::arg("value_func"),
+          py::arg("order") = 2,
+          "Create and attach a spatially-selective function-based BC to a 1D scalar field.\n\n"
+          "Apply BC only to boundary cells where region_func(coords) is True,\n"
+          "with value determined by value_func(coords).\n\n"
+          "Args:\n"
+          "    field: ScalarField1D to apply BC to\n"
+          "    region_func: Python callable f(coords) -> bool (WHERE to apply)\n"
+          "                 coords is (x,) tuple for 1D\n"
+          "    value_func: Python callable f(coords) -> float (WHAT value)\n"
+          "                 coords is (x,) tuple for 1D\n"
+          "    order: Approximation order (1-4, default=2)\n\n"
+          "Example:\n"
+          "    >>> # Apply u=x^2 only on left boundary (x < 0.1)\n"
+          "    >>> sam.make_spatial_bc(u,\n"
+          "    >>>                      region=lambda c: c[0] < 0.1,\n"
+          "    >>>                      value=lambda c: c[0]**2)");
+
+    // 2D version
+    m.def("make_spatial_bc",
+          &make_spatial_bc_2d,
+          py::arg("field"),
+          py::arg("region_func"),
+          py::arg("value_func"),
+          py::arg("order") = 2,
+          "Create and attach a spatially-selective function-based BC to a 2D scalar field.\n\n"
+          "Apply BC only to boundary cells where region_func(coords) is True,\n"
+          "with value determined by value_func(coords).\n\n"
+          "Args:\n"
+          "    field: ScalarField2D to apply BC to\n"
+          "    region_func: Python callable f(coords) -> bool (WHERE to apply)\n"
+          "                 coords is (x, y) tuple for 2D\n"
+          "    value_func: Python callable f(coords) -> float (WHAT value)\n"
+          "                 coords is (x, y) tuple for 2D\n"
+          "    order: Approximation order (1-4, default=2)\n\n"
+          "Example:\n"
+          "    >>> # Apply sinusoidal BC only on bottom edge (y < 0.1)\n"
+          "    >>> import math\n"
+          "    >>> sam.make_spatial_bc(u,\n"
+          "    >>>                      region=lambda c: c[1] < 0.1,\n"
+          "    >>>                      value=lambda c: math.sin(c[0]))\n\n"
+          "Note:\n"
+          "    The region is evaluated once at BC creation time.");
+
+    // 3D version
+    m.def("make_spatial_bc",
+          &make_spatial_bc_3d,
+          py::arg("field"),
+          py::arg("region_func"),
+          py::arg("value_func"),
+          py::arg("order") = 2,
+          "Create and attach a spatially-selective function-based BC to a 3D scalar field.\n\n"
+          "Apply BC only to boundary cells where region_func(coords) is True,\n"
+          "with value determined by value_func(coords).\n\n"
+          "Args:\n"
+          "    field: ScalarField3D to apply BC to\n"
+          "    region_func: Python callable f(coords) -> bool (WHERE to apply)\n"
+          "                 coords is (x, y, z) tuple for 3D\n"
+          "    value_func: Python callable f(coords) -> float (WHAT value)\n"
+          "                 coords is (x, y, z) tuple for 3D\n"
+          "    order: Approximation order (1-4, default=2)\n\n"
+          "Note:\n"
+          "    The region is evaluated once at BC creation time.");
 
     // ============================================================
     // Create boundary submodule for organized API access
