@@ -125,6 +125,7 @@ def main():
     parser.add_argument("--tf", type=float, default=1.0, help="Final time")
     parser.add_argument("--cfl", type=float, default=0.95, help="CFL condition")
     parser.add_argument("--no-plot", action="store_true", help="Disable real-time matplotlib visualization")
+    parser.add_argument("--save-png", action="store_true", help="Save final state as PNG image")
     args = parser.parse_args()
 
     # ============================================================
@@ -141,7 +142,7 @@ def main():
 
     # Multiresolution parameters
     min_level = 5
-    max_level = 7
+    max_level = 9
 
     # Output
     output_path = Path("./burgers_2d_results")
@@ -216,7 +217,7 @@ def main():
         fig, ax = plt.subplots(figsize=(8, 8))
         # Compute initial magnitude
         compute_magnitude(u, u_mag)
-        plotter = viz.FieldPlotter(u_mag, ax=ax, cmap='plasma',
+        plotter = viz.FieldPlotter(u_mag, ax=ax, cmap='RdYlBu_r',
                                      vmin=0.0, vmax=2.0, show_mesh=True)
         plt.pause(0.01)
 
@@ -311,6 +312,22 @@ def main():
     print(f"  Output saved to: {output_path.absolute()}")
     print("\nTo visualize in Paraview:")
     print(f"  paraview {output_path.absolute() / filename}{suffix}.xdmf")
+
+    # ============================================================
+    # Save final state as PNG
+    # ============================================================
+    if args.save_png:
+        print("\nGenerating final PNG...")
+        compute_magnitude(u, u_mag)
+        fig, ax = plt.subplots(figsize=(10, 8))
+        final_plotter = viz.FieldPlotter(u_mag, ax=ax, cmap='RdYlBu_r',
+                                         vmin=0.0, vmax=2.0, show_mesh=True)
+        final_plotter.update(u_mag, title=f"Burgers 2D - Final State (t={Tf:.3f}, cells={mesh.nb_cells})")
+
+        png_path = output_path / f"{filename}_final.png"
+        fig.savefig(png_path, dpi=150, bbox_inches='tight')
+        print(f"  PNG saved to: {png_path.absolute()}")
+        plt.close(fig)
 
     # Keep matplotlib figure open if visualization was enabled
     if enable_realtime_viz and plotter is not None:

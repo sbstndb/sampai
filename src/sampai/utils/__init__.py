@@ -19,12 +19,12 @@ from . import progress
 __all__ = ["progress"]
 
 # Lazy imports for optional modules
+import importlib
+
 def __getattr__(name: str):
     """Lazy import for optional modules."""
     if name == "viz":
-        from . import viz
-        return viz
+        return importlib.import_module(".viz", package=__name__)
     if name == "io":
-        from . import io
-        return io
+        return importlib.import_module(".io", package=__name__)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

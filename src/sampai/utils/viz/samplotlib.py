@@ -209,7 +209,7 @@ def plot_field(
     # Add colorbar
     if colorbar:
         cbar = plt.colorbar(collection, ax=ax)
-        cbar.set_label('Level' if show_level else 'Value')
+        cbar.set_label('Level' if show_level else field.name if hasattr(field, 'name') else 'Value')
 
     # Set title
     if title:

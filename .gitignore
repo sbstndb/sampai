@@ -206,3 +206,4 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 subprojects/samurai/
+examples/burgers_2d_results/

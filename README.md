@@ -15,6 +15,7 @@ Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and
 - [Development](#development)
 - [Documentation](#documentation)
 - [Examples](#examples)
+- [Gallery](#gallery)
 - [Testing](#testing)
 - [TODO / Roadmap](#todo--roadmap)
 - [Troubleshooting](#troubleshooting)
@@ -215,6 +216,18 @@ Run an example:
 cd examples/
 python advection.py
 ```
+
+---
+
+## Gallery
+
+### Burgers 2D Equation with WENO5
+
+2D Burgers equation solved with WENO5 convection operator and TVD-RK3 time stepping. The simulation demonstrates adaptive mesh refinement (AMR) with multiresolution analysis, automatically refining the mesh where gradients are steep (near the shock). The color represents velocity magnitude.
+
+![Burgers 2D with WENO5](figures/burgers_2d_weno5.png)
+
+*Simulation parameters: Domain [-1,1]×[-1,1], min_level=5, max_level=9, ε=2×10⁻⁴, CFL=0.95*
 
 ---
 
