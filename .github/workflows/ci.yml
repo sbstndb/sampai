@@ -71,3 +71,214 @@ jobs:
         path: |
           sampai/builddir/meson-logs/testlog.txt
           sampai/.pytest_cache/
+
+  validation-vs-cpp:
+    """Validate Python outputs against C++ reference files.
+
+    Compiles only the necessary C++ demos (advection_1d, advection_2d, burgers, scalar_burgers_2d) in single
+    mode to save memory, then compares Python outputs.
+    """
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout sampai
+      uses: actions/checkout@v4
+      with:
+        path: sampai
+
+    - name: Install Miniforge
+      run: |
+        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+
+    - name: Create conda environment
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        conda create -n sampai-validation -c conda-forge \
+          python=3.12 \
+          cmake \
+          ninja \
+          xtensor \
+          xtensor-blas \
+          hdf5 \
+          highfive \
+          pugixml \
+          fmt \
+          cli11 \
+          meson-python \
+          meson \
+          numpy \
+          pytest \
+          h5py \
+          pybind11
+
+    - name: Build Samurai C++ demos (advection and burgers)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        # Configure CMake for samurai - disable MPI, PETSc to save memory
+        # Build only FiniteVolume/advection and burgers demos
+        cd sampai/subprojects/samurai
+        mkdir -p build
+        cd build
+
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DWITH_MPI=OFF \
+          -DWITH_PETSC=OFF \
+          -DWITH_OPENMP=OFF \
+          -DSAMURAI_BUILD_DEMOS=ON \
+          -DBUILD_ONLY_DEMOS="advection_1d;advection_2d;burgers;scalar_burgers_2d"
+
+        # Build only the advection and burgers targets
+        cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d finite-volume-burgers finite-volume-scalar-burgers-2d -j4
+
+    - name: Generate C++ reference files
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        mkdir -p test_output
+
+        # Run C++ advection_1d demo
+        ../subprojects/samurai/build/finite-volume-advection-1d \
+          --path test_output \
+          --filename cpp_advection_1d \
+          --Tf 0.1
+
+        # Run C++ advection_2d demo
+        ../subprojects/samurai/build/finite-volume-advection-2d \
+          --path test_output \
+          --filename cpp_advection_2d \
+          --Tf 0.01
+
+        # Run C++ burgers demo
+        ../subprojects/samurai/build/finite-volume-burgers \
+          --path test_output \
+          --filename cpp_burgers \
+          --Tf 0.1
+
+        # Run C++ scalar_burgers_2d demo
+        ../subprojects/samurai/build/finite-volume-scalar-burgers-2d \
+          --path test_output \
+          --filename cpp_scalar_burgers_2d \
+          --Tf 0.001
+
+    - name: Build sampai Python
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        meson setup builddir
+        meson compile -C builddir
+        pip install --no-build-isolation --no-deps -e .
+
+    - name: Run Python validation demos
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        mkdir -p test_output
+
+        # Run Python advection_1d
+        python -c "
+from tests.validation_demos import advection_1d
+advection_1d.run_advection_1d(Tf=0.1, output_path='test_output', filename='py_advection_1d')
+"
+
+        # Run Python advection_2d
+        python -c "
+from tests.validation_demos import advection_2d
+advection_2d.run_advection_2d(Tf=0.01, output_path='test_output', filename='py_advection_2d')
+"
+
+        # Run Python burgers_1d
+        python -c "
+from tests.validation_demos import burgers_1d
+burgers_1d.run_burgers_1d(Tf=0.1, output_path='test_output', filename='py_burgers_1d')
+"
+
+        # Run Python scalar_burgers_2d
+        python -c "
+from tests.validation_demos import scalar_burgers_2d
+scalar_burgers_2d.run_scalar_burgers_2d(Tf=0.001, output_path='test_output', filename='py_scalar_burgers_2d')
+"
+
+    - name: Compare C++ vs Python outputs
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        python -c "
+from sampai.utils.io import compare
+import sys
+
+# Compare 1D advection
+print('Comparing 1D advection...')
+identical = compare.compare_hdf5_files(
+    'test_output/cpp_advection_1d.h5',
+    'test_output/py_advection_1d.h5',
+    tol=1e-10,
+    verbose=True
+)
+if not identical:
+    print('FAILED: 1D advection outputs differ!')
+    sys.exit(1)
+
+# Compare 2D advection
+print('Comparing 2D advection...')
+identical = compare.compare_hdf5_files(
+    'test_output/cpp_advection_2d.h5',
+    'test_output/py_advection_2d.h5',
+    tol=1e-10,
+    verbose=True
+)
+if not identical:
+    print('FAILED: 2D advection outputs differ!')
+    sys.exit(1)
+
+# Compare 1D burgers
+print('Comparing 1D burgers...')
+identical = compare.compare_hdf5_files(
+    'test_output/cpp_burgers.h5',
+    'test_output/py_burgers_1d.h5',
+    tol=1e-10,
+    verbose=True
+)
+if not identical:
+    print('FAILED: 1D burgers outputs differ!')
+    sys.exit(1)
+
+# Compare 2D scalar burgers
+print('Comparing 2D scalar burgers...')
+identical = compare.compare_hdf5_files(
+    'test_output/cpp_scalar_burgers_2d.h5',
+    'test_output/py_scalar_burgers_2d.h5',
+    tol=1e-10,
+    verbose=True
+)
+if not identical:
+    print('FAILED: 2D scalar burgers outputs differ!')
+    sys.exit(1)
+
+print('SUCCESS: All outputs match!')
+"
+
+    - name: Upload validation results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: validation-results-ubuntu-py312
+        path: |
+          sampai/test_output/
+          sampai/.pytest_cache/

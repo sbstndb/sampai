@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""
+Validation demo: 1D Advection equation.
+
+This is a Python replication of subprojects/samurai/demos/FiniteVolume/advection_1d.cpp
+The goal is to produce identical HDF5 outputs for validation testing.
+
+C++ parameters:
+    - Domain: [-2, 2]
+    - Velocity: a = 1.0
+    - Final time: Tf = 0.1 (for testing)
+    - CFL: 0.95
+    - min_level: 6
+    - max_level: 12
+    - epsilon: 2e-4
+    - BC: Dirichlet(0) on both sides (non-periodic)
+    - Initial condition: square pulse at x=0, radius=0.2
+"""
+
+import tempfile
+from pathlib import Path
+
+import sampai as sam
+
+
+def init_square_pulse(u, center=0.0, radius=0.2):
+    """Initialize field with a square pulse.
+
+    Exact replication of C++ init() function.
+
+    Args:
+        u: ScalarField to initialize
+        center: Center of the pulse (default: 0)
+        radius: Radius of the pulse (default: 0.2)
+    """
+    def init_cell(cell):
+        cx = cell.center()[0]
+        if abs(cx - center) <= radius:
+            u[cell.index] = 1.0
+        else:
+            u[cell.index] = 0.0
+
+    sam.algorithms.for_each_cell(u.mesh, init_cell)
+
+
+def run_advection_1d(
+    left_box=-2.0,
+    right_box=2.0,
+    velocity=1.0,
+    Tf=0.1,
+    cfl=0.95,
+    min_level=6,
+    max_level=12,
+    epsilon=2e-4,
+    output_path=None,
+    filename="FV_advection_1d",
+):
+    """Run 1D advection simulation.
+
+    Exact replication of C++ advection_1d.cpp main() function.
+
+    Args:
+        left_box: Left boundary of domain (default: -2.0)
+        right_box: Right boundary of domain (default: 2.0)
+        velocity: Advection velocity (default: 1.0)
+        Tf: Final time (default: 0.1)
+        cfl: CFL number (default: 0.95)
+        min_level: Minimum mesh level (default: 6)
+        max_level: Maximum mesh level (default: 12)
+        epsilon: MRA adaptation threshold (default: 2e-4)
+        output_path: Output directory (default: temp dir)
+        filename: Output file prefix (default: "FV_advection_1d")
+
+    Returns:
+        Path to output directory
+    """
+    # Create output directory
+    if output_path is None:
+        output_path = Path(tempfile.mkdtemp())
+    else:
+        output_path = Path(output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # ============================================================
+    # Mesh configuration - EXACT replication of C++ code
+    # ============================================================
+
+    box = sam.geometry.box([left_box], [right_box])
+
+    # C++: auto config = samurai::mesh_config<dim>()
+    #              .min_level(6).max_level(12).periodic(is_periodic)
+    #              .max_stencil_size(2).disable_minimal_ghost_width();
+    config = sam.config.make(1)
+    config.min_level = min_level
+    config.max_level = max_level
+    config.max_stencil_size = 2
+
+    # C++: auto mesh = samurai::mra::make_empty_mesh(config);
+    # C++: auto u = samurai::make_scalar_field<double>("u", mesh);
+    mesh = sam.mesh.make(box, config)
+    u = sam.field.scalar(mesh, "u", init=0.0)
+
+    # ============================================================
+    # Initialize field
+    # ============================================================
+
+    # C++: mesh = samurai::mra::make_mesh(box, config);
+    # C++: init(u);
+    # Note: mesh already created above with sam.mesh.make(box, config)
+    init_square_pulse(u)
+
+    # ============================================================
+    # Boundary conditions
+    # ============================================================
+
+    # C++: const xt::xtensor_fixed<int, xt::xshape<1>> left{-1};
+    # C++: const xt::xtensor_fixed<int, xt::xshape<1>> right{1};
+    # C++: samurai::make_bc<samurai::Dirichlet<1>>(u, 0.)->on(left, right);
+    sam.boundary.dirichlet(u, 0.0)
+
+    # ============================================================
+    # Time stepping setup
+    # ============================================================
+
+    # C++: double dt = cfl * mesh.min_cell_length();
+    dt = cfl * mesh.min_cell_length
+
+    # C++: auto unp1 = samurai::make_scalar_field<double>("unp1", mesh);
+    unp1 = sam.field.scalar(mesh, "unp1", init=0.0)
+
+    # ============================================================
+    # MRA configuration
+    # ============================================================
+
+    # C++: auto MRadaptation = samurai::make_MRAdapt(u);
+    # C++: auto mra_config = samurai::mra_config().epsilon(2e-4);
+    MRadaptation = sam.adaptation.make_MRAdapt(u)
+    mra_config = sam.config.MRAConfig()
+    mra_config.epsilon = epsilon
+
+    # C++: MRadaptation(mra_config);
+    # C++: save(path, filename, u, "_init");
+    MRadaptation(mra_config)
+
+    # Save initial state (C++ saves with "_init" suffix)
+    init_filepath = str(output_path / f"{filename}_init")
+    sam.save(init_filepath, u)
+
+    # Also save restart file (C++: dump(..., "_restart_init"))
+    restart_filepath = str(output_path / f"{filename}_restart_init")
+    sam.dump(restart_filepath, u)
+
+    # ============================================================
+    # Time loop - EXACT replication of C++ logic
+    # ============================================================
+
+    # C++: std::size_t nsave = 1;
+    # C++: std::size_t nt = 0;
+    # C++: const double dt_save = Tf / static_cast<double>(nfiles);
+    # With nfiles=1, dt_save = Tf, so we only save at end
+    nsave = 1
+    nt = 0
+
+    t = 0.0
+
+    # C++: while (t != Tf)
+    while t != Tf:
+        # C++: MRadaptation(mra_config);
+        MRadaptation(mra_config)
+
+        # C++: t += dt;
+        # C++: if (t > Tf) { dt += Tf - t; t = Tf; }
+        t += dt
+        if t > Tf:
+            dt += Tf - t
+            t = Tf
+
+        # C++: std::cout << fmt::format("iteration {}: t = {}, dt = {}", nt++, t, dt) << std::endl;
+        # (silently for testing)
+
+        # C++: samurai::update_ghost_mr(u);
+        sam.adaptation.update_ghost_mr(u)
+
+        # C++: unp1.resize();
+        # C++: unp1.fill(0);
+        # C++: unp1 = u - dt * samurai::upwind(a, u);
+        unp1.resize()
+        unp1.assign(u - dt * sam.operators.upwind(u, velocity))
+
+        # C++: std::swap(u.array(), unp1.array());
+        sam.swap_field_arrays_1d(u, unp1)
+
+        # C++: if (t >= static_cast<double>(nsave) * dt_save || t == Tf)
+        # With nfiles=1, dt_save = Tf, so this is t >= Tf or t == Tf
+        if t >= Tf:
+            # C++: const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
+            # With nfiles=1, suffix = ""
+            save_filepath = str(output_path / filename)
+            sam.save(save_filepath, u)
+
+            # C++: Also dump restart file at final time
+            restart_filepath_final = str(output_path / f"{filename}_restart")
+            sam.dump(restart_filepath_final, u)
+
+        nt += 1
+
+    return output_path
+
+
+if __name__ == "__main__":
+    # Run with default parameters for testing
+    output_dir = run_advection_1d(Tf=0.1)
+    print(f"Validation demo complete. Output in: {output_dir}")
