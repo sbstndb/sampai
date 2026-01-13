@@ -57,7 +57,7 @@ jobs:
 
         cd sampai
         meson setup builddir
-        meson compile -C builddir --parallel 2
+        meson compile -C builddir
 
     - name: Run tests
       run: |
