@@ -16,6 +16,7 @@ Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and
 - [Documentation](#documentation)
 - [Examples](#examples)
 - [Testing](#testing)
+- [TODO / Roadmap](#todo--roadmap)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
 
@@ -246,6 +247,18 @@ For testing the standalone build specifically:
 ```bash
 pytest tests/test_standalone.py -v
 ```
+
+---
+
+## TODO / Roadmap
+
+- [ ] **MPI support** - Document current MPI support status and future roadmap
+- [ ] **Exception hierarchy** - Create custom error types (`MeshError`, `FieldError`, `IOError`) for better error handling
+- [ ] **Int32/Int64 support** - Add support for different integer sizes in mesh configurations
+- [ ] **Multi-platform CI** - Add macOS and Windows testing, multiple Python versions (3.9-3.13)
+- [ ] **Pin samurai version** - Use specific commit/tag instead of `main` branch for reproducible builds
+- [ ] **Sphinx documentation** - Generate comprehensive API docs with autodoc
+- [ ] **3D examples** - Add comprehensive 3D simulation examples (currently focused on 1D/2D)
 
 ---
 
