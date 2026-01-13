@@ -115,8 +115,11 @@ message('')
 # Additional dependencies from samurai (via conda)
 # These are pulled in by samurai but we list them for completeness
 xtensor_dep = dependency('xtensor', required: false)
+fmt_dep = dependency('fmt', required: false)
+cli11_dep = dependency('cli11', required: false)
 highfive_dep = dependency('highfive', version: '>=2.10', required: false)
 hdf5_dep = dependency('hdf5', required: false)
+pugixml_dep = dependency('pugixml', required: false)
 
 message('')
 message('=== Dependencies Summary ===')
@@ -164,11 +167,18 @@ py_ext_suffix = py.get_variable('EXT_SUFFIX', '')
 py_debug = py.get_variable('Py_DEBUG', false)
 
 # Build the pybind11 extension module
+# Note: We use _sampai (private) so the Python package can import it
+# The extension module will be installed as _sampai.so alongside sampai/ package
 pybind11_module = py.extension_module(
-    'sampai',
+    '_sampai',
     binding_sources,
     dependencies: [
         samurai_dep,
+        fmt_dep,
+        cli11_dep,
+        hdf5_dep,
+        highfive_dep,
+        pugixml_dep,
     ],
     include_directories: [
         pybind11_include,
@@ -176,7 +186,6 @@ pybind11_module = py.extension_module(
     ],
     install: true,
     install_tag: 'runtime',
-    subdir: 'sampai',
     # Optimization flags for better performance
     cpp_args: [
         '-DNDEBUG',
@@ -185,25 +194,51 @@ pybind11_module = py.extension_module(
     link_with: [],
 )
 
-message('Extension module: sampai@0@'.format(py_ext_suffix))
+message('Extension module: _sampai@0@'.format(py_ext_suffix))
 message('')
 
 # ============================================================================
 # PYTHON UTILITIES
 # ============================================================================
 
-# Install pure Python utilities
-python_src = 'src/sampai'
+# Install pure Python utilities using meson-python's py.install_sources()
+# This is the correct way to install Python files with meson-python
 
-# Install all Python files from src/sampai
-install_subdir(
-    python_src,
-    install_dir: py.get_install_dir() / 'sampai',
-    install_tag: 'runtime',
-    exclude_files: ['__pycache__', '*.pyc'],
+# Install __init__.py at package root
+py.install_sources(
+    'src/sampai/__init__.py',
+    subdir: 'sampai',
 )
 
-message('Python utilities will be installed to: @0@'.format(py.get_install_dir() / 'sampai'))
+# Install utils package
+py.install_sources(
+    'src/sampai/utils/__init__.py',
+    subdir: 'sampai/utils',
+)
+
+# Install io subpackage
+py.install_sources(
+    'src/sampai/utils/io/__init__.py',
+    'src/sampai/utils/io/read_hdf5_1d.py',
+    'src/sampai/utils/io/compare.py',
+    'src/sampai/utils/io/mesh_stats.py',
+    subdir: 'sampai/utils/io',
+)
+
+# Install viz subpackage
+py.install_sources(
+    'src/sampai/utils/viz/__init__.py',
+    'src/sampai/utils/viz/samplotlib.py',
+    subdir: 'sampai/utils/viz',
+)
+
+# Install progress subpackage
+py.install_sources(
+    'src/sampai/utils/progress/__init__.py',
+    'src/sampai/utils/progress/core.py',
+    'src/sampai/utils/progress/stats.py',
+    subdir: 'sampai/utils/progress',
+)
 
 # ============================================================================
 # COPY PYTHON UTILITIES TO BUILD DIRECTORY (for development)
@@ -226,7 +261,7 @@ message('=== Sampai Configuration Summary ===')
 message('  Build type:          @0@'.format(get_option('buildtype')))
 message('  C++ standard:        C++20')
 message('  Python version:      @0@'.format(py_version))
-message('  Module name:         sampai')
+message('  Module name:         sampai (from _sampai extension)')
 message('  Samurai source:      local (header-only)')
 message('  Build tests:         @0@'.format(build_python_tests))
 message('=========================================')
