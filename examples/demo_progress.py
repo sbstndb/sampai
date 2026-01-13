@@ -20,14 +20,7 @@ This demo requires:
     - No actual simulation is run, just demonstrations
 """
 
-import os
-import sys
 import time
-
-# Add build directory to path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 
 

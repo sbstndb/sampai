@@ -25,24 +25,12 @@ Features:
     - Real-time matplotlib visualization (optional)
 """
 
-import os
-import sys
 from pathlib import Path
 
-# Add build directory to path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
-
-# Add viz directory to path for matplotlib visualization
-viz_dir = os.path.join(os.path.dirname(__file__), "..", "viz")
-if os.path.exists(viz_dir):
-    sys.path.insert(0, viz_dir)
-
 import matplotlib.pyplot as plt
-import samplotlib as svmpl  # matplotlib visualization
 
 import sampai as sam
+from sampai.utils import viz
 
 # Import progress bar from demo_progress
 try:
@@ -208,7 +196,7 @@ def main():
     if enable_realtime_viz:
         plt.ion()  # Interactive mode
         fig, ax = plt.subplots(figsize=(8, 8))
-        plotter = svmpl.FieldPlotter(u, ax=ax, cmap='RdBu_r', vmin=0.0, vmax=1.0, show_mesh=True)
+        plotter = viz.FieldPlotter(u, ax=ax, cmap='RdBu_r', vmin=0.0, vmax=1.0, show_mesh=True)
         plt.pause(0.01)
 
     print("Starting time stepping...")

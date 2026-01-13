@@ -13,8 +13,16 @@ channels:
   - conda-forge
 
 dependencies:
-  # Core C++ dependencies (via samurai conda package)
-  - samurai=0.27.1
+  # Core C++ dependencies (via samurai conda package for transitive deps)
+  # Note: samurai headers must be from source (../samurai/include)
+  # The conda package is only used for transitive dependencies
+  - xtensor
+  - xtensor-blas
+  - hdf5
+  - highfive
+  - pugixml
+  - fmt
+  - cli11
 
   # Python dependencies for sampai
   - python>=3.9
@@ -22,9 +30,8 @@ dependencies:
   - pybind11>=2.13
 
   # Build tools
-  - cmake>=3.20
+  - meson>=0.64
   - ninja>=1.10
-  - scikit-build-core>=0.10
 
   # Development tools
   - pip

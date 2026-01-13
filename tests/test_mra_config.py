@@ -4,15 +4,7 @@ Tests for samurai Python bindings - MRA Configuration
 Tests the MRAConfig class and its properties for multiresolution adaptation.
 """
 
-import os
-import sys
-
 import pytest
-
-# Add the build directory to Python path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 try:
     import sampai as sam

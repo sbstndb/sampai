@@ -15,14 +15,7 @@ with constant velocity a = (1, -1) and a rectangle initial condition.
 Equivalent to: demos/FiniteVolume/linear_convection.cpp
 """
 
-import os
-import sys
 from pathlib import Path
-
-# Add build directory to path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 import sampai as sam
 
