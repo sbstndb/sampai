@@ -16,13 +16,6 @@ jobs:
       with:
         path: sampai
 
-    - name: Checkout samurai C++ (sibling directory for headers)
-      uses: actions/checkout@v4
-      with:
-        repository: hpc-maths/samurai
-        path: samurai
-        ref: main
-
     - name: Install Miniforge
       run: |
         wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh

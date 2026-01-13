@@ -13,9 +13,8 @@ channels:
   - conda-forge
 
 dependencies:
-  # Core C++ dependencies (via samurai conda package for transitive deps)
-  # Note: samurai headers must be from source (../samurai/include)
-  # The conda package is only used for transitive dependencies
+  # Core C++ dependencies (samurai headers are auto-downloaded from GitHub)
+  # These packages are used for transitive dependencies
   - xtensor
   - xtensor-blas
   - hdf5

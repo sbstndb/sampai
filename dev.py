@@ -71,24 +71,6 @@ def run_command(cmd: list, cwd: Path = None, check: bool = True) -> subprocess.C
     return result
 
 
-def check_samurai_source() -> bool:
-    """Check if samurai C++ source is available."""
-    print_header("Checking Samurai C++ Source")
-
-    samurai_path = Path(__file__).parent.parent / "samurai" / "include" / "samurai"
-
-    if samurai_path.exists():
-        print_success(f"Samurai C++ source found at {samurai_path.parent.parent}")
-        return True
-
-    print_warning(
-        "Samurai C++ source not found!\n"
-        "Please clone the samurai repository next to sampai:\n"
-        "  git clone https://github.com/hpc-maths/samurai.git ../samurai"
-    )
-    return False
-
-
 def check_meson_installed() -> bool:
     """Check if Meson is installed."""
     result = run_command(["meson", "--version"], check=False)
@@ -226,7 +208,7 @@ Examples:
     parser.add_argument(
         "--skip-check",
         action="store_true",
-        help="Skip checking for samurai source and meson installation",
+        help="Skip checking for meson installation",
     )
 
     args = parser.parse_args()
@@ -234,11 +216,10 @@ Examples:
     # Get script directory
     script_dir = Path(__file__).parent.resolve()
 
-    # Check samurai source and meson unless skipped
+    # Check meson unless skipped (samurai is auto-downloaded)
     if not args.skip_check and args.command not in ["clean"]:
-        samurai_ok = check_samurai_source()
         meson_ok = check_meson_installed()
-        if not samurai_ok or not meson_ok:
+        if not meson_ok:
             print_error("Cannot proceed without required dependencies")
             sys.exit(1)
 
