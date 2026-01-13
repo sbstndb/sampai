@@ -1,7 +1,7 @@
 # Samurai Python Bindings - pyproject.toml
 #
 # This file configures the build system for the standalone samurai-python package.
-# It uses scikit-build-core for modern CMake-based Python package building.
+# It uses meson-python for fast Meson-based Python package building.
 #
 # Build:
 #   pip install .               # Build from source
@@ -9,19 +9,19 @@
 #   python -m build             # Build wheel
 #
 # Requirements:
-#   - samurai C++ library must be installed and findable by CMake
-#   - CMake >= 3.20
+#   - samurai C++ library must be installed (from conda-forge)
+#   - Meson >= 0.64.0
 #   - C++20 compiler
 #   - Python >= 3.9
 
 [build-system]
 requires = [
-    "scikit-build-core >=0.10.0",
+    "meson-python >=0.15.0",
+    "meson >=0.64.0",
     "pybind11 >=2.13.0",
-    "cmake >=3.20",
     "ninja >=1.10; platform_system!='Windows'",
 ]
-build-backend = "scikit_build_core.build"
+build-backend = "mesonpy"
 
 [project]
 name = "sampai"
@@ -118,35 +118,17 @@ Issues = "https://github.com/hpc-maths/samurai/issues"
 Changelog = "https://github.com/hpc-maths/samurai/blob/main/CHANGELOG.md"
 
 # ============================================================================
-# SCIKIT-BUILD-CORE CONFIGURATION
+# MESON-PYTHON CONFIGURATION
 # ============================================================================
 
-[tool.scikit-build]
-minimum-version = "0.10.0"
-cmake.source-dir = "."
-build-dir = "build/{wheel_tag}"
+[tool.meson-python.args]
+setup = [
+    '-Dbuildtype=release',
+    '-Doptimization=3',
+]
 
-# Use Ninja for faster builds (except on Windows)
-cmake.args = ["-GNinja", "-DSAMURAI_PYTHON_STANDALONE=ON"]
-
-# Build in release mode for optimization
-cmake.build-type = "Release"
-
-# Set verbose output for debugging (logging.level used instead of cmake.verbose for 0.10+)
-logging.level = "INFO"
-
-# Wheel configuration
-wheel.py-api = "py3"
-wheel.install-dir = "sampai"
-
-# Strip symbols for smaller wheel size (comment out for debugging)
-# strip = true
-
-# Strict compatibility mode
-strict-config = true
-
-# Experimental features
-experimental = ["warnings"]
+# Use ninja backend for faster builds (default on most platforms)
+# This matches the previous CMake configuration
 
 # ============================================================================
 # VERSION CONFIGURATION
@@ -338,21 +320,18 @@ skip = ["pp*", "*-win32", "*-manylinux_i686"]
 # Test command to run after building
 test-command = "python -c 'import sampai; print(sampai.__version__)'"
 test-extras = ["test"]
-# Environment variables
-environment = { CMAKE_ARGS = "-DSAMURAI_PYTHON_STANDALONE=ON" }
 
 # Build options for different platforms
 [tool.cibuildwheel.linux]
 # Use manylinux2014 for broad compatibility
 archs = ["x86_64", "aarch64"]
-before-all = "yum install -y cmake ninja-build || apt-get update && apt-get install -y cmake ninja-build"
+before-all = "yum install -y meson ninja-build || apt-get update && apt-get install -y meson ninja-build"
 
 [tool.cibuildwheel.macos]
 # Build for x86_64 and arm64 (Apple Silicon)
 archs = ["x86_64", "arm64"]
-before-all = "brew install cmake ninja"
+before-all = "brew install meson ninja"
 
 [tool.cibuildwheel.windows]
 # Build for x86_64 only
 archs = ["AMD64"]
-environment = { CMAKE_ARGS = "-DSAMURAI_PYTHON_STANDALONE=ON -A x64" }

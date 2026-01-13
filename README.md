@@ -4,9 +4,9 @@
 
 Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and Multiresolution Analysis for numerical PDE solvers.
 
-## Status: Standalone Package
+## Status: Standalone Package with Meson Build
 
-**Sampai** (formerly samurai-python) is now a standalone package that uses the **Samurai C++ library as a conda dependency**. The Samurai C++ library (version 0.27.1) is automatically installed from conda-forge during the build process.
+**Sampai** (formerly samurai-python) is now a standalone package that uses the **Samurai C++ library headers from source** (`../samurai/include`) while using conda-forge for transitive dependencies. The build system has been migrated from CMake to **Meson** for faster builds.
 
 ## Table of Contents
 
@@ -38,20 +38,24 @@ conda activate sampai
 Or create manually:
 
 ```bash
-# Create environment and install samurai C++ library
-conda create -n sampai -c conda-forge python=3.11 samurai=0.27.1
+# Create environment with dependencies (samurai headers must be from source)
+conda create -n sampai -c conda-forge python=3.11 meson ninja xtensor fmt cli11 hdf5
 conda activate sampai
 
-# Install sampai from source
+# Install sampai from source (requires ../samurai for headers)
 pip install .
 ```
 
-### Option 2: Build from Source with pip (Auto-install samurai)
-
-The setup.py will automatically install the samurai C++ library if it's not found:
+### Option 2: Build from Source with Meson
 
 ```bash
-# pip will automatically install samurai from conda-forge
+# Configure with Meson
+meson setup builddir
+
+# Build
+meson compile -C builddir
+
+# Install
 pip install .
 ```
 
@@ -61,21 +65,12 @@ For development/editable mode:
 pip install -e .
 ```
 
-### Option 3: Build with CMake Directly
+### Option 3: Build with pip
 
 ```bash
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DSAMURAI_PYTHON_STANDALONE=ON
-cmake --build . -j4
-cmake --install .
+# pip will use Meson backend
+pip install .
 ```
-
-**Samurai Headers Source (`SAMURAI_SOURCE` option):**
-- `AUTO` (default): conda first, fallback to `../samurai` if needed
-- `CONDA`: conda-only (fails if not found) - for reproducible builds
-- `LOCAL`: `../samurai/include` only - for development with latest headers
-
-> **Note:** conda-forge samurai 0.27.1 is missing `mesh_config.hpp`. Use `LOCAL` if you need newer headers.
 
 ### Option 4: Build Conda Package
 
@@ -93,6 +88,11 @@ conda install --use-local sampai
 import sampai as sam
 print(sam.__version__)  # Should print version number
 ```
+
+> **Note:** The samurai C++ headers must be available at `../samurai/include` relative to this repository. Clone the samurai repository next to sampai:
+> ```bash
+> git clone https://github.com/hpc-maths/samurai.git ../samurai
+> ```
 
 ---
 
@@ -138,7 +138,7 @@ conda env create -f environment.yml
 conda activate sampai
 
 # Or create manually
-conda create -n sampai-dev -c conda-forge python=3.11 samurai=0.27.1
+conda create -n sampai-dev -c conda-forge python=3.11 meson ninja xtensor fmt cli11 hdf5
 conda activate sampai-dev
 pip install numpy pytest black isort ruff mypy
 
@@ -148,18 +148,14 @@ pip install -e .
 
 ### Building from Source
 
-#### Using CMake directly
+#### Using Meson directly
 
 ```bash
-mkdir build && cd build
-
-# Configure (samurai must be installed via conda first)
-cmake .. \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DSAMURAI_PYTHON_STANDALONE=ON
+# Configure
+meson setup builddir
 
 # Build
-cmake --build . -j4
+meson compile -C builddir
 
 # Test
 python -c "import sampai; print(sampai.__version__)"
@@ -260,13 +256,13 @@ pytest tests/test_standalone.py -v
 
 ## Troubleshooting
 
-### "samurai C++ library not found"
+### "Samurai source not found"
 
-**Error:** `Could not find samurai`
+**Error:** `Samurai source not found at ../samurai/include`
 
-**Solution:** Install the samurai C++ library via conda:
+**Solution:** Clone the samurai repository next to sampai:
 ```bash
-conda install -c conda-forge samurai=0.27.1
+git clone https://github.com/hpc-maths/samurai.git ../samurai
 ```
 
 ### Import Errors
@@ -278,13 +274,24 @@ conda install -c conda-forge samurai=0.27.1
 pip install -e .
 ```
 
-### Version Mismatch
+### Build Errors
 
-**Error:** Compilation errors or template instantiation failures
+**Error:** Missing dependencies (xtensor, fmt, etc.)
 
-**Solution:** Make sure you have the correct version of samurai installed:
+**Solution:** Install the dependencies via conda:
 ```bash
-conda install -c conda-forge samurai=0.27.1
+conda install -c conda-forge meson ninja xtensor fmt cli11 hdf5
+```
+
+### "meson not found"
+
+**Error:** `meson: command not found`
+
+**Solution:** Install meson via conda or pip:
+```bash
+conda install -c conda-forge meson
+# or
+pip install meson
 ```
 
 ---
