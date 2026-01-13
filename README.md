@@ -6,7 +6,7 @@ Python bindings for the **Samurai** library - Adaptive Mesh Refinement (AMR) and
 
 ## Status: Standalone Package with Meson Build
 
-**Sampai** (formerly samurai-python) is now a standalone package that uses the **Samurai C++ library headers from source** (`../samurai/include`) while using conda-forge for transitive dependencies. The build system has been migrated from CMake to **Meson** for faster builds.
+**Sampai** (formerly samurai-python) is now a standalone package that **automatically downloads the Samurai C++ library headers from GitHub** during the first build. The build system uses **Meson** for fast, reliable builds while using conda-forge for transitive dependencies.
 
 ## Table of Contents
 
@@ -38,11 +38,11 @@ conda activate sampai
 Or create manually:
 
 ```bash
-# Create environment with dependencies (samurai headers must be from source)
+# Create environment with dependencies
 conda create -n sampai -c conda-forge python=3.11 meson ninja xtensor fmt cli11 hdf5
 conda activate sampai
 
-# Install sampai from source (requires ../samurai for headers)
+# Install sampai (samurai headers are auto-downloaded during first build)
 pip install .
 ```
 
@@ -88,11 +88,6 @@ conda install --use-local sampai
 import sampai as sam
 print(sam.__version__)  # Should print version number
 ```
-
-> **Note:** The samurai C++ headers must be available at `../samurai/include` relative to this repository. Clone the samurai repository next to sampai:
-> ```bash
-> git clone https://github.com/hpc-maths/samurai.git ../samurai
-> ```
 
 ---
 
@@ -255,15 +250,6 @@ pytest tests/test_standalone.py -v
 ---
 
 ## Troubleshooting
-
-### "Samurai source not found"
-
-**Error:** `Samurai source not found at ../samurai/include`
-
-**Solution:** Clone the samurai repository next to sampai:
-```bash
-git clone https://github.com/hpc-maths/samurai.git ../samurai
-```
 
 ### Import Errors
 

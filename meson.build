@@ -1,17 +1,17 @@
 # Samurai Python Bindings - Meson Build Configuration
 #
 # This meson.build builds the Python bindings using samurai from source.
-# Samurai conda package is only used for dependencies (xtensor, fmt, CLI, hdf5).
+# Samurai is automatically downloaded from GitHub via Meson subprojects.
+# Conda-forge is used for dependencies (xtensor, fmt, CLI, hdf5).
 #
 # Build:
-#   pip install .               # Build from source
+#   pip install .               # Build from source (samurai auto-downloaded)
 #   pip install -e .            # Editable install (development)
 #   meson setup builddir        # Configure build
 #   meson compile -C builddir   # Build
 #
 # Requirements:
-#   - samurai source code next to sampai (../samurai)
-#   - samurai built locally (../samurai/build)
+#   - samurai is auto-downloaded from GitHub (main branch)
 #   - conda-forge for dependencies (xtensor, fmt, CLI, hdf5)
 #   - Python >= 3.9
 #   - pybind11 >= 2.13.0
@@ -73,42 +73,50 @@ else
 endif
 
 # ============================================================================
-# FIND SAMURAI C++ LIBRARY (header-only from source)
+# FIND SAMURAI C++ LIBRARY (auto-downloaded from GitHub)
 # ============================================================================
-# IMPORTANT: We MUST use samurai from source because conda version is outdated.
+# IMPORTANT: We use samurai from source (auto-downloaded) because conda version is outdated.
 # Samurai is a header-only library, so no compiled library is needed.
 # The conda package is only used for dependencies (xtensor, fmt, CLI, hdf5, etc.).
+# Samurai is automatically cloned from GitHub into subprojects/samurai
 
-# Verify local samurai source exists
-samurai_source_check = run_command('test', '-d', '../samurai/include/samurai', check: false)
-if samurai_source_check.returncode() != 0
-    error('Samurai source not found at ../samurai/include. ' +
-          'Please clone samurai next to sampai: git clone https://github.com/hpc-maths/samurai.git ../samurai')
+# Define samurai download location (relative path for Meson)
+samurai_subproj_dir = 'subprojects/samurai'
+samurai_headers_check = run_command('test', '-d', samurai_subproj_dir / 'include/samurai', check: false)
+
+# Check if samurai is already downloaded, if not clone it
+if samurai_headers_check.returncode() != 0
+    message('Samurai not found locally, downloading from GitHub...')
+    # Clone samurai repository (shallow clone for speed)
+    samurai_clone = run_command('git', 'clone', '--depth=1', '--single-branch',
+                               'https://github.com/hpc-maths/samurai.git', samurai_subproj_dir,
+                               check: true)
+    message('Samurai downloaded successfully!')
 endif
 
-# Samurai is header-only - just need headers
-samurai_include_dirs = [
-    include_directories('../samurai/include'),
-]
+# Samurai is header-only - just need headers (use relative path)
+samurai_include = include_directories(samurai_subproj_dir / 'include')
 
-message('=== Using Samurai (header-only) from source ===')
-message('  Source: ../samurai')
-message('  Headers: ../samurai/include')
+message('=== Using Samurai (header-only) from GitHub ===')
+message('  Source: https://github.com/hpc-maths/samurai.git (main branch)')
+message('  Location: subprojects/samurai')
 
 # Add conda include for dependencies (xtensor, fmt, CLI, hdf5, etc.)
 # These are needed by samurai headers but we don't want conda samurai headers
 conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
 if conda_prefix != ''
-    # Add conda include for dependencies only
-    # Note: We add this AFTER samurai source so samurai headers take precedence
-    samurai_include_dirs += include_directories(conda_prefix / 'include')
+    # Add conda include for dependencies
+    conda_include = include_directories(conda_prefix / 'include')
     message('  Conda prefix: ' + conda_prefix + ' (for dependencies)')
+    # Combine samurai headers with conda dependency headers
+    samurai_dep = declare_dependency(
+        include_directories: [samurai_include, conda_include],
+    )
+else
+    samurai_dep = declare_dependency(
+        include_directories: samurai_include,
+    )
 endif
-
-# Create samurai dependency (header-only, no link args needed)
-samurai_dep = declare_dependency(
-    include_directories: samurai_include_dirs,
-)
 
 message('')
 
@@ -125,7 +133,7 @@ message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
 message('pybind11: found')
-message('samurai: from source (local)')
+message('samurai: from GitHub (auto-downloaded via subproject)')
 if xtensor_dep.found()
     message('xtensor: @0@'.format(xtensor_dep.version()))
 endif
@@ -262,7 +270,7 @@ message('  Build type:          @0@'.format(get_option('buildtype')))
 message('  C++ standard:        C++20')
 message('  Python version:      @0@'.format(py_version))
 message('  Module name:         sampai (from _sampai extension)')
-message('  Samurai source:      local (header-only)')
+message('  Samurai source:      auto-downloaded from GitHub (header-only)')
 message('  Build tests:         @0@'.format(build_python_tests))
 message('=========================================')
 message('')
