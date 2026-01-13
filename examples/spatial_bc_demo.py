@@ -144,6 +144,10 @@ def run_1d_demo(args):
     print("1D Linear Convection - Spatial Boundary Conditions Demo")
     print("=" * 70)
 
+    # Output parameters
+    output_path = Path("./spatial_bc_1d_results")
+    nfiles = 20  # Number of output files
+
     # Domain and mesh
     box = sam.geometry.box([-1.0], [1.0])
     config = sam.config.make(1)
@@ -173,8 +177,13 @@ def run_1d_demo(args):
         bc_types.append(("Constant BC (u=1)", lambda u: setup_constant_bc(u, 1.0)))
 
     # Run simulation for each BC type
-    for bc_name, bc_setup in bc_types:
+    for bc_idx, (bc_name, bc_setup) in enumerate(bc_types):
         print(f"\n--- {bc_name} ---")
+
+        # Create output directory for this BC type
+        bc_filename = f"spatial_bc_1d_{bc_idx}"
+        bc_output_path = output_path / bc_name.replace(" ", "_").lower()
+        bc_output_path.mkdir(parents=True, exist_ok=True)
 
         # Create new mesh and field for this BC type
         mesh = sam.mesh.make(box, config)
@@ -193,16 +202,24 @@ def run_1d_demo(args):
 
         print(f"  Time step: {dt:.6e}")
         print(f"  Expected steps: ~{int(Tf/dt)}")
+        print(f"  Output: {bc_output_path}/{bc_filename}_*.h5/.xdmf")
 
         # Setup visualization
         if not args.no_plot:
             plt.figure(figsize=(12, 6))
             plt.ion()
 
+        # Save initial condition
+        sam.save(str(bc_output_path / f"{bc_filename}_init"), u)
+        print(f"  Saved initial condition to {bc_output_path / f'{bc_filename}_init.h5'}")
+
         # Time loop
         t = 0.0
         iteration = 0
-        save_interval = max(1, int(Tf / dt / 20))
+        dt_save = Tf / nfiles
+        next_save = dt_save
+        nsave = 0
+        plot_interval = max(1, int(Tf / dt / 20))
 
         while t < Tf:
             # Update ghost cells (BCs are automatically applied)
@@ -221,8 +238,14 @@ def run_1d_demo(args):
             t += dt
             iteration += 1
 
+            # Save output
+            if t >= next_save:
+                sam.save(str(bc_output_path / f"{bc_filename}_{nsave:05d}"), u)
+                nsave += 1
+                next_save += dt_save
+
             # Visualization
-            if not args.no_plot and iteration % save_interval == 0:
+            if not args.no_plot and iteration % plot_interval == 0:
                 plt.clf()
 
                 # Extract data for plotting
@@ -250,6 +273,19 @@ def run_1d_demo(args):
                 plt.pause(0.01)
 
         print(f"  Final time: {t:.6f}, Steps: {iteration}")
+        print(f"  Output files: {nsave + 1} (including initial)")
+        print(f"\n  Generated files in {bc_output_path.absolute()}:")
+        print(f"    - {bc_filename}_init.h5/.xdmf    (initial condition)")
+        print(f"    - {bc_filename}_*.h5/.xdmf       (time series)")
+
+    # After all BC types
+    print(f"\n{'='*70}")
+    print(f"All outputs saved to: {output_path.absolute()}/")
+    print(f"\nTo visualize in Paraview, open one of the .xdmf files, e.g.:")
+    for bc_idx, (bc_name, _) in enumerate(bc_types):
+        bc_filename = f"spatial_bc_1d_{bc_idx}"
+        bc_output_path = output_path / bc_name.replace(" ", "_").lower()
+        print(f"  paraview {bc_output_path / f'{bc_filename}_init.xdmf'}")
 
     if not args.no_plot:
         plt.ioff()
