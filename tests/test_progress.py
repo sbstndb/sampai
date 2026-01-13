@@ -8,23 +8,10 @@ Tests the new progress reporting utilities including:
 - mesh_adaptation: Context manager for mesh adaptation
 """
 
-import os
-import sys
 import time
 from io import StringIO
 
 import pytest
-
-# Add the source directory to Python path for development
-src_dir = os.path.join(os.path.dirname(__file__), "..", "src")
-if os.path.exists(src_dir):
-    sys.path.insert(0, src_dir)
-
-# Add the build directory to Python path for development
-# Note: using build_py314 to match conftest.py
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build_py314", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 try:
     import sampai as sam

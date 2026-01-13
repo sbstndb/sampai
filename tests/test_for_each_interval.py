@@ -4,15 +4,7 @@ Tests for samurai Python bindings - for_each_interval function
 Tests the for_each_interval algorithm that iterates over mesh intervals.
 """
 
-import os
-import sys
-
 import pytest
-
-# Add the build directory to Python path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 try:
     import sampai as sam

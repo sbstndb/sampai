@@ -4,15 +4,7 @@ Tests for samurai Python bindings - MeshConfig class
 Tests the samurai::mesh_config class bindings for 1D, 2D, and 3D.
 """
 
-import os
-import sys
-
 import pytest
-
-# Add the build directory to Python path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
 
 try:
     import sampai as sam

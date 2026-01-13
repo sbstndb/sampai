@@ -1,25 +1,12 @@
 #!/usr/bin/env python3
 
 import math
-import os
-import sys
 from pathlib import Path
 
-# Add build directory to path for development
-build_dir = os.path.join(os.path.dirname(__file__), "..", "..", "build", "python")
-if os.path.exists(build_dir):
-    sys.path.insert(0, build_dir)
-
-# Add viz directory to path for matplotlib visualization
-viz_dir = os.path.join(os.path.dirname(__file__), "..", "viz")
-if os.path.exists(viz_dir):
-    sys.path.insert(0, viz_dir)
-
 import matplotlib.pyplot as plt
-import samplotlib as svmpl
 
 import sampai as sam
-from sampai.utils import progress
+from sampai.utils import progress, viz
 
 
 def init_hat(u):
@@ -182,7 +169,7 @@ def main():
         fig, ax = plt.subplots(figsize=(8, 8))
         # Compute initial magnitude
         compute_magnitude(u, u_mag)
-        plotter = svmpl.FieldPlotter(u_mag, ax=ax, cmap='plasma',
+        plotter = viz.FieldPlotter(u_mag, ax=ax, cmap='plasma',
                                      vmin=0.0, vmax=2.0, show_mesh=True)
         plt.pause(0.01)
 

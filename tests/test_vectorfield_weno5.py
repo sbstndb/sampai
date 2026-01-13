@@ -3,19 +3,6 @@
 Test script for VectorField WENO5 convection operators (Burgers equation)
 """
 
-import os
-import sys
-
-# Add the build directory to path
-# Get the project root (2 levels up from tests/ directory)
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-build_path = os.path.join(project_root, '..', 'build', 'python')
-if os.path.exists(build_path):
-    sys.path.insert(0, build_path)
-else:
-    # Fallback: try adding relative to current directory
-    sys.path.insert(0, os.path.join(os.getcwd(), 'build', 'python'))
-
 import numpy as np
 
 import sampai as sam
