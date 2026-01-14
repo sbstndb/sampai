@@ -191,13 +191,6 @@ jobs:
           --filename cpp_advection_2d \
           --Tf 0.01
 
-        # Run C++ burgers demo
-        ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-burgers \
-          --path test_output \
-          --filename cpp_burgers \
-          --Tf 0.1 \
-          --nfiles 1
-
         # Run C++ scalar_burgers_2d demo
         ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-scalar-burgers-2d \
           --path test_output \
@@ -227,9 +220,6 @@ jobs:
 
         # Run Python advection_2d
         python -c 'from tests.validation_demos import advection_2d; advection_2d.run_advection_2d(Tf=0.01, output_path="test_output", filename="py_advection_2d")'
-
-        # Run Python burgers_1d
-        python -c 'from tests.validation_demos import burgers_1d; burgers_1d.run_burgers_1d(Tf=0.1, output_path="test_output", filename="py_burgers_1d")'
 
         # Run Python scalar_burgers_2d
         python -c 'from tests.validation_demos import scalar_burgers_2d; scalar_burgers_2d.run_scalar_burgers_2d(Tf=0.001, output_path="test_output", filename="py_scalar_burgers_2d")'

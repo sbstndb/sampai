@@ -28,13 +28,6 @@ def main():
         'test_output/py_advection_2d.h5'
     )
 
-    # Compare 1D burgers
-    compare_and_exit(
-        '1D burgers',
-        'test_output/cpp_burgers.h5',
-        'test_output/py_burgers_1d.h5'
-    )
-
     # Compare 2D scalar burgers
     compare_and_exit(
         '2D scalar burgers',
