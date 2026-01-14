@@ -8,7 +8,11 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+        python-version: ['3.12']
+    runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout sampai
@@ -17,11 +21,18 @@ jobs:
         path: sampai
 
     - name: Install Miniforge
+      shell: bash
       run: |
-        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+        if [ "${{ runner.os }}" = "macOS" ]; then
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
+          bash Miniforge3-MacOSX-arm64.sh -b -p $HOME/miniforge3
+        else
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+          bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+        fi
 
     - name: Create conda environment with all dependencies
+      shell: bash
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         conda create -n sampai-ci -c conda-forge \
@@ -44,6 +55,7 @@ jobs:
           pybind11
 
     - name: Build sampai with Meson
+      shell: bash
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
@@ -54,6 +66,7 @@ jobs:
         meson compile -C builddir
 
     - name: Run tests
+      shell: bash
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
@@ -67,13 +80,13 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-ubuntu-py312
+        name: test-results-${{ matrix.os }}-py312
         path: |
           sampai/builddir/meson-logs/testlog.txt
           sampai/.pytest_cache/
 
   validation-vs-cpp:
-    # Validate Python outputs against C++ reference files
+    # Validate Python outputs against C++ reference files (Linux only)
     runs-on: ubuntu-22.04
 
     steps:
