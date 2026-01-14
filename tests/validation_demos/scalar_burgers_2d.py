@@ -8,10 +8,10 @@ The goal is to produce identical HDF5 outputs for validation testing.
 C++ parameters:
     - Domain: [0, 1] x [0, 1]
     - Final time: Tf = 0.001 (for testing)
-    - CFL: 0.5
-    - min_level: 2
-    - max_level: 6
-    - Initial solution: circular condition
+    - CFL: 0.05
+    - min_level: 4
+    - max_level: 10
+    - Initial solution: TWO circular conditions (radius=0.1, centers (0.5,0.5) and (0.2,0.2))
     - Scheme: WENO5 convection with RK3 time stepping
     - max_stencil_size: 6
     - BC: Dirichlet(0) on all boundaries
@@ -30,23 +30,33 @@ def _set_level_field(level_field, mesh):
     sam.algorithms.for_each_cell(mesh, set_level)
 
 
-def init_circular(u, center=(0.5, 0.5), radius=0.2):
-    """Initialize field with a circular condition.
+def init_circular(u):
+    """Initialize field with TWO circular conditions (matching C++).
+
+    C++ code: radius=0.1, centers at (0.5, 0.5) and (0.2, 0.2)
+    First circle: u = 1
+    Second circle: u = -1
 
     Args:
         u: ScalarField to initialize
-        center: Center of the circle (x, y)
-        radius: Radius of the circle
     """
-    x_center, y_center = center
-
     def init_cell(cell):
         cx, cy = cell.center()
-        dist_sq = (cx - x_center) * (cx - x_center) + (cy - y_center) * (cy - y_center)
-        if dist_sq <= radius * radius:
+
+        # First circle: (0.5, 0.5), radius=0.1, value=1
+        x_center1, y_center1 = 0.5, 0.5
+        radius = 0.1
+        dist_sq1 = (cx - x_center1) * (cx - x_center1) + (cy - y_center1) * (cy - y_center1)
+        if dist_sq1 <= radius * radius:
             u[cell.index] = 1.0
         else:
             u[cell.index] = 0.0
+
+        # Second circle: (0.2, 0.2), radius=0.1, value=-1
+        x_center2, y_center2 = 0.2, 0.2
+        dist_sq2 = (cx - x_center2) * (cx - x_center2) + (cy - y_center2) * (cy - y_center2)
+        if dist_sq2 <= radius * radius:
+            u[cell.index] = -1.0
 
     sam.algorithms.for_each_cell(u.mesh, init_cell)
 
@@ -55,9 +65,9 @@ def run_scalar_burgers_2d(
     min_corner=(0.0, 0.0),
     max_corner=(1.0, 1.0),
     Tf=0.001,
-    cfl=0.5,
-    min_level=2,
-    max_level=6,
+    cfl=0.05,
+    min_level=4,
+    max_level=10,
     output_path=None,
     filename="test_finite_volume_demo_finite-volume-scalar-burgers-2d-0.001",
 ):
@@ -127,11 +137,11 @@ def run_scalar_burgers_2d(
     # Time stepping setup
     # ============================================================
 
-    dx = mesh.min_cell_length
-    dt = cfl * dx / (2 ** 2)  # pow(2, dim) for dim=2
+    dt = cfl * mesh.min_cell_length
 
     MRadaptation = sam.adaptation.make_MRAdapt(u)
     mra_config = sam.config.MRAConfig()
+    mra_config.epsilon = 2e-4
 
     MRadaptation(mra_config)
 
