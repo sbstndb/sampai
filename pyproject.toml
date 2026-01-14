@@ -105,9 +105,14 @@ progress = [
     "tqdm >=4.60",
 ]
 
+# PETSc dependencies (requires PETSc library installed)
+petsc = [
+    "mpi4py >=3.1",
+]
+
 # All optional dependencies
 all = [
-    "sampai[test,dev,docs,viz,progress]",
+    "sampai[test,dev,docs,viz,progress,petsc]",
 ]
 
 [project.urls]

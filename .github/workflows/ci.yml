@@ -85,6 +85,82 @@ jobs:
           sampai/builddir/meson-logs/testlog.txt
           sampai/.pytest_cache/
 
+  test-petsc:
+    # Test PETSc integration (Linux only, optional)
+    runs-on: ubuntu-22.04
+    continue-on-error: true  # Don't fail the build if PETSc tests fail
+
+    steps:
+    - name: Checkout sampai
+      uses: actions/checkout@v4
+
+    - name: Install Miniforge
+      run: |
+        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+
+    - name: Create conda environment with PETSc
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        conda create -n sampai-petsc -c conda-forge \
+          python=3.12 \
+          xtensor \
+          xtensor-blas \
+          hdf5 \
+          highfive \
+          pugixml \
+          fmt \
+          cli11 \
+          meson-python \
+          meson \
+          ninja \
+          numpy \
+          pytest \
+          pytest-cov \
+          h5py \
+          pybind11 \
+          petsc \
+          mpich
+
+    - name: Build sampai with PETSc
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-petsc
+
+        meson setup builddir -Dwith_petsc=true
+        meson compile -C builddir
+
+    - name: Install mpi4py
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-petsc
+        pip install mpi4py
+
+    - name: Install sampai
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-petsc
+        pip install --no-build-isolation --no-deps -e .
+
+    - name: Run PETSc tests
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-petsc
+        pytest tests/test_petsc.py -v
+
+    - name: Upload PETSc test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: petsc-test-results-ubuntu-py312
+        path: |
+          builddir/meson-logs/testlog.txt
+          .pytest_cache/
+
   validation-vs-cpp:
     # Validate Python outputs against C++ reference files (Linux only)
     runs-on: ubuntu-22.04

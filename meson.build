@@ -34,6 +34,7 @@ project('sampai', 'cpp', 'c',
 # ============================================================================
 
 build_python_tests = get_option('build_python_tests')
+with_petsc = get_option('with_petsc')
 
 message('=== Sampai - Python Interface for Samurai AMR Library ===')
 message('')
@@ -129,6 +130,48 @@ highfive_dep = dependency('highfive', version: '>=2.10', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 pugixml_dep = dependency('pugixml', required: false)
 
+# ============================================================================
+# PETSc DETECTION (Optional)
+# ============================================================================
+
+petsc_found = false
+petsc_dep = dependency('PETSc', required: false, method: 'pkg-config')
+
+# Try CMake if pkg-config failed
+if not petsc_dep.found()
+    petsc_dep = dependency('PETSc', required: false, method: 'cmake')
+endif
+
+# Manual detection as fallback (check environment variables)
+if not petsc_dep.found()
+    petsc_root = run_command('printenv', 'PETSC_DIR', check: false).stdout().strip()
+    if petsc_root != '' and with_petsc
+        petsc_include = include_directories(petsc_root / 'include')
+        petsc_libdir = petsc_root / 'lib'
+        petsc_dep = declare_dependency(
+            include_directories: petsc_include,
+            link_args: ['-L' + petsc_libdir, '-lpetsc', '-lmpi'],
+        )
+        message('PETSc found via PETSC_DIR: @0@'.format(petsc_root))
+        petsc_found = true
+    endif
+else
+    petsc_found = true
+endif
+
+if petsc_dep.found()
+    message('PETSc found: @0@'.format(petsc_dep.version()))
+    petsc_found = true
+else
+    if with_petsc
+        error('PETSc was requested but not found. Try:\n' +
+              '  - conda install -c conda-forge petsc (may need manual PETSC_DIR)\n' +
+              '  - Or set PETSC_DIR environment variable')
+    else
+        message('PETSc not found - building without PETSc support (implicit solvers will not be available)')
+    endif
+endif
+
 message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
@@ -162,6 +205,12 @@ binding_sources = files(
     'src/bindings/io_bindings.cpp',
 )
 
+# Conditionally add PETSc bindings
+if petsc_found
+    binding_sources += files('src/bindings/petsc_bindings.cpp')
+    message('Adding PETSc bindings')
+endif
+
 message('Binding source files: @0@'.format(binding_sources.length()))
 
 # ============================================================================
@@ -177,17 +226,36 @@ py_debug = py.get_variable('Py_DEBUG', false)
 # Build the pybind11 extension module
 # Note: We use _sampai (private) so the Python package can import it
 # The extension module will be installed as _sampai.so alongside sampai/ package
+
+# Prepare dependencies list
+ext_dependencies = [
+    samurai_dep,
+    fmt_dep,
+    cli11_dep,
+    hdf5_dep,
+    highfive_dep,
+    pugixml_dep,
+]
+
+# Add PETSc dependency if found
+if petsc_found
+    ext_dependencies += petsc_dep
+endif
+
+# Prepare C++ arguments
+cpp_args = [
+    '-DNDEBUG',
+]
+
+# Add SAMURAI_WITH_PETSC define if PETSc is found
+if petsc_found
+    cpp_args += '-DSAMURAI_WITH_PETSC'
+endif
+
 pybind11_module = py.extension_module(
     '_sampai',
     binding_sources,
-    dependencies: [
-        samurai_dep,
-        fmt_dep,
-        cli11_dep,
-        hdf5_dep,
-        highfive_dep,
-        pugixml_dep,
-    ],
+    dependencies: ext_dependencies,
     include_directories: [
         pybind11_include,
         include_directories('src'),
@@ -195,9 +263,7 @@ pybind11_module = py.extension_module(
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance
-    cpp_args: [
-        '-DNDEBUG',
-    ],
+    cpp_args: cpp_args,
     # Link with additional dependencies
     link_with: [],
 )
@@ -272,5 +338,10 @@ message('  Python version:      @0@'.format(py_version))
 message('  Module name:         sampai (from _sampai extension)')
 message('  Samurai source:      auto-downloaded from GitHub (header-only)')
 message('  Build tests:         @0@'.format(build_python_tests))
+if petsc_found
+    message('  PETSc:               ENABLED (@0@)'.format(petsc_dep.version()))
+else
+    message('  PETSc:               DISABLED')
+endif
 message('=========================================')
 message('')

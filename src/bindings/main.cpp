@@ -6,6 +6,7 @@
 // - Phase 2: Algorithms (for_each_cell, adapt, BC)
 // - Phase 3: Operators (diffusion, upwind, etc.)
 // - Phase 4: I/O (HDF5 save/load)
+// - Phase 5: PETSc solvers (implicit schemes)
 
 #include <pybind11/pybind11.h>
 
@@ -22,6 +23,11 @@
 #include "mesh_config_bindings.hpp"
 #include "mra_config_bindings.hpp"
 #include "operator_bindings.hpp"
+
+// PETSc bindings (optional - only when SAMURAI_WITH_PETSC is defined)
+#ifdef SAMURAI_WITH_PETSC
+    #include "petsc_bindings.hpp"
+#endif
 
 namespace py = pybind11;
 
@@ -67,7 +73,9 @@ PYBIND11_MODULE(_sampai, m)
            sampai.interval
            sampai.algorithms
            sampai.adaptation
+           sampai.boundary
            sampai.io
+           sampai.petsc
 
         Main Module Functions
         ---------------------
@@ -90,6 +98,7 @@ PYBIND11_MODULE(_sampai, m)
         - `sam.field` - Field types and creation
         - `sam.adaptation` - Mesh adaptation (MRAdapt, update_ghost_mr)
         - `sam.algorithms` - Iteration algorithms (for_each_cell, for_each_interval)
+        - `sam.petsc` - PETSc implicit solvers (optional, requires PETSc)
     )pbdoc";
 
     // Version attribute
@@ -108,6 +117,11 @@ PYBIND11_MODULE(_sampai, m)
     init_mra_config_bindings(m);
     init_adapt_bindings(m);
     init_io_bindings(m);
+
+    // Initialize PETSc bindings (if available)
+#ifdef SAMURAI_WITH_PETSC
+    samurai::python::bindings::init_petsc_bindings(m);
+#endif
 
     // TODO: Add more submodule initializers as they are implemented
     // init_fv_bindings(m);  // Finite volume schemes

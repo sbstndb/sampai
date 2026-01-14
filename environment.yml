@@ -59,3 +59,9 @@ dependencies:
   # Pip packages (if needed from PyPI instead of conda-forge)
   - pip:
       - mypy>=1.0
+
+# Optional PETSc dependencies (uncomment to enable)
+# To use: conda env create -f environment.yml --prune
+# Then manually: conda install -c conda-forge petsc mpich
+# And: pip install mpi4py
+# Or use a separate environment file: environment-petsc.yml
