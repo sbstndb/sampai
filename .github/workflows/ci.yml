@@ -130,6 +130,9 @@ jobs:
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda activate sampai-mpi
 
+        # Set PKG_CONFIG_PATH to find MPI via pkg-config
+        export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+
         cd sampai
         meson setup builddir -Dmpi=true
         meson compile -C builddir
