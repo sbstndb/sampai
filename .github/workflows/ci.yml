@@ -108,15 +108,21 @@ jobs:
           h5py \
           pybind11
 
-    - name: Build sampai Python (this downloads samurai)
+    - name: Download Samurai source (needed for C++ demos)
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda activate sampai-validation
 
         cd sampai
-        meson setup builddir
-        meson compile -C builddir
+        # Download samurai if not already present
+        if [ ! -d "subprojects/samurai/include/samurai" ]; then
+            echo "Downloading Samurai from GitHub..."
+            git clone --depth=1 --single-branch https://github.com/hpc-maths/samurai.git subprojects/samurai
+            echo "Samurai downloaded successfully!"
+        else
+            echo "Samurai already present, skipping download"
+        fi
 
     - name: Build Samurai C++ demos (advection and burgers)
       run: |
@@ -138,6 +144,17 @@ jobs:
 
         # Build only the advection and burgers targets
         cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d finite-volume-burgers finite-volume-scalar-burgers-2d -j4
+
+    - name: Build sampai Python (uses existing samurai)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        # samurai already exists from previous step, so meson setup won't re-download it
+        meson setup builddir
+        meson compile -C builddir
 
     - name: Generate C++ reference files
       run: |
