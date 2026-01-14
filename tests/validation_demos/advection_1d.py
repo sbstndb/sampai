@@ -53,7 +53,7 @@ def run_advection_1d(
     max_level=12,
     epsilon=2e-4,
     output_path=None,
-    filename="FV_advection_1d",
+    filename="test_finite_volume_demo_finite-volume-advection-1d-0.1",
 ):
     """Run 1D advection simulation.
 

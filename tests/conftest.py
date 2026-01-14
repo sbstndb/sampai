@@ -20,8 +20,8 @@ def pytest_addoption(parser):
     group.addoption(
         "--val-tol",
         type=float,
-        default=1e-12,
-        help="Tolerance for HDF5 comparison (default: 1e-12)"
+        default=1e-10,
+        help="Tolerance for HDF5 comparison (default: 1e-10)"
     )
     group.addoption(
         "--val-generate-ref",

@@ -52,7 +52,7 @@ def run_scalar_burgers_2d(
     min_level=2,
     max_level=6,
     output_path=None,
-    filename="scalar_burgers_2D",
+    filename="test_finite_volume_demo_finite-volume-scalar-burgers-2d-0.001",
 ):
     """Run 2D scalar Burgers simulation.
 

@@ -58,7 +58,7 @@ def run_advection_2d(
     max_level=10,
     epsilon=2e-4,
     output_path=None,
-    filename="FV_advection_2d",
+    filename="test_finite_volume_demo_finite-volume-advection-2d-0.01",
 ):
     """Run 2D advection simulation.
 

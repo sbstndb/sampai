@@ -52,7 +52,7 @@ def run_burgers_1d(
     min_level=0,
     max_level=5,
     output_path=None,
-    filename="burgers_1D",
+    filename="test_finite_volume_demo_burgers",
 ):
     """Run 1D Burgers simulation.
 
