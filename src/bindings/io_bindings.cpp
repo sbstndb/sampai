@@ -69,7 +69,16 @@ inline FilePathParts parse_unified_filepath(const py::object& filepath_obj)
 
     // Extract directory and basename
     std::filesystem::path directory = filepath.parent_path();
-    std::string basename            = filepath.stem().string();
+    std::string filename = filepath.filename().string();
+
+    // Remove .h5 extension if present (only at the end)
+    // Note: can't use stem() because it removes everything after the first dot
+    // e.g., "test-0.1.h5" -> stem() = "test-0", but we want "test-0.1"
+    std::string basename = filename;
+    if (basename.size() >= 3 && basename.substr(basename.size() - 3) == ".h5")
+    {
+        basename = basename.substr(0, basename.size() - 3);
+    }
 
     // If no directory, use current directory
     if (directory.empty())

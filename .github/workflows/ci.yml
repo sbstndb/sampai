@@ -8,7 +8,11 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, macos-latest]
+        python-version: ['3.12']
+    runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout sampai
@@ -17,11 +21,18 @@ jobs:
         path: sampai
 
     - name: Install Miniforge
+      shell: bash
       run: |
-        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+        if [ "${{ runner.os }}" = "macOS" ]; then
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-MacOSX-arm64.sh
+          bash Miniforge3-MacOSX-arm64.sh -b -p $HOME/miniforge3
+        else
+          wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+          bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+        fi
 
     - name: Create conda environment with all dependencies
+      shell: bash
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         conda create -n sampai-ci -c conda-forge \
@@ -44,6 +55,7 @@ jobs:
           pybind11
 
     - name: Build sampai with Meson
+      shell: bash
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
@@ -54,6 +66,7 @@ jobs:
         meson compile -C builddir
 
     - name: Run tests
+      shell: bash
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
@@ -61,13 +74,161 @@ jobs:
 
         cd sampai
         pip install --no-build-isolation --no-deps -e .
-        pytest tests/ -v --tb=short
+        pytest tests/ -v --tb=short -m "not requires_cpp_references"
 
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-ubuntu-py312
+        name: test-results-${{ matrix.os }}-py312
         path: |
           sampai/builddir/meson-logs/testlog.txt
+          sampai/.pytest_cache/
+
+  validation-vs-cpp:
+    # Validate Python outputs against C++ reference files (Linux only)
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout sampai
+      uses: actions/checkout@v4
+      with:
+        path: sampai
+
+    - name: Install Miniforge
+      run: |
+        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+
+    - name: Create conda environment
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        conda create -n sampai-validation -c conda-forge \
+          python=3.12 \
+          cmake \
+          ninja \
+          xtensor \
+          xtensor-blas \
+          hdf5 \
+          highfive \
+          pugixml \
+          fmt \
+          cli11 \
+          meson-python \
+          meson \
+          numpy \
+          pytest \
+          h5py \
+          matplotlib \
+          pybind11
+
+    - name: Download Samurai source (needed for C++ demos)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        # Download samurai if not already present
+        if [ ! -d "subprojects/samurai/include/samurai" ]; then
+            echo "Downloading Samurai from GitHub..."
+            git clone --depth=1 --single-branch https://github.com/hpc-maths/samurai.git subprojects/samurai
+            echo "Samurai downloaded successfully!"
+        else
+            echo "Samurai already present, skipping download"
+        fi
+
+    - name: Build Samurai C++ demos (advection and burgers)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        # Configure CMake for samurai - disable MPI, PETSc to save memory
+        cd sampai/subprojects/samurai
+        mkdir -p build
+        cd build
+
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_DEMOS=ON \
+          -DWITH_MPI=OFF \
+          -DWITH_PETSC=OFF \
+          -DWITH_OPENMP=OFF
+
+        # Build only the advection targets (burgers uses unavailable operators)
+        cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d -j4
+
+    - name: Build sampai Python (uses existing samurai)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        # samurai already exists from previous step, so meson setup won't re-download it
+        meson setup builddir
+        meson compile -C builddir
+
+    - name: Generate C++ reference files
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        mkdir -p test_output
+
+        # Run C++ advection_1d demo
+        ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-advection-1d \
+          --path test_output \
+          --filename cpp_advection_1d \
+          --Tf 0.1
+
+        # Run C++ advection_2d demo
+        ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-advection-2d \
+          --path test_output \
+          --filename cpp_advection_2d \
+          --Tf 0.01
+
+    - name: Install sampai Python package
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        pip install --no-build-isolation --no-deps -e .
+
+    - name: Run Python validation demos
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        mkdir -p test_output
+
+        # Run Python advection_1d
+        python -c 'from tests.validation_demos import advection_1d; advection_1d.run_advection_1d(Tf=0.1, output_path="test_output", filename="py_advection_1d")'
+
+        # Run Python advection_2d
+        python -c 'from tests.validation_demos import advection_2d; advection_2d.run_advection_2d(Tf=0.01, output_path="test_output", filename="py_advection_2d")'
+
+    - name: Compare C++ vs Python outputs
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        python scripts/ci_validation_compare.py
+
+    - name: Upload validation results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: validation-results-ubuntu-py312
+        path: |
+          sampai/test_output/
           sampai/.pytest_cache/
