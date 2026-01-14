@@ -108,6 +108,32 @@ except (ImportError, RuntimeError):
     # MPI not enabled or not available
     pass
 
+# Import custom exceptions
+try:
+    from .exceptions import (  # noqa: E402
+        SampaiError,
+        MeshError,
+        FieldError,
+        ConfigError,
+        OperatorError,
+        BoundaryConditionError,
+        AdaptationError,
+        IOError,
+    )
+
+    __all__ += [
+        "SampaiError",
+        "MeshError",
+        "FieldError",
+        "ConfigError",
+        "OperatorError",
+        "BoundaryConditionError",
+        "AdaptationError",
+        "IOError",
+    ]
+except ImportError:
+    pass
+
 # Add 'sam' as an alias to this package for backward compatibility
 # Note: When imported as 'from sampai import sam', 'sam' refers to this package
 sys.modules[__name__ + '.sam'] = sys.modules[__name__]
