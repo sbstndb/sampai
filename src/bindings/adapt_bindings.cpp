@@ -1,4 +1,5 @@
 // Samurai Python Bindings - Multiresolution Adaptation
+#include "exception_bindings.hpp"
 //
 // Bindings for make_MRAdapt and update_ghost_mr functions
 
@@ -49,12 +50,12 @@ class PyAdaptImpl1D : public PyAdaptBase
 
     void call_with_velocity_2d(samurai::mra_config& config, VectorField2D_2& velocity) override
     {
-        throw std::runtime_error("Cannot call 1D Adapt with 2D velocity field");
+        throw make_adaptation_error("Cannot call 1D Adapt with 2D velocity field");
     }
 
     void call_with_velocity_3d(samurai::mra_config& config, VectorField3D_3& velocity) override
     {
-        throw std::runtime_error("Cannot call 1D Adapt with 3D velocity field");
+        throw make_adaptation_error("Cannot call 1D Adapt with 3D velocity field");
     }
 
   private:
@@ -85,7 +86,7 @@ class PyAdaptImpl2D : public PyAdaptBase
 
     void call_with_velocity_3d(samurai::mra_config& config, VectorField3D_3& velocity) override
     {
-        throw std::runtime_error("Cannot call 2D Adapt with 3D velocity field");
+        throw make_adaptation_error("Cannot call 2D Adapt with 3D velocity field");
     }
 
   private:
@@ -111,7 +112,7 @@ class PyAdaptImpl3D : public PyAdaptBase
 
     void call_with_velocity_2d(samurai::mra_config& config, VectorField2D_2& velocity) override
     {
-        throw std::runtime_error("Cannot call 3D Adapt with 2D velocity field");
+        throw make_adaptation_error("Cannot call 3D Adapt with 2D velocity field");
     }
 
     void call_with_velocity_3d(samurai::mra_config& config, VectorField3D_3& velocity) override

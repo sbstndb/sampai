@@ -8,8 +8,12 @@ that can occur when using the Sampai library.
 from typing import Any
 
 
-class SampaiError(Exception):
-    """Base exception class for all Sampai errors."""
+class SampaiError(RuntimeError):
+    """Base exception class for all Sampai errors.
+
+    Inherits from RuntimeError for backward compatibility with existing code
+    that catches RuntimeError.
+    """
 
     pass
 

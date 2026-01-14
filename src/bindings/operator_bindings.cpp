@@ -1,4 +1,5 @@
 // Samurai Python Bindings - Operator functions
+#include "exception_bindings.hpp"
 //
 // Bindings for finite volume operators like upwind, convection_weno5
 
@@ -127,7 +128,7 @@ py::object upwind_2d_py(ScalarField<2>& field, py::sequence velocity_seq, py::ob
 {
     if (len(velocity_seq) != 2)
     {
-        throw std::runtime_error("Velocity must have exactly 2 elements for 2D");
+        throw make_operator_error("Velocity must have exactly 2 elements for 2D");
     }
 
     std::array<double, 2> velocity;
@@ -142,7 +143,7 @@ py::object upwind_3d_py(ScalarField<3>& field, py::sequence velocity_seq, py::ob
 {
     if (len(velocity_seq) != 3)
     {
-        throw std::runtime_error("Velocity must have exactly 3 elements for 3D");
+        throw make_operator_error("Velocity must have exactly 3 elements for 3D");
     }
 
     std::array<double, 3> velocity;
@@ -151,6 +152,84 @@ py::object upwind_3d_py(ScalarField<3>& field, py::sequence velocity_seq, py::ob
     velocity[2] = velocity_seq[2].cast<double>();
 
     return upwind_3d(field, velocity, output_obj);
+}
+
+// -------------------------------------------------------------------------
+// In-place upwind operators (no allocation, for efficient time stepping)
+// -------------------------------------------------------------------------
+
+// 1D upwind operator - in-place version (no allocation)
+void apply_upwind_1d(const ScalarField<1>& input, ScalarField<1>& output, double velocity)
+{
+    // Get the upwind expression (lazy)
+    auto upwind_expr = samurai::upwind(velocity, input);
+
+    // Evaluate directly into output field (single pass, no allocation)
+    samurai::for_each_interval(output.mesh(),
+                               [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                               {
+                                   output(level, interval, index) = upwind_expr(level, interval, index);
+                               });
+}
+
+// 2D upwind operator - in-place version (no allocation)
+void apply_upwind_2d(const ScalarField<2>& input, ScalarField<2>& output, const std::array<double, 2>& velocity)
+{
+    // Get the upwind expression (lazy)
+    auto upwind_expr = samurai::upwind(velocity, input);
+
+    // Evaluate directly into output field (single pass, no allocation)
+    samurai::for_each_interval(output.mesh(),
+                               [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                               {
+                                   output(level, interval, index) = upwind_expr(level, interval, index);
+                               });
+}
+
+// 3D upwind operator - in-place version (no allocation)
+void apply_upwind_3d(const ScalarField<3>& input, ScalarField<3>& output, const std::array<double, 3>& velocity)
+{
+    // Get the upwind expression (lazy)
+    auto upwind_expr = samurai::upwind(velocity, input);
+
+    // Evaluate directly into output field (single pass, no allocation)
+    samurai::for_each_interval(output.mesh(),
+                               [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                               {
+                                   output(level, interval, index) = upwind_expr(level, interval, index);
+                               });
+}
+
+// Convenience wrapper accepting Python list/tuple for velocity (2D) - in-place version
+void apply_upwind_2d_py(const ScalarField<2>& input, ScalarField<2>& output, py::sequence velocity_seq)
+{
+    if (len(velocity_seq) != 2)
+    {
+        throw make_operator_error("Velocity must have exactly 2 elements for 2D");
+    }
+
+    std::array<double, 2> velocity;
+    velocity[0] = velocity_seq[0].cast<double>();
+    velocity[1] = velocity_seq[1].cast<double>();
+
+    apply_upwind_2d(input, output, velocity);
+}
+
+// Convenience wrapper accepting Python list/tuple for velocity (3D) - in-place version
+void apply_upwind_3d_py(const ScalarField<3>& input, ScalarField<3>& output, py::sequence velocity_seq)
+{
+    if (len(velocity_seq) != 3)
+    {
+        throw make_operator_error("Velocity must have exactly 3 elements for 3D");
+    }
+
+    std::array<double, 3> velocity;
+    velocity[0] = velocity_seq[0].cast<double>();
+    velocity[1] = velocity_seq[1].cast<double>();
+    velocity[2] = velocity_seq[2].cast<double>();
+
+    apply_upwind_3d(input, output, velocity);
+>>>>>>> 1b8d8d5 (feat(exceptions): replace std::runtime_error with custom exceptions in all bindings)
 }
 
 // -------------------------------------------------------------------------
@@ -271,7 +350,7 @@ py::object convection_weno5_linear_2d_py(ScalarField<2>& field, py::sequence vel
 {
     if (len(velocity_seq) != 2)
     {
-        throw std::runtime_error("Velocity must have exactly 2 elements for 2D");
+        throw make_operator_error("Velocity must have exactly 2 elements for 2D");
     }
 
     std::array<double, 2> velocity;
@@ -311,7 +390,7 @@ py::object convection_weno5_linear_3d_py(ScalarField<3>& field, py::sequence vel
 {
     if (len(velocity_seq) != 3)
     {
-        throw std::runtime_error("Velocity must have exactly 3 elements for 3D");
+        throw make_operator_error("Velocity must have exactly 3 elements for 3D");
     }
 
     std::array<double, 3> velocity;

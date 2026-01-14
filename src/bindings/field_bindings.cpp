@@ -18,6 +18,8 @@
 #include "common_types.hpp"
 #include "field_arithmetic.hpp"
 
+#include "exception_bindings.hpp"
+
 namespace py = pybind11;
 
 // Use centralized type aliases from common_types.hpp
@@ -1013,7 +1015,7 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
         {
             if (values.size() != n_comp)
             {
-                throw std::runtime_error("Expected " + std::to_string(n_comp) + " values, got " + std::to_string(values.size()));
+                throw make_field_error("Expected " + std::to_string(n_comp) + " values, got " + std::to_string(values.size()));
             }
             std::vector<value_t> vals;
             for (std::size_t i = 0; i < n_comp; ++i)
@@ -1142,7 +1144,7 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
             }
             else
             {
-                throw std::runtime_error("Invalid axis: '" + axis + "'. Use 'components' for per-component sum.");
+                throw make_field_error("Invalid axis: '" + axis + "'. Use 'components' for per-component sum.");
             }
         },
         py::arg("axis"),
@@ -1345,7 +1347,7 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
         {
             if (values.size() != n_comp)
             {
-                throw std::runtime_error("Expected " + std::to_string(n_comp) + " values, got " + std::to_string(values.size()));
+                throw make_field_error("Expected " + std::to_string(n_comp) + " values, got " + std::to_string(values.size()));
             }
 
             std::vector<value_t> vals;
@@ -1696,7 +1698,7 @@ void init_field_bindings(py::module_& m)
             }
             else
             {
-                throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+                throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
             }
         },
         py::arg("mesh"),
@@ -1746,7 +1748,7 @@ void init_field_bindings(py::module_& m)
             }
             else
             {
-                throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+                throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
             }
         },
         py::arg("mesh"),
@@ -1772,7 +1774,7 @@ void init_field_bindings(py::module_& m)
             }
             else
             {
-                throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+                throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
             }
         },
         py::arg("mesh"),
@@ -2026,7 +2028,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2044,7 +2046,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2062,7 +2064,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2124,7 +2126,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2142,7 +2144,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2160,7 +2162,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2200,7 +2202,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2218,7 +2220,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2236,7 +2238,7 @@ void init_field_bindings(py::module_& m)
         }
         else
         {
-            throw std::runtime_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
+            throw make_field_error("n_components must be 2 or 3, got: " + std::to_string(n_components));
         }
     };
 
@@ -2320,7 +2322,7 @@ void init_field_bindings(py::module_& m)
             }
             else
             {
-                throw std::runtime_error("zeros_like_vector: argument must be a VectorField");
+                throw make_field_error("zeros_like_vector: argument must be a VectorField");
             }
         },
         py::arg("other"),
