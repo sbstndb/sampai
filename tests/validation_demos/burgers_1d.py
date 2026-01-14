@@ -153,9 +153,17 @@ def run_burgers_1d(
     # C++: save(...);  // initial save
     MRadaptation(mra_config)
 
-    # Save initial state
+    # C++: Create and populate level field for visualization
+    level = sam.field.scalar(mesh, "level", init=0)
+
+    def set_level(cell):
+        level[cell.index] = cell.level
+
+    sam.algorithms.for_each_cell(mesh, set_level)
+
+    # Save initial state (including level field)
     init_filepath = str(output_path / f"{filename}_init")
-    sam.save(init_filepath, u)
+    sam.save(init_filepath, u, level)
 
     # Also save restart file
     restart_filepath = str(output_path / f"{filename}_restart_init")
@@ -210,8 +218,14 @@ def run_burgers_1d(
 
         # Save at final time
         if t >= Tf:
+            # Re-populate level field (mesh may have changed due to MRadaptation)
+            def set_level_final(cell):
+                level[cell.index] = cell.level
+
+            sam.algorithms.for_each_cell(mesh, set_level_final)
+
             save_filepath = str(output_path / filename)
-            sam.save(save_filepath, u)
+            sam.save(save_filepath, u, level)
 
             restart_filepath_final = str(output_path / f"{filename}_restart")
             sam.dump(restart_filepath_final, u)
