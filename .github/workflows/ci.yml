@@ -108,6 +108,16 @@ jobs:
           h5py \
           pybind11
 
+    - name: Build sampai Python (this downloads samurai)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-validation
+
+        cd sampai
+        meson setup builddir
+        meson compile -C builddir
+
     - name: Build Samurai C++ demos (advection and burgers)
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
@@ -164,15 +174,13 @@ jobs:
           --filename cpp_scalar_burgers_2d \
           --Tf 0.001
 
-    - name: Build sampai Python
+    - name: Install sampai Python package
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda activate sampai-validation
 
         cd sampai
-        meson setup builddir
-        meson compile -C builddir
         pip install --no-build-isolation --no-deps -e .
 
     - name: Run Python validation demos
