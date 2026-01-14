@@ -125,7 +125,6 @@ jobs:
         conda activate sampai-validation
 
         # Configure CMake for samurai - disable MPI, PETSc to save memory
-        # Build only FiniteVolume/advection and burgers demos
         cd sampai/subprojects/samurai
         mkdir -p build
         cd build
@@ -134,9 +133,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DWITH_MPI=OFF \
           -DWITH_PETSC=OFF \
-          -DWITH_OPENMP=OFF \
-          -DSAMURAI_BUILD_DEMOS=ON \
-          -DBUILD_ONLY_DEMOS="advection_1d;advection_2d;burgers;scalar_burgers_2d"
+          -DWITH_OPENMP=OFF
 
         # Build only the advection and burgers targets
         cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d finite-volume-burgers finite-volume-scalar-burgers-2d -j4
