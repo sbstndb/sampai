@@ -34,6 +34,7 @@ project('sampai', 'cpp', 'c',
 # ============================================================================
 
 build_python_tests = get_option('build_python_tests')
+enable_mpi = get_option('mpi')
 
 message('=== Sampai - Python Interface for Samurai AMR Library ===')
 message('')
@@ -129,6 +130,49 @@ highfive_dep = dependency('highfive', version: '>=2.10', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 pugixml_dep = dependency('pugixml', required: false)
 
+# ============================================================================
+# MPI DETECTION (optional)
+# ============================================================================
+# Get C++ compiler for finding libraries
+cpp = meson.get_compiler('cpp')
+
+mpi_dep = dependency('mpi', required: enable_mpi)
+
+# Find boost-mpi and boost-serialization libraries explicitly
+# Using find_library is more reliable than dependency() for MPI
+boost_mpi_lib = cpp.find_library('boost_mpi', required: false)
+boost_serialization_lib = cpp.find_library('boost_serialization', required: false)
+
+# Combine into a dependency-like object
+if boost_mpi_lib.found() and boost_serialization_lib.found()
+    boost_mpi_dep = declare_dependency(
+        link_args: ['-lboost_mpi', '-lboost_serialization']
+    )
+    message('Found boost-mpi and boost-serialization libraries')
+else
+    boost_mpi_dep = declare_dependency()
+    warning('boost-mpi or boost-serialization not found - MPI support may be limited')
+endif
+
+has_mpi = enable_mpi and mpi_dep.found()
+
+# Collect cpp_args for conditional compilation
+extra_cpp_args = []
+
+if has_mpi
+    message('')
+    message('=== MPI Support Enabled ===')
+    message('MPI library: @0@'.format(mpi_dep.name()))
+    if boost_mpi_dep.found()
+        message('Boost.MPI: found')
+    else
+        warning('Boost.MPI not found - MPI support may be limited')
+    endif
+
+    # Define SAMURAI_WITH_MPI for conditional compilation
+    extra_cpp_args += '-DSAMURAI_WITH_MPI'
+endif
+
 message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
@@ -140,12 +184,18 @@ endif
 if hdf5_dep.found()
     message('hdf5: @0@'.format(hdf5_dep.version()))
 endif
+if has_mpi
+    message('MPI: ENABLED (@0@)'.format(mpi_dep.name()))
+else
+    message('MPI: DISABLED (use -Dmpi=true to enable)')
+endif
 message('')
 
 # ============================================================================
 # COLLECT SOURCE FILES
 # ============================================================================
 
+# Core binding sources (always included)
 binding_sources = files(
     'src/bindings/main.cpp',
     'src/bindings/box_bindings.cpp',
@@ -162,6 +212,12 @@ binding_sources = files(
     'src/bindings/io_bindings.cpp',
 )
 
+# Add MPI bindings if enabled
+if has_mpi
+    binding_sources += files('src/bindings/mpi_bindings.cpp')
+    message('MPI bindings: ENABLED')
+endif
+
 message('Binding source files: @0@'.format(binding_sources.length()))
 
 # ============================================================================
@@ -177,17 +233,39 @@ py_debug = py.get_variable('Py_DEBUG', false)
 # Build the pybind11 extension module
 # Note: We use _sampai (private) so the Python package can import it
 # The extension module will be installed as _sampai.so alongside sampai/ package
+
+# Collect all dependencies
+all_dependencies = [
+    samurai_dep,
+    fmt_dep,
+    cli11_dep,
+    hdf5_dep,
+    highfive_dep,
+    pugixml_dep,
+]
+
+# Add MPI dependencies if enabled
+if has_mpi
+    all_dependencies += [mpi_dep]
+    if boost_mpi_dep.found()
+        all_dependencies += [boost_mpi_dep]
+    endif
+endif
+
+# Collect all cpp_args
+all_cpp_args = [
+    '-DNDEBUG',
+]
+
+# Add MPI-specific cpp_args
+if has_mpi
+    all_cpp_args += extra_cpp_args
+endif
+
 pybind11_module = py.extension_module(
     '_sampai',
     binding_sources,
-    dependencies: [
-        samurai_dep,
-        fmt_dep,
-        cli11_dep,
-        hdf5_dep,
-        highfive_dep,
-        pugixml_dep,
-    ],
+    dependencies: all_dependencies,
     include_directories: [
         pybind11_include,
         include_directories('src'),
@@ -195,9 +273,7 @@ pybind11_module = py.extension_module(
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance
-    cpp_args: [
-        '-DNDEBUG',
-    ],
+    cpp_args: all_cpp_args,
     # Link with additional dependencies
     link_with: [],
 )
@@ -247,6 +323,15 @@ py.install_sources(
     'src/sampai/utils/progress/stats.py',
     subdir: 'sampai/utils/progress',
 )
+
+# Install MPI subpackage (if enabled)
+if has_mpi
+    py.install_sources(
+        'src/sampai/mpi/__init__.py',
+        'src/sampai/mpi/comm.py',
+        subdir: 'sampai/mpi',
+    )
+endif
 
 # ============================================================================
 # COPY PYTHON UTILITIES TO BUILD DIRECTORY (for development)

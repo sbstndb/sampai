@@ -3,6 +3,7 @@
 # Usage:
 #   meson setup builddir
 #   meson configure builddir -Dbuild_python_tests=true
+#   meson setup builddir -Dmpi=true  # Enable MPI support
 
 option('build_python_tests',
     type: 'boolean',
@@ -14,4 +15,10 @@ option('tests',
     type: 'feature',
     value: 'auto',
     description: 'Build tests (for meson-python compatibility)'
+)
+
+option('mpi',
+    type: 'boolean',
+    value: false,
+    description: 'Enable MPI support for distributed memory parallelization'
 )

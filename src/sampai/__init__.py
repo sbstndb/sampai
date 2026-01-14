@@ -14,8 +14,9 @@ try:
     import _sampai as _compiled_module
 
     # Copy all public symbols from compiled module to this package namespace
+    # Exclude 'mpi' to avoid conflicts with the sampai.mpi Python module
     for attr_name in dir(_compiled_module):
-        if not attr_name.startswith('_'):
+        if not attr_name.startswith('_') and attr_name != 'mpi':
             globals()[attr_name] = getattr(_compiled_module, attr_name)
 
     # Copy __version__ even though it starts with __
@@ -39,6 +40,14 @@ try:
 except ImportError:
     # Utils not available (e.g., during documentation generation)
     __all__ = []
+
+# Try to import MPI module if available
+try:
+    from . import mpi  # noqa: E402
+    __all__.append("mpi")
+except (ImportError, RuntimeError):
+    # MPI not enabled or not available
+    pass
 
 # Add 'sam' as an alias to this package for backward compatibility
 # Note: When imported as 'from sampai import sam', 'sam' refers to this package
