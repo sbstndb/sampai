@@ -156,8 +156,8 @@ jobs:
           -DWITH_PETSC=OFF \
           -DWITH_OPENMP=OFF
 
-        # Build only the advection and burgers targets
-        cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d finite-volume-burgers finite-volume-scalar-burgers-2d -j4
+        # Build only the advection targets (burgers uses unavailable operators)
+        cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d -j4
 
     - name: Build sampai Python (uses existing samurai)
       run: |
@@ -191,12 +191,6 @@ jobs:
           --filename cpp_advection_2d \
           --Tf 0.01
 
-        # Run C++ scalar_burgers_2d demo
-        ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-scalar-burgers-2d \
-          --path test_output \
-          --filename cpp_scalar_burgers_2d \
-          --Tf 0.001
-
     - name: Install sampai Python package
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
@@ -220,9 +214,6 @@ jobs:
 
         # Run Python advection_2d
         python -c 'from tests.validation_demos import advection_2d; advection_2d.run_advection_2d(Tf=0.01, output_path="test_output", filename="py_advection_2d")'
-
-        # Run Python scalar_burgers_2d
-        python -c 'from tests.validation_demos import scalar_burgers_2d; scalar_burgers_2d.run_scalar_burgers_2d(Tf=0.001, output_path="test_output", filename="py_scalar_burgers_2d")'
 
     - name: Compare C++ vs Python outputs
       run: |

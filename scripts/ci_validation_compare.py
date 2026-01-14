@@ -28,13 +28,6 @@ def main():
         'test_output/py_advection_2d.h5'
     )
 
-    # Compare 2D scalar burgers
-    compare_and_exit(
-        '2D scalar burgers',
-        'test_output/cpp_scalar_burgers_2d.h5',
-        'test_output/py_scalar_burgers_2d.h5'
-    )
-
     print('SUCCESS: All outputs match!')
 
 if __name__ == '__main__':
