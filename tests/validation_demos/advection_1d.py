@@ -142,17 +142,17 @@ def run_advection_1d(
     # C++: save(path, filename, u, "_init");
     MRadaptation(mra_config)
 
-    # C++: Create and populate level field for visualization
-    level = sam.field.scalar(mesh, "level", init=0)
+    # Save initial state (C++ creates level field fresh for each save)
+    def save_with_level(filepath, field):
+        """Helper to save field with level field (like C++ save function)."""
+        level = sam.field.scalar(mesh, "level", init=0)
+        def set_level(cell):
+            level[cell.index] = cell.level
+        sam.algorithms.for_each_cell(mesh, set_level)
+        sam.save(filepath, field, level)
 
-    def set_level(cell):
-        level[cell.index] = cell.level
-
-    sam.algorithms.for_each_cell(mesh, set_level)
-
-    # Save initial state (C++ saves with "_init" suffix, including level field)
     init_filepath = str(output_path / f"{filename}_init")
-    sam.save(init_filepath, u, level)
+    save_with_level(init_filepath, u)
 
     # Also save restart file (C++: dump(..., "_restart_init"))
     restart_filepath = str(output_path / f"{filename}_restart_init")
@@ -203,15 +203,8 @@ def run_advection_1d(
         if t >= Tf:
             # C++: const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             # With nfiles=1, suffix = ""
-
-            # C++: Re-populate level field (mesh may have changed due to MRadaptation)
-            def set_level_final(cell):
-                level[cell.index] = cell.level
-
-            sam.algorithms.for_each_cell(mesh, set_level_final)
-
             save_filepath = str(output_path / filename)
-            sam.save(save_filepath, u, level)
+            save_with_level(save_filepath, u)
 
             # C++: Also dump restart file at final time
             restart_filepath_final = str(output_path / f"{filename}_restart")
