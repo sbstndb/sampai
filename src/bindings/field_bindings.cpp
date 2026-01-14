@@ -678,11 +678,11 @@ void bind_scalar_field(py::module_& m, const std::string& name)
                 result_arr = xt::cos(field_arr);
             else if (ufunc_name == "tan")
                 result_arr = xt::tan(field_arr);
-            else if (ufunc_name == "asin")
+            else if (ufunc_name == "asin" || ufunc_name == "arcsin")
                 result_arr = xt::asin(field_arr);
-            else if (ufunc_name == "acos")
+            else if (ufunc_name == "acos" || ufunc_name == "arccos")
                 result_arr = xt::acos(field_arr);
-            else if (ufunc_name == "atan")
+            else if (ufunc_name == "atan" || ufunc_name == "arctan")
                 result_arr = xt::atan(field_arr);
             else if (ufunc_name == "sinh")
                 result_arr = xt::sinh(field_arr);
@@ -728,6 +728,8 @@ void bind_scalar_field(py::module_& m, const std::string& name)
                 result_arr = xt::rint(field_arr);
             else if (ufunc_name == "negative")
                 result_arr = -field_arr;
+            else if (ufunc_name == "positive")
+                result_arr = field_arr;  // Identity operation
             else if (ufunc_name == "reciprocal")
                 result_arr = 1.0 / field_arr;
             else
@@ -2049,11 +2051,11 @@ void bind_vector_field(py::module_& m, const std::string& name)
                 result_arr = xt::cos(field_arr);
             else if (ufunc_name == "tan")
                 result_arr = xt::tan(field_arr);
-            else if (ufunc_name == "asin")
+            else if (ufunc_name == "asin" || ufunc_name == "arcsin")
                 result_arr = xt::asin(field_arr);
-            else if (ufunc_name == "acos")
+            else if (ufunc_name == "acos" || ufunc_name == "arccos")
                 result_arr = xt::acos(field_arr);
-            else if (ufunc_name == "atan")
+            else if (ufunc_name == "atan" || ufunc_name == "arctan")
                 result_arr = xt::atan(field_arr);
             else if (ufunc_name == "sinh")
                 result_arr = xt::sinh(field_arr);
@@ -2099,6 +2101,8 @@ void bind_vector_field(py::module_& m, const std::string& name)
                 result_arr = xt::rint(field_arr);
             else if (ufunc_name == "negative")
                 result_arr = -field_arr;
+            else if (ufunc_name == "positive")
+                result_arr = field_arr;  // Identity operation
             else if (ufunc_name == "reciprocal")
                 result_arr = 1.0 / field_arr;
             else
