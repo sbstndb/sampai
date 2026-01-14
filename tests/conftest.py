@@ -36,13 +36,13 @@ def val_tol(request):
     return request.config.getoption("--val-tol")
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def val_generate_ref(request):
     """Check if we're generating reference files."""
     return request.config.getoption("--val-generate-ref")
 
 
-@pytest.fixture
+@pytest.fixture(scope="class")
 def val_output_dir(val_generate_ref):
     """
     Get output directory for validation tests.
