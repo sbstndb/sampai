@@ -1,0 +1,57 @@
+# Sampai Development Environment with PETSc Support
+#
+# Usage:
+#   conda env create -f environment-petsc.yml
+#   conda activate sampai
+
+name: sampai-petsc
+
+channels:
+  - conda-forge
+
+dependencies:
+  # Core C++ dependencies (samurai headers are auto-downloaded from GitHub)
+  - xtensor
+  - xtensor-blas
+  - hdf5
+  - highfive
+  - pugixml
+  - fmt
+  - cli11
+
+  # Python dependencies for sampai
+  - python>=3.9
+  - numpy>=1.20
+  - pybind11>=2.13
+
+  # Build tools
+  - meson>=0.64
+  - ninja>=1.10
+
+  # Development tools
+  - pip
+  - build
+
+  # Testing
+  - pytest>=7.0
+  - pytest-cov>=3.0
+
+  # Optional: HDF5 support
+  - h5py>=3.0
+
+  # Optional: Visualization
+  - matplotlib>=3.0
+
+  # Code quality
+  - black>=22.0
+  - isort>=5.0
+  - ruff>=0.1.0
+
+  # PETSc and MPI dependencies
+  - petsc>=3.20
+  - mpich
+
+  # Pip packages
+  - pip:
+      - mypy>=1.0
+      - mpi4py>=3.1
