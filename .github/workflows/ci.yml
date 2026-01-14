@@ -131,6 +131,7 @@ jobs:
 
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_DEMOS=ON \
           -DWITH_MPI=OFF \
           -DWITH_PETSC=OFF \
           -DWITH_OPENMP=OFF
