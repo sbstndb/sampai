@@ -136,7 +136,39 @@ pugixml_dep = dependency('pugixml', required: false)
 # Get C++ compiler for finding libraries
 cpp = meson.get_compiler('cpp')
 
-mpi_dep = dependency('mpi', required: enable_mpi)
+# Try to find MPI via dependency() first (works with system MPI)
+mpi_dep = dependency('mpi', required: false)
+
+# If not found, try finding MPI libraries explicitly (works with conda-forge)
+if not mpi_dep.found() and enable_mpi
+    mpi_lib = cpp.find_library('mpi', required: false)
+    mpi_cxx_lib = cpp.find_library('mpi_cxx', required: false)
+
+    if mpi_lib.found()
+        # Build link args conditionally (mpi_cxx may not exist in conda-forge)
+        link_args = ['-lmpi']
+        deps = [mpi_lib]
+
+        if mpi_cxx_lib.found()
+            link_args += ['-lmpi_cxx']
+            deps += [mpi_cxx_lib]
+            message('Found MPI C++ library')
+        else
+            message('MPI C++ library not found (using C bindings only)')
+        endif
+
+        mpi_dep = declare_dependency(
+            link_args: link_args,
+            dependencies: deps
+        )
+        message('Found MPI libraries via explicit search')
+    endif
+endif
+
+# Still not found and MPI is required?
+if enable_mpi and not mpi_dep.found()
+    error('MPI requested but not found. Install system MPI or conda-forge openmpi')
+endif
 
 # Find boost-mpi and boost-serialization libraries explicitly
 # Using find_library is more reliable than dependency() for MPI
