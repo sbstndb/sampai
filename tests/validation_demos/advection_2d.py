@@ -23,6 +23,13 @@ from pathlib import Path
 import sampai as sam
 
 
+def _set_level_field(level_field, mesh):
+    """Helper: populate level field from mesh cells."""
+    def set_level(cell):
+        level_field[cell.index] = cell.level
+    sam.algorithms.for_each_cell(mesh, set_level)
+
+
 def init_circular(u, center=(0.3, 0.3), radius=0.2):
     """Initialize field with a circular condition.
 
@@ -153,16 +160,10 @@ def run_advection_2d(
     MRadaptation(mra_config)
 
     # Save initial state (C++ creates level field fresh for each save)
-    def save_with_level(filepath, field):
-        """Helper to save field with level field (like C++ save function)."""
-        level = sam.field.scalar(mesh, "level", init=0)
-        def set_level(cell):
-            level[cell.index] = cell.level
-        sam.algorithms.for_each_cell(mesh, set_level)
-        sam.save(filepath, field, level)
-
     init_filepath = str(output_path / f"{filename}_init")
-    save_with_level(init_filepath, u)
+    level = sam.field.scalar(mesh, "level", init=0)
+    _set_level_field(level, mesh)
+    sam.save(init_filepath, u, level)
 
     # Also save restart file (C++: dump(..., "_restart_init"))
     restart_filepath = str(output_path / f"{filename}_restart_init")
@@ -210,8 +211,11 @@ def run_advection_2d(
         if t >= Tf:
             # C++: const std::string suffix = (nfiles != 1) ? fmt::format("_ite_{}", nsave++) : "";
             # With nfiles=1, suffix = ""
+            # C++: save() function creates a fresh level field for each save
             save_filepath = str(output_path / filename)
-            save_with_level(save_filepath, u)
+            level = sam.field.scalar(mesh, "level", init=0)
+            _set_level_field(level, mesh)
+            sam.save(save_filepath, u, level)
 
             # C++: Also dump restart file at final time
             restart_filepath_final = str(output_path / f"{filename}_restart")

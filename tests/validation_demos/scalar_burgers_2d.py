@@ -23,6 +23,13 @@ from pathlib import Path
 import sampai as sam
 
 
+def _set_level_field(level_field, mesh):
+    """Helper: populate level field from mesh cells."""
+    def set_level(cell):
+        level_field[cell.index] = cell.level
+    sam.algorithms.for_each_cell(mesh, set_level)
+
+
 def init_circular(u, center=(0.5, 0.5), radius=0.2):
     """Initialize field with a circular condition.
 
@@ -129,16 +136,10 @@ def run_scalar_burgers_2d(
     MRadaptation(mra_config)
 
     # Save initial state (C++ creates level field fresh for each save)
-    def save_with_level(filepath, field):
-        """Helper to save field with level field (like C++ save function)."""
-        level = sam.field.scalar(mesh, "level", init=0)
-        def set_level(cell):
-            level[cell.index] = cell.level
-        sam.algorithms.for_each_cell(mesh, set_level)
-        sam.save(filepath, field, level)
-
     init_filepath = str(output_path / f"{filename}_init")
-    save_with_level(init_filepath, u)
+    level = sam.field.scalar(mesh, "level", init=0)
+    _set_level_field(level, mesh)
+    sam.save(init_filepath, u, level)
 
     restart_filepath = str(output_path / f"{filename}_restart_init")
     sam.dump(restart_filepath, u)
@@ -175,8 +176,11 @@ def run_scalar_burgers_2d(
 
         # Save at final time
         if t >= Tf:
+            # C++: save() function creates a fresh level field for each save
             save_filepath = str(output_path / filename)
-            save_with_level(save_filepath, u)
+            level = sam.field.scalar(mesh, "level", init=0)
+            _set_level_field(level, mesh)
+            sam.save(save_filepath, u, level)
 
             restart_filepath_final = str(output_path / f"{filename}_restart")
             sam.dump(restart_filepath_final, u)
