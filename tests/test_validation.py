@@ -61,6 +61,7 @@ def scalar_burgers_2d_output(val_output_dir, val_generate_ref):
 # Test classes using shared fixtures
 # ============================================================================
 
+@pytest.mark.requires_cpp_references
 class TestAdvection1D:
     """Test 1D advection against C++ reference."""
 
@@ -111,6 +112,7 @@ class TestAdvection1D:
         assert identical, f"Python and C++ outputs differ beyond tolerance {val_tol}"
 
 
+@pytest.mark.requires_cpp_references
 class TestAdvection2D:
     """Test 2D advection against C++ reference."""
 
@@ -157,6 +159,7 @@ class TestAdvection2D:
         assert identical, f"Python and C++ outputs differ beyond tolerance {val_tol}"
 
 
+@pytest.mark.requires_cpp_references
 class TestBurgers1D:
     """Test 1D Burgers against C++ reference."""
 
@@ -182,6 +185,7 @@ class TestBurgers1D:
         assert identical, f"Python and C++ outputs differ beyond tolerance {val_tol}"
 
 
+@pytest.mark.requires_cpp_references
 class TestScalarBurgers2D:
     """Test 2D scalar Burgers against C++ reference."""
 

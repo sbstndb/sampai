@@ -61,7 +61,7 @@ jobs:
 
         cd sampai
         pip install --no-build-isolation --no-deps -e .
-        pytest tests/ -v --tb=short
+        pytest tests/ -v --tb=short -m "not requires_cpp_references"
 
     - name: Upload test results
       if: always()
@@ -106,6 +106,7 @@ jobs:
           numpy \
           pytest \
           h5py \
+          matplotlib \
           pybind11
 
     - name: Download Samurai source (needed for C++ demos)

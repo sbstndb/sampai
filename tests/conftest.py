@@ -14,6 +14,14 @@ from pathlib import Path
 import pytest
 
 
+def pytest_configure(config):
+    """Register custom pytest markers."""
+    config.addinivalue_line(
+        "markers",
+        "requires_cpp_references: tests that require C++ reference files (only run in validation-vs-cpp job)"
+    )
+
+
 def pytest_addoption(parser):
     """Add custom command-line options for validation tests."""
     group = parser.getgroup("validation", "Validation tests vs C++")
