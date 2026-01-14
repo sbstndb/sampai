@@ -645,6 +645,128 @@ void bind_scalar_field(py::module_& m, const std::string& name)
         "Returns zero-copy NumPy view of field data");
 
     // ============================================================
+    // NumPy __array_ufunc__ protocol for ufunc interoperability
+    // ============================================================
+    cls.def(
+        "__array_ufunc__",
+        [](Field& field, py::object ufunc, py::object method, py::args inputs, py::kwargs kwargs) -> Field
+        {
+            // Get the ufunc name to dispatch
+            std::string ufunc_name = ufunc.attr("__name__").cast<std::string>();
+
+            // Only handle unary ufuncs with single field input
+            if (inputs.size() != 1)
+            {
+                throw py::type_error("ufunc with multiple inputs not supported");
+            }
+
+            // Get mesh reference
+            auto& mesh = const_cast<typename Field::mesh_t&>(field.mesh());
+
+            // Create result field with zero initialization (ghost cells will be 0.0)
+            auto result = samurai::make_scalar_field<double>(field.name() + "_" + ufunc_name, mesh, 0.0);
+
+            // Get xtensor array views
+            auto& field_arr = field.array();
+            auto& result_arr = result.array();
+
+            // Dispatch based on ufunc name using xtensor
+            // Note: We iterate over all elements (real + ghost cells) for efficiency
+            if (ufunc_name == "sin")
+                result_arr = xt::sin(field_arr);
+            else if (ufunc_name == "cos")
+                result_arr = xt::cos(field_arr);
+            else if (ufunc_name == "tan")
+                result_arr = xt::tan(field_arr);
+            else if (ufunc_name == "asin")
+                result_arr = xt::asin(field_arr);
+            else if (ufunc_name == "acos")
+                result_arr = xt::acos(field_arr);
+            else if (ufunc_name == "atan")
+                result_arr = xt::atan(field_arr);
+            else if (ufunc_name == "sinh")
+                result_arr = xt::sinh(field_arr);
+            else if (ufunc_name == "cosh")
+                result_arr = xt::cosh(field_arr);
+            else if (ufunc_name == "tanh")
+                result_arr = xt::tanh(field_arr);
+            else if (ufunc_name == "asinh")
+                result_arr = xt::asinh(field_arr);
+            else if (ufunc_name == "acosh")
+                result_arr = xt::acosh(field_arr);
+            else if (ufunc_name == "atanh")
+                result_arr = xt::atanh(field_arr);
+            else if (ufunc_name == "exp")
+                result_arr = xt::exp(field_arr);
+            else if (ufunc_name == "expm1")
+                result_arr = xt::expm1(field_arr);
+            else if (ufunc_name == "log")
+                result_arr = xt::log(field_arr);
+            else if (ufunc_name == "log10")
+                result_arr = xt::log10(field_arr);
+            else if (ufunc_name == "log2")
+                result_arr = xt::log2(field_arr);
+            else if (ufunc_name == "log1p")
+                result_arr = xt::log1p(field_arr);
+            else if (ufunc_name == "sqrt")
+                result_arr = xt::sqrt(field_arr);
+            else if (ufunc_name == "cbrt")
+                result_arr = xt::cbrt(field_arr);
+            else if (ufunc_name == "square")
+                result_arr = xt::square(field_arr);
+            else if (ufunc_name == "abs" || ufunc_name == "fabs" || ufunc_name == "absolute")
+                result_arr = xt::fabs(field_arr);
+            else if (ufunc_name == "sign")
+                result_arr = xt::sign(field_arr);
+            else if (ufunc_name == "floor")
+                result_arr = xt::floor(field_arr);
+            else if (ufunc_name == "ceil")
+                result_arr = xt::ceil(field_arr);
+            else if (ufunc_name == "trunc")
+                result_arr = xt::trunc(field_arr);
+            else if (ufunc_name == "rint")
+                result_arr = xt::rint(field_arr);
+            else if (ufunc_name == "negative")
+                result_arr = -field_arr;
+            else if (ufunc_name == "reciprocal")
+                result_arr = 1.0 / field_arr;
+            else
+            {
+                throw py::type_error("Unsupported ufunc: " + ufunc_name);
+            }
+
+            return result;
+        },
+        py::arg("ufunc"),
+        py::arg("method"),
+        R"pbdoc(
+            NumPy array function protocol (__array_ufunc__).
+
+            Enables NumPy ufuncs to work directly with ScalarField objects,
+            using xtensor for efficient computation.
+
+            Supported unary ufuncs (via xtensor):
+                sin, cos, tan, asin, acos, atan, sinh, cosh, tanh,
+                asinh, acosh, atanh, exp, expm1, log, log10, log2, log1p,
+                sqrt, cbrt, square, abs, fabs, sign, floor, ceil, trunc,
+                rint, negative, reciprocal
+
+            Examples
+            --------
+            >>> import numpy as np
+            >>> field = sam.field.scalar(mesh, "u")
+            >>> field.fill(1.0)
+            >>>
+            >>> # Via xtensor (efficient, returns new ScalarField)
+            >>> u_sin = np.sin(field)      # Returns new ScalarField
+            >>> u_exp = np.exp(field)      # Returns new ScalarField
+            >>> u_sqrt = np.sqrt(field)    # Returns new ScalarField
+            >>>
+            >>> # Chaining
+            >>> result = np.sin(field) + np.cos(field)
+        )pbdoc");
+
+    // ============================================================
     // NumPy-like reduction methods
     // ============================================================
 
@@ -1154,6 +1276,231 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
         },
         py::return_value_policy::take_ownership,
         "Returns zero-copy NumPy view of vector field data");
+
+    // ============================================================
+    // NumPy __array_ufunc__ protocol for ufunc interoperability
+    // ============================================================
+    cls.def(
+        "__array_ufunc__",
+        [](py::object ufunc, py::object method, py::args inputs, py::kwargs kwargs) -> py::object
+        {
+            // Get the ufunc name for dispatch
+            py::object name_obj = ufunc.attr("__name__");
+            std::string ufunc_name = py::str(name_obj);
+            std::string method_name = py::str(method);
+
+            // Handle unary ufuncs: np.sin(field), np.exp(field), etc.
+            if (inputs.size() == 1)
+            {
+                try
+                {
+                    Field& field = inputs[0].cast<Field&>();
+                    auto& mesh  = const_cast<typename Field::mesh_t&>(field.mesh());
+                    auto& xt_arr = field.array();
+
+                    // Create result field initialized with zeros (handles ghost cells properly)
+                    auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(
+                        field.name() + "_" + ufunc_name, mesh, 0.0
+                    );
+
+                    // Dispatch to xtensor implementations for common ufuncs
+                    // These work element-wise on all components
+                    bool handled = true;
+
+                    if (ufunc_name == "sin")
+                    {
+                        result.array() = xt::sin(xt_arr);
+                    }
+                    else if (ufunc_name == "cos")
+                    {
+                        result.array() = xt::cos(xt_arr);
+                    }
+                    else if (ufunc_name == "tan")
+                    {
+                        result.array() = xt::tan(xt_arr);
+                    }
+                    else if (ufunc_name == "arcsin" || ufunc_name == "asin")
+                    {
+                        result.array() = xt::asin(xt_arr);
+                    }
+                    else if (ufunc_name == "arccos" || ufunc_name == "acos")
+                    {
+                        result.array() = xt::acos(xt_arr);
+                    }
+                    else if (ufunc_name == "arctan" || ufunc_name == "atan")
+                    {
+                        result.array() = xt::atan(xt_arr);
+                    }
+                    else if (ufunc_name == "sinh")
+                    {
+                        result.array() = xt::sinh(xt_arr);
+                    }
+                    else if (ufunc_name == "cosh")
+                    {
+                        result.array() = xt::cosh(xt_arr);
+                    }
+                    else if (ufunc_name == "tanh")
+                    {
+                        result.array() = xt::tanh(xt_arr);
+                    }
+                    else if (ufunc_name == "arcsinh" || ufunc_name == "asinh")
+                    {
+                        result.array() = xt::asinh(xt_arr);
+                    }
+                    else if (ufunc_name == "arccosh" || ufunc_name == "acosh")
+                    {
+                        result.array() = xt::acosh(xt_arr);
+                    }
+                    else if (ufunc_name == "arctanh" || ufunc_name == "atanh")
+                    {
+                        result.array() = xt::atanh(xt_arr);
+                    }
+                    else if (ufunc_name == "exp")
+                    {
+                        result.array() = xt::exp(xt_arr);
+                    }
+                    else if (ufunc_name == "expm1")
+                    {
+                        result.array() = xt::expm1(xt_arr);
+                    }
+                    else if (ufunc_name == "log" || ufunc_name == "ln")
+                    {
+                        result.array() = xt::log(xt_arr);
+                    }
+                    else if (ufunc_name == "log10" || ufunc_name == "log10")
+                    {
+                        result.array() = xt::log10(xt_arr);
+                    }
+                    else if (ufunc_name == "log2" || ufunc_name == "log2")
+                    {
+                        result.array() = xt::log2(xt_arr);
+                    }
+                    else if (ufunc_name == "log1p")
+                    {
+                        result.array() = xt::log1p(xt_arr);
+                    }
+                    else if (ufunc_name == "sqrt" || ufunc_name == "square_root")
+                    {
+                        result.array() = xt::sqrt(xt_arr);
+                    }
+                    else if (ufunc_name == "cbrt")
+                    {
+                        result.array() = xt::cbrt(xt_arr);
+                    }
+                    else if (ufunc_name == "square")
+                    {
+                        result.array() = xt::square(xt_arr);
+                    }
+                    else if (ufunc_name == "abs" || ufunc_name == "absolute")
+                    {
+                        result.array() = xt::abs(xt_arr);
+                    }
+                    else if (ufunc_name == "fabs")
+                    {
+                        result.array() = xt::fabs(xt_arr);
+                    }
+                    else if (ufunc_name == "sign")
+                    {
+                        result.array() = xt::sign(xt_arr);
+                    }
+                    else if (ufunc_name == "floor")
+                    {
+                        result.array() = xt::floor(xt_arr);
+                    }
+                    else if (ufunc_name == "ceil")
+                    {
+                        result.array() = xt::ceil(xt_arr);
+                    }
+                    else if (ufunc_name == "trunc")
+                    {
+                        result.array() = xt::trunc(xt_arr);
+                    }
+                    else if (ufunc_name == "rint")
+                    {
+                        result.array() = xt::rint(xt_arr);
+                    }
+                    else if (ufunc_name == "negative")
+                    {
+                        result.array() = -xt_arr;
+                    }
+                    else if (ufunc_name == "positive")
+                    {
+                        // positive is no-op for real fields (just returns the value)
+                        result.array() = xt_arr;
+                    }
+                    else if (ufunc_name == "reciprocal")
+                    {
+                        result.array() = 1.0 / xt_arr;
+                    }
+                    else if (ufunc_name == "conj" || ufunc_name == "conjugate")
+                    {
+                        result.array() = xt_arr;  // No-op for real fields
+                    }
+                    else if (ufunc_name == "erf")
+                    {
+                        result.array() = xt::erf(xt_arr);
+                    }
+                    else if (ufunc_name == "erfc")
+                    {
+                        result.array() = xt::erfc(xt_arr);
+                    }
+                    else if (ufunc_name == "gamma")
+                    {
+                        result.array() = xt::tgamma(xt_arr);
+                    }
+                    else if (ufunc_name == "lgamma")
+                    {
+                        result.array() = xt::lgamma(xt_arr);
+                    }
+                    else
+                    {
+                        handled = false;
+                    }
+
+                    if (handled)
+                    {
+                        return py::cast(result);
+                    }
+
+                    // For unsupported ufuncs, return NotImplemented to let NumPy handle it
+                    // Note: This means unsupported ufuncs will return NumPy arrays instead of fields
+                    return py::none();
+                }
+                catch (const py::cast_error&)
+                {
+                    // Input is not a VectorField, return NotImplemented to let NumPy handle it
+                    return py::none();
+                }
+            }
+
+            // Handle binary ufuncs: field + field, field * scalar, etc.
+            // Return NotImplemented to use existing operator overloads
+            return py::none();
+        },
+        R"pbdoc(
+            NumPy array function protocol (__array_ufunc__) for VectorField.
+
+            Enables NumPy ufuncs to work directly with VectorField objects,
+            applying element-wise to all components.
+
+            Supported unary ufuncs (via xtensor):
+                sin, cos, tan, asin, acos, atan, sinh, cosh, tanh,
+                asinh, acosh, atanh, exp, expm1, log, log10, log2, log1p,
+                sqrt, cbrt, square, abs, fabs, sign, floor, ceil, trunc,
+                rint, negative, positive, reciprocal, erf, erfc, tgamma, lgamma
+
+            Unsupported ufuncs fall back to NumPy implementation.
+
+            Examples
+            --------
+            >>> import numpy as np
+            >>> velocity = sam.field.vector(mesh, "vel", n_components=2)
+            >>> velocity.fill([1.0, 0.0])
+            >>>
+            >>> # Apply to all components element-wise
+            >>> vel_sin = np.sin(velocity)  # [sin(1.0), sin(0.0)]
+            >>> vel_exp = np.exp(velocity)  # [exp(1.0), exp(0.0)]
+        )pbdoc");
 
     // ============================================================
     // NumPy-like reduction methods
@@ -1667,6 +2014,124 @@ void bind_vector_field(py::module_& m, const std::string& name)
 
     // Bind common methods (name, mesh, size, etc.)
     bind_field_common_methods<Field, Mesh>(cls);
+
+    // ============================================================
+    // NumPy __array_ufunc__ protocol for ufunc interoperability
+    // ============================================================
+    cls.def(
+        "__array_ufunc__",
+        [](Field& field, py::object ufunc, py::object method, py::args inputs, py::kwargs kwargs) -> Field
+        {
+            // Get the ufunc name to dispatch
+            std::string ufunc_name = ufunc.attr("__name__").cast<std::string>();
+
+            // Only handle unary ufuncs with single field input
+            if (inputs.size() != 1)
+            {
+                throw py::type_error("ufunc with multiple inputs not supported");
+            }
+
+            // Get mesh reference
+            auto& mesh = const_cast<typename Field::mesh_t&>(field.mesh());
+
+            // Create result field with zero initialization (ghost cells will be 0.0)
+            auto result = samurai::make_vector_field<double, n_comp, SOA>(field.name() + "_" + ufunc_name, mesh, 0.0);
+
+            // Get xtensor array views
+            auto& field_arr = field.array();
+            auto& result_arr = result.array();
+
+            // Dispatch based on ufunc name using xtensor
+            // Note: We iterate over all elements (real + ghost cells) for efficiency
+            if (ufunc_name == "sin")
+                result_arr = xt::sin(field_arr);
+            else if (ufunc_name == "cos")
+                result_arr = xt::cos(field_arr);
+            else if (ufunc_name == "tan")
+                result_arr = xt::tan(field_arr);
+            else if (ufunc_name == "asin")
+                result_arr = xt::asin(field_arr);
+            else if (ufunc_name == "acos")
+                result_arr = xt::acos(field_arr);
+            else if (ufunc_name == "atan")
+                result_arr = xt::atan(field_arr);
+            else if (ufunc_name == "sinh")
+                result_arr = xt::sinh(field_arr);
+            else if (ufunc_name == "cosh")
+                result_arr = xt::cosh(field_arr);
+            else if (ufunc_name == "tanh")
+                result_arr = xt::tanh(field_arr);
+            else if (ufunc_name == "asinh")
+                result_arr = xt::asinh(field_arr);
+            else if (ufunc_name == "acosh")
+                result_arr = xt::acosh(field_arr);
+            else if (ufunc_name == "atanh")
+                result_arr = xt::atanh(field_arr);
+            else if (ufunc_name == "exp")
+                result_arr = xt::exp(field_arr);
+            else if (ufunc_name == "expm1")
+                result_arr = xt::expm1(field_arr);
+            else if (ufunc_name == "log")
+                result_arr = xt::log(field_arr);
+            else if (ufunc_name == "log10")
+                result_arr = xt::log10(field_arr);
+            else if (ufunc_name == "log2")
+                result_arr = xt::log2(field_arr);
+            else if (ufunc_name == "log1p")
+                result_arr = xt::log1p(field_arr);
+            else if (ufunc_name == "sqrt")
+                result_arr = xt::sqrt(field_arr);
+            else if (ufunc_name == "cbrt")
+                result_arr = xt::cbrt(field_arr);
+            else if (ufunc_name == "square")
+                result_arr = xt::square(field_arr);
+            else if (ufunc_name == "abs" || ufunc_name == "fabs" || ufunc_name == "absolute")
+                result_arr = xt::fabs(field_arr);
+            else if (ufunc_name == "sign")
+                result_arr = xt::sign(field_arr);
+            else if (ufunc_name == "floor")
+                result_arr = xt::floor(field_arr);
+            else if (ufunc_name == "ceil")
+                result_arr = xt::ceil(field_arr);
+            else if (ufunc_name == "trunc")
+                result_arr = xt::trunc(field_arr);
+            else if (ufunc_name == "rint")
+                result_arr = xt::rint(field_arr);
+            else if (ufunc_name == "negative")
+                result_arr = -field_arr;
+            else if (ufunc_name == "reciprocal")
+                result_arr = 1.0 / field_arr;
+            else
+            {
+                throw py::type_error("Unsupported ufunc: " + ufunc_name);
+            }
+
+            return result;
+        },
+        py::arg("ufunc"),
+        py::arg("method"),
+        R"pbdoc(
+            NumPy array function protocol (__array_ufunc__).
+
+            Enables NumPy ufuncs to work directly with VectorField objects,
+            using xtensor for efficient computation.
+
+            Supported unary ufuncs (via xtensor):
+                sin, cos, tan, asin, acos, atan, sinh, cosh, tanh,
+                asinh, acosh, atanh, exp, expm1, log, log10, log2, log1p,
+                sqrt, cbrt, square, abs, fabs, sign, floor, ceil, trunc,
+                rint, negative, reciprocal
+
+            Examples
+            --------
+            >>> import numpy as np
+            >>> field = sam.field.vector(mesh, "vel", n_components=2)
+            >>> field.fill([1.0, 0.0])
+            >>>
+            >>> # Via xtensor (efficient, returns new VectorField)
+            >>> vel_sin = np.sin(field)      # Returns new VectorField
+            >>> vel_exp = np.exp(field)      # Returns new VectorField
+        )pbdoc");
 
     // Bind vector-specific methods
     bind_vectorfield_methods<Field, Mesh>(cls);
