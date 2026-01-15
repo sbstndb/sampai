@@ -143,32 +143,15 @@ def save_additional_data(u, t, iteration, checkpoint_path):
 | `@on_output` | `func(u, t, iteration)` | When output is saved |
 | `@on_checkpoint` | `func(u, t, iteration, checkpoint_path)` | When checkpoint is saved |
 | `@on_restart` | `func(checkpoint_path)` | After loading from checkpoint |
+| `@on_conservation_error` | `func(field, invariant, error)` | On conservation violation (V1) |
+| `@on_stability_error` | `func(u, t, error_type, details)` | On instability detected (V1) |
+| `@on_dt_change` | `func(dt_old, dt_new, reason)` | When time step changes (V1) |
+
+*See "Extended Hook System" section below for complete V1 hook documentation.*
 
 ---
 
 ### 3. Execution Methods
-
-```python
-# Full auto-run
-u_final = sim.run()
-
-# Step-by-step control
-with sim:
-    while sim.running:
-        u = sim.step()
-        # custom logic between steps
-```
-
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `.run()` | `Field` | Runs complete simulation, returns final solution |
-| `.step()` | `Field` | Executes single time step with AMR |
-| `__enter__()` | `Simulation` | Context manager entry |
-| `__exit__()` | - | Context manager exit |
-
----
-
-### 4. Execution Methods
 
 ```python
 # Full auto-run
@@ -436,6 +419,8 @@ src/sampai/
 |--------|-------------|-------------|--------------|
 | `'euler'` | Forward Euler | 1 (`unp1`) | Yes |
 | `'rk3'` | TVD-RK3 | 3 (`u1`, `u2`, `unp1`) | Yes |
+| `'projection'` | Velocity-pressure splitting (Navier-Stokes) | 3+ per field | Yes |
+| Custom | User-defined `Scheme` subclass | Variable | Variable |
 
 ## Default Behavior
 
