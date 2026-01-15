@@ -315,12 +315,13 @@ binding_sources = files(
     'src/bindings/mra_config_bindings.cpp',
     'src/bindings/adapt_bindings.cpp',
     'src/bindings/io_bindings.cpp',
+    'src/bindings/mpi_bindings.cpp',
 )
 
-# Add MPI bindings if enabled
 if has_mpi
-    binding_sources += files('src/bindings/mpi_bindings.cpp')
     message('MPI bindings: ENABLED')
+else
+    message('MPI bindings: STUB (MPI disabled)')
 endif
 
 message('Binding source files: @0@'.format(binding_sources.length()))
