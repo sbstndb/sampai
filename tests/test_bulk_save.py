@@ -90,7 +90,7 @@ class TestBulkSave:
             assert os.path.exists(xdmf_file)
 
     def test_bulk_save_2d_too_many_fields(self):
-        """Test that bulk save raises error for more than 8 fields."""
+        """Test that bulk save raises error for more than 9 fields."""
         config = sam.config.make(2)
         config.min_level = 2
         config.max_level = 4
@@ -98,16 +98,16 @@ class TestBulkSave:
         box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
         mesh = sam.mesh.make(box, config)
 
-        # Create 9 fields (one too many)
+        # Create 10 fields (one too many)
         fields = []
-        for i in range(9):
+        for i in range(10):
             field = sam.field.scalar(mesh, f"field_{i}", init=float(i))
             fields.append(field)
 
         # Should raise an error
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = os.path.join(tmpdir, "test_error")
-            with pytest.raises(RuntimeError, match="Maximum 8 fields"):
+            with pytest.raises(RuntimeError, match="Maximum 9 fields"):
                 sam.save(filepath, *fields)
 
     def test_bulk_save_same_mesh_validation(self):
