@@ -338,8 +338,6 @@ manylinux-aarch64-image = "manylinux2014"
 # Build for x86_64 and arm64 (Apple Silicon) separately
 # Universal2 wheels are too large and problematic
 archs = ["x86_64", "arm64"]
-# Use macos-11+ for broad compatibility (macOS 10.9+)
-macos-target-x86_64 = "10.9"
 # Before-all is handled in the workflow YAML
 
 # Windows configuration (currently not supported, but config kept for future)
