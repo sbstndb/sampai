@@ -70,9 +70,17 @@ if not pybind11_dep.found()
 else
     message('pybind11 found: @0@'.format(pybind11_dep.version()))
     # When pybind11 is found via cmake/pkg-config, get the include dir correctly
-    pybind11_include = include_directories(pybind11_dep.get_variable('pybind11_INCLUDE_DIRS',
-                                                             pybind11_dep.get_variable('INCLUDEDIR',
-                                                             '')))
+    # Try different variable names that pybind11-config might provide
+    pybind11_include_dirs = pybind11_dep.get_variable('pybind11_INCLUDE_DIRS', default_value: '')
+    if pybind11_include_dirs == ''
+        pybind11_include_dirs = pybind11_dep.get_variable('INCLUDEDIR', default_value: '')
+    endif
+    if pybind11_include_dirs != ''
+        pybind11_include = include_directories(pybind11_include_dirs)
+    else
+        # Fallback: let pybind11_dep handle includes via dependencies
+        pybind11_include = include_directories()
+    endif
 endif
 
 # ============================================================================
