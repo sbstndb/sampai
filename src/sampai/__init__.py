@@ -7,27 +7,24 @@ This package provides the Python bindings for Samurai, combining:
 """
 
 import sys
-from importlib import util as importlib_util
+from importlib import import_module
 from pathlib import Path
 
 
 def _load_compiled_module():
-    try:
-        import _sampai as compiled
-        return compiled
-    except ImportError:
-        pass
+    last_error = None
 
-    try:
-        from . import _sampai as compiled
-        return compiled
-    except ImportError:
-        pass
+    for module_name in ("_sampai", "sampai._sampai"):
+        try:
+            return import_module(module_name)
+        except Exception as exc:
+            last_error = exc
 
-    # Fallback for editable/dev builds: load from a local Meson build dir.
+    # Fallback for editable/dev builds: import from a local Meson build dir.
     repo_root = Path(__file__).resolve().parent.parent.parent
     if not (repo_root / "pyproject.toml").is_file():
         return None
+
     build_roots = (repo_root / "build", repo_root / "builddir")
     patterns = ("_sampai*.so", "_sampai*.pyd", "_sampai*.dylib")
     for build_root in build_roots:
@@ -35,15 +32,19 @@ def _load_compiled_module():
             continue
         for pattern in patterns:
             for ext_path in build_root.rglob(pattern):
+                ext_dir = str(ext_path.parent)
+                sys.path.insert(0, ext_dir)
                 try:
-                    spec = importlib_util.spec_from_file_location("_sampai", ext_path)
-                    if spec and spec.loader:
-                        compiled = importlib_util.module_from_spec(spec)
-                        spec.loader.exec_module(compiled)
-                        sys.modules["_sampai"] = compiled
-                        return compiled
-                except Exception:
-                    continue
+                    compiled = import_module("_sampai")
+                    sys.modules["_sampai"] = compiled
+                    return compiled
+                except Exception as exc:
+                    last_error = exc
+                finally:
+                    sys.path.pop(0)
+
+    if last_error:
+        raise last_error
     return None
 
 # Try to import the compiled extension module
