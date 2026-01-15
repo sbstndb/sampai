@@ -146,38 +146,50 @@ if not mpi_dep.found() and enable_mpi
 
     if conda_prefix != ''
         # Try to find MPI in conda environment
-        mpi_lib_path = join_paths(conda_prefix, 'lib/libmpi.so')
-        mpi_cxx_lib_path = join_paths(conda_prefix, 'lib/libmpi_cxx.so')
-        mpi_lib_dir = join_paths(conda_prefix, 'lib')
+        mpi_lib_dirs = [
+            join_paths(conda_prefix, 'lib'),
+            join_paths(conda_prefix, 'lib/openmpi'),
+            join_paths(conda_prefix, 'lib64'),
+            join_paths(conda_prefix, 'lib64/openmpi'),
+        ]
 
-        # Use -e (exists) instead of -f (regular file) because libmpi.so is often a symlink
-        mpi_lib_found = run_command('test', '-e', mpi_lib_path, check: false).returncode() == 0
-        mpi_cxx_lib_found = run_command('test', '-e', mpi_cxx_lib_path, check: false).returncode() == 0
+        mpi_lib = cpp.find_library('mpi', dirs: mpi_lib_dirs, required: false)
+        mpi_cxx_lib = cpp.find_library('mpi_cxx', dirs: mpi_lib_dirs, required: false)
 
-        if mpi_lib_found
-            # Build link args conditionally (mpi_cxx may not exist in conda-forge)
-            # Important: add -L<conda_prefix>/lib so linker can find the libraries
-            link_args = ['-L' + mpi_lib_dir, '-lmpi']
-            deps = []
+        if mpi_lib.found()
+            mpi_libs = [mpi_lib]
+            mpi_include_dirs = []
 
-            if mpi_cxx_lib_found
-                link_args += ['-lmpi_cxx']
+            mpi_include_path = join_paths(conda_prefix, 'include')
+            mpi_include_openmpi = join_paths(conda_prefix, 'include/openmpi')
+
+            if run_command('test', '-d', mpi_include_path, check: false).returncode() == 0
+                mpi_include_dirs += [include_directories(mpi_include_path)]
+            endif
+            if run_command('test', '-d', mpi_include_openmpi, check: false).returncode() == 0
+                mpi_include_dirs += [include_directories(mpi_include_openmpi)]
+            endif
+
+            if mpi_cxx_lib.found()
+                mpi_libs += [mpi_cxx_lib]
                 message('Found MPI C++ library in conda')
             else
                 message('MPI C++ library not found (using C bindings only)')
             endif
 
             mpi_dep = declare_dependency(
-                link_args: link_args,
-                dependencies: deps
+                include_directories: mpi_include_dirs,
+                link_with: mpi_libs,
             )
             message('Found MPI libraries via conda environment')
         endif
-    else
-        # Fallback to system-wide search
+    endif
+
+    # Fallback to system-wide search if conda detection failed
+    if not mpi_dep.found()
         mpi_lib = cpp.find_library('mpi', required: false)
         if mpi_lib.found()
-            mpi_dep = declare_dependency(link_args: ['-lmpi'])
+            mpi_dep = declare_dependency(link_with: mpi_lib)
             message('Found MPI libraries via system search')
         endif
     endif

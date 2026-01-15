@@ -29,8 +29,13 @@ Note:
     that raise RuntimeError when called.
 """
 
+from importlib import import_module
+
 # Import compiled MPI functions
-import _sampai
+try:
+    import _sampai as _sampai
+except ImportError:
+    _sampai = import_module("sampai._sampai")
 
 # Global communicator
 _comm = None

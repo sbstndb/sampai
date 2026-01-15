@@ -4,8 +4,13 @@ MPI communicator management.
 Provides initialization, rank/size queries, and barrier synchronization.
 """
 
-import _sampai
+from importlib import import_module
 from typing import Optional
+
+try:
+    import _sampai as _sampai
+except ImportError:
+    _sampai = import_module("sampai._sampai")
 
 # Global communicator instance
 _comm: Optional['Communicator'] = None
