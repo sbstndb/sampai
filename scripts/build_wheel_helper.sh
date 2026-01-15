@@ -61,7 +61,8 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
             -DHIGHFIVE_BUILD_EXAMPLES=OFF \
             -DHIGHFIVE_BUILD_TESTS=OFF \
             -DHIGHFIVE_USE_BOOST=OFF \
-            -DCMAKE_INSTALL_PREFIX=/usr/local
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build --parallel
         cmake --install build
         cd ..
@@ -102,7 +103,8 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
             -DHIGHFIVE_BUILD_EXAMPLES=OFF \
             -DHIGHFIVE_BUILD_TESTS=OFF \
             -DHIGHFIVE_USE_BOOST=OFF \
-            -DCMAKE_INSTALL_PREFIX=/usr/local
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         cmake --build build --parallel
         cmake --install build
         cd ..
