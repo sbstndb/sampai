@@ -139,7 +139,7 @@ cpp = meson.get_compiler('cpp')
 # Try to find MPI via dependency() first (works with system MPI)
 mpi_dep = dependency('mpi', required: false)
 
-# If not found, try OpenMPI pkg-config names explicitly (conda-forge)
+# If not found, try OpenMPI/MPICH pkg-config names explicitly (conda-forge)
 if not mpi_dep.found() and enable_mpi
     ompi_cxx_dep = dependency('ompi-cxx', method: 'pkg-config', required: false)
     ompi_c_dep = dependency('ompi-c', method: 'pkg-config', required: false)
@@ -150,6 +150,19 @@ if not mpi_dep.found() and enable_mpi
     elif ompi_c_dep.found()
         mpi_dep = ompi_c_dep
         message('Found MPI via pkg-config: ompi-c')
+    endif
+
+    if not mpi_dep.found()
+        mpich_cxx_dep = dependency('mpich-cxx', method: 'pkg-config', required: false)
+        mpich_c_dep = dependency('mpich', method: 'pkg-config', required: false)
+
+        if mpich_cxx_dep.found()
+            mpi_dep = mpich_cxx_dep
+            message('Found MPI via pkg-config: mpich-cxx')
+        elif mpich_c_dep.found()
+            mpi_dep = mpich_c_dep
+            message('Found MPI via pkg-config: mpich')
+        endif
     endif
 endif
 
