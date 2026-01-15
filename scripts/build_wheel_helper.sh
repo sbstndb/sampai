@@ -13,7 +13,17 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     # Install base tools
     echo "Installing base build tools..."
     yum install -y epel-release 2>/dev/null || true
-    yum install -y meson ninja-build git cmake wget
+    yum install -y meson ninja-build git wget
+
+    # Install CMake 3.x (CMake 2.8 from yum is too old)
+    echo "Installing CMake 3.x..."
+    if ! command -v cmake &> /dev/null || [ "$(cmake --version | grep -oP 'cmake version \K[0-9.]+' | cut -d. -f1)" -lt 3 ]; then
+        curl -LO "https://github.com/Kitware/CMake/releases/download/v3.26.4/cmake-3.26.4-linux-x86_64.tar.gz"
+        tar --strip-components=1 -xzvf cmake-3.26.4-linux-x86_64.tar.gz -C /usr/local
+        rm cmake-3.26.4-linux-x86_64.tar.gz
+        echo "CMake 3.26.4 installed"
+    fi
+    cmake --version
 
     # Install dependencies available via yum
     echo "Installing dependencies via yum..."
@@ -31,7 +41,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
     # Install CLI11 from source
     echo "Installing CLI11..."
-    CLI11_VER="2.4.2"
+    CLI11_VER="2.6.1"
     if [ ! -f "/usr/local/include/cli/cli.hpp" ]; then
         curl -LO "https://github.com/CLIUtils/CLI11/releases/download/v${CLI11_VER}/CLI11-${CLI11_VER}.tar.gz"
         tar -xzf "CLI11-${CLI11_VER}.tar.gz"
@@ -88,9 +98,29 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Installing xtensor (header-only)..."
     pip install --upgrade xtensor xsim 2>/dev/null || true
 
-    # Install CLI11 via brew
+    # Install CLI11 via brew (or from source if not available)
     echo "Installing CLI11..."
-    brew install cli11 || true
+    brew install cli11 2>/dev/null || true
+
+    # Check if CLI11 was installed, if not, install from source
+    if [ ! -f "/usr/local/include/cli/cli.hpp" ] && [ ! -f "$(brew --prefix)/include/cli/cli.hpp" ]; then
+        CLI11_VER="2.6.1"
+        curl -LO "https://github.com/CLIUtils/CLI11/releases/download/v${CLI11_VER}/CLI11-${CLI11_VER}.tar.gz"
+        tar -xzf "CLI11-${CLI11_VER}.tar.gz"
+        cd "CLI11-${CLI11_VER}"
+        cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCLI11_BUILD_TESTS=OFF \
+            -DCLI11_BUILD_EXAMPLES=OFF \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+        cmake --build build --parallel
+        cmake --install build
+        cd ..
+        rm -rf "CLI11-${CLI11_VER}" "CLI11-${CLI11_VER}.tar.gz"
+        echo "CLI11 installed from source"
+    else
+        echo "CLI11 already installed"
+    fi
 
     # Install HighFive from source (brew version might be old)
     echo "Installing HighFive..."
