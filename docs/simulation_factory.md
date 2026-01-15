@@ -752,7 +752,444 @@ V1 includes all hooks from basic design plus additional diagnostic hooks:
 2. **Phase 2** (Advanced): Checkpoint, reconfiguration, multi-field
 3. **Phase 3** (Diagnostics): Conservation, stability, norms, profiling, debug
 4. **Phase 4** (Polish): Error estimation, adaptive dt, logging
+5. **Phase 5** (I/O & Adaptation): Compression, Run ID, Load balancing, Error estimators
+6. **Phase 6** (BCs & Workflow): Time-dependent BCs, Partial periodicity, Coupled BCs, Batch execution
+7. **Phase 7** (Critical): Uncertainty quantification, Adjoint, Optimization interface
+8. **Phase 8** (Usability & Performance): Presets, Code gen, JSON config, Caching, Memoization
+
+---
+
+## V1+ Extended Features (Previously Overlooked)
+
+### 11. I/O Enhancements
+
+#### 11.1 Checkpoint Compression
+
+```python
+# Compress checkpoints to save disk space
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .checkpoint('./checkpoints', interval=1.0,
+                compression='gzip',    # 'gzip', 'lzf', 'none'
+                compression_level=6)   # 0-9, higher=more compression
+    .build()
+)
+```
+
+#### 11.2 Run ID Management
+
+```python
+# Automatic unique run identification
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_run_id(
+        format='timestamp',      # 'timestamp', 'uuid', 'counter'
+        prefix='burgers_2d')
+    .build()
+)
+
+# Creates output structure:
+# results/run_20250115_143052_burgers_2d/
+#   checkpoints/
+#   output/
+#   metadata.json
+```
+
+---
+
+### 12. Advanced Adaptation
+
+#### 12.1 Load Balancing (MPI)
+
+```python
+# Enable automatic load balancing for parallel runs
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .adapt(epsilon=2e-4, load_balancing=True,
+           imbalance_threshold=0.1)  # Rebalance if 10% imbalance
+    .build()
+)
+```
+
+#### 12.2 Error-Based Adaptation
+
+```python
+# Adapt based on error estimator instead of detail coefficient
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .adapt(error_estimator='jump_indicator',  # 'detail', 'jump', 'gradient'
+           tolerance=1e-3)
+    .build()
+)
+```
+
+---
+
+### 13. Workflow Automation
+
+#### 13.1 Batch Execution
+
+```python
+# Run multiple simulations in parallel
+sims = [
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1])
+    .scheme('rk3')
+    .adapt(epsilon=eps)
+    .build()
+    for eps in [1e-4, 2e-4, 5e-4]
+]
+
+# Execute in parallel
+results = sam.Simulation.run_batch(
+    sims,
+    n_cores=4,
+    output_dir='batch_results',
+    progress_bar=True
+)
+```
+
+---
+
+### 14. Advanced Boundary Conditions
+
+#### 14.1 Time-Dependent BCs
+
+```python
+# Time-varying boundary conditions
+def inlet_bc(t):
+    return np.sin(2 * np.pi * 5.0 * t)  # 5 Hz oscillation
+
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .build()
+)
+
+sam.boundary.dirichlet(
+    sim.get_field('u'),
+    inlet_bc,
+    boundaries=['left'],
+    time_dependent=True
+)
+```
+
+#### 14.2 Partial Periodicity
+
+```python
+# Periodic in one direction only
+config = sam.config.MeshConfig2D()
+config.set_periodic(axis='x')  # Periodic in x, not in y
+# Or:
+config.set_periodic(direction=[True, False])  # [x, y]
+```
+
+#### 14.3 Coupled Field BCs
+
+```python
+# Navier-Stokes: velocity and pressure coupling
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('projection')
+    .solution([('u', 2), ('p', 1)])
+    .build()
+)
+
+u = sim.get_field('u')
+p = sim.get_field('p')
+
+# Couple BCs: no-slip on u implies Neumann on p
+sam.boundary.couple_fields(
+    u, p,
+    coupling='no_slip',
+    boundaries=['all']
+)
+```
+
+---
+
+### 15. Critical Research Features
+
+#### 15.1 Uncertainty Quantification
+
+```python
+# Monte Carlo uncertainty propagation
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .quantify_uncertainty(
+        parameters={'epsilon': (2e-4, 5e-5)},  # (mean, std)
+        n_samples=100,
+        ic_perturbation='gaussian',
+        output_stats=['mean', 'variance', 'ci_95']
+    )
+    .build()
+)
+
+u_final = sim.run()
+# Access statistics
+print(f"Mean: {u_final.mean()}")
+print(f"95% CI: {u_final.ci_95()}")
+```
+
+#### 15.2 Adjoint Solver
+
+```python
+# Compute gradients for optimization
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .build()
+)
+
+# Run forward simulation
+u_final = sim.run()
+
+# Compute adjoint
+adjoint = sim.compute_adjoint(
+    objective=lambda u: u.sum(),  # Function to differentiate
+    parameter='epsilon',           # Parameter to differentiate wrt
+    checkpoint_strategy='checkpoint_all'  # For memory efficiency
+)
+
+print(f"Gradient dJ/dε = {adjoint.gradient}")
+```
+
+#### 15.3 Optimization Interface
+
+```python
+# Interface with scipy.optimize
+import scipy.optimize as opt
+
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .build()
+
+# Define objective function
+def objective(params):
+    eps, cfl = params
+    sim.set_adapt_epsilon(eps)
+    sim.set_cfl(cfl)
+    u = sim.run()
+    return u.max()  # Minimize maximum value
+
+# Optimize
+result = opt.minimize(
+    objective,
+    x0=[2e-4, 0.95],
+    bounds=[(1e-5, 1e-3), (0.1, 1.0)],
+    method='L-BFGS-B'
+)
+
+print(f"Optimal epsilon={result.x[0]}, CFL={result.x[1]}")
+```
+
+---
+
+### 16. Usability Features
+
+#### 16.1 Config Presets
+
+```python
+# Quick start with presets
+sim = sam.SimulationBuilder.preset('advection_2d')
+sim.modify(
+    tf=2.0,
+    cfl=0.5,
+    velocity=[1.0, 0.5]
+)
+sim.build().run()
+
+# Available presets:
+# - 'advection_1d', 'advection_2d', 'advection_3d'
+# - 'burgers_1d', 'burgers_2d'
+# - 'convection_2d'
+# - 'heat_equation_1d', 'heat_equation_2d'
+```
+
+#### 16.2 Code Generator
+
+```python
+# Export simulation as standalone Python script
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .build()
+)
+
+sim.to_file('my_simulation.py')
+# Generates complete, runnable Python script
+# with all imports, setup, and execution logic
+```
+
+#### 16.3 JSON Config Import/Export
+
+```python
+# Export configuration to JSON
+sim = sam.SimulationBuilder()... .build()
+sim.save_config('config.json')
+
+# Import from JSON
+sim2 = sam.SimulationBuilder.from_config('config.json')
+sim2.build().run()
+```
+
+#### 16.4 Explain Mode
+
+```python
+# Educational mode that explains what's happening
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .explain(verbose=True)  # Show what's happening and why
+    .build()
+)
+
+sim.run()
+# Output:
+# "Adapting mesh because max detail coefficient (2.3e-4) > epsilon (2e-4)"
+# "Reducing dt from 0.01 to 0.005 for stability (CFL condition)"
+# "Coarsening mesh in smooth region (gradient < 1e-5)"
+```
+
+---
+
+### 17. Performance Features
+
+#### 17.1 Result Caching
+
+```python
+# Cache expensive operations
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_cache(
+        operations=['flux_computation', 'adaptation'],
+        max_size=100,  # Max cached results
+        ttl=3600       # Time-to-live in seconds
+    )
+    .build()
+)
+```
+
+#### 17.2 Auto-Memoization
+
+```python
+# Automatically detect and cache repeated computations
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .auto_memoize = True  # Enable automatic memoization
+    .build()
+)
+```
+
+#### 17.3 Auto-Tuning
+
+```python
+# Automatic performance optimization
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .auto_tune(
+        suggest_optimizations=True,
+        warmup_steps=10,
+        tune_parameters=['adapt_frequency', 'checkpoint_interval']
+    )
+    .build()
+)
+
+# After warmup, prints suggestions:
+# "Consider reducing adaptation frequency to every 2 steps (15% speedup)"
+# "Consider increasing checkpoint interval to 5.0s (8% I/O reduction)"
+```
+
+---
+
+## Complete V1+ Feature Scope
+
+### Included in V1+ (Extended)
+
+| Category | Features | Phase |
+|----------|----------|-------|
+| **Core** | Builder, Simulation, Euler/RK3, hooks, auto fields | 1 |
+| **Geometry** | Pre-built mesh, Box helper, DomainBuilder | 1 |
+| **AMR** | Auto adaptation, frequency control, condition-based | 1 |
+| **Hooks** | 10 hooks including diagnostic | 1 |
+| **Checkpoint** | Auto/manual, full state, compression | 1, 5 |
+| **Reconfiguration** | Runtime parameter changes, scheme swapping | 2 |
+| **Diagnostics** | Conservation, stability, norms, error estimation | 3 |
+| **Multi-field** | Multiple fields, adaptive dt | 2 |
+| **Debug** | Verbose logging, profiling, assertions | 3 |
+| **I/O** | Compression, Run ID, async I/O | 5 |
+| **Adaptation** | Load balancing, error estimators | 5 |
+| **BCs** | Time-dependent, partial periodicity, coupled fields | 6 |
+| **Workflow** | Batch execution, parameter sweep | 6 |
+| **Critical** | UQ, adjoint, optimization interface | 7 |
+| **Usability** | Presets, code gen, JSON config, explain mode | 8 |
+| **Performance** | Caching, memoization, auto-tuning | 8 |
+
+### Deferred to V2+
+
+| Category | Features |
+|----------|----------|
+| **Schemes** | IMEX, operator splitting, symplectic, geometric integration |
+| **Analysis** | FFT on-the-fly, POD/DMD, spatial derivatives, structure detection |
+| **I/O** | VTK export, MP4 animation, Prometheus metrics |
+| **BCs** | Absorbing BCs (PML) |
+| **Parallel** | MPI domain decomposition |
+| **Advanced** | Data assimilation, sensitivity analysis, optimal control |
+| **ML** | Learned subgrid models, ML-enhanced physics |
+
+---
+
+## Updated Implementation Timeline
+
+| Phase | Features | Est. Complexity |
+|-------|----------|----------------|
+| **Phase 1** | Core: Builder, Simulation, schemes, hooks | High |
+| **Phase 2** | Advanced: Checkpoint, reconfig, multi-field | High |
+| **Phase 3** | Diagnostics: Conservation, stability, norms, profiling | Medium |
+| **Phase 4** | Polish: Error estimation, adaptive dt, logging | Medium |
+| **Phase 5** | I/O & Adaptation: Compression, Run ID, load balancing, error estimators | Medium |
+| **Phase 6** | BCs & Workflow: Time BCs, partial periodicity, coupled BCs, batch exec | High |
+| **Phase 7** | Critical: UQ, adjoint, optimization | Very High |
+| **Phase 8** | Usability & Performance: Presets, code gen, caching, auto-tune | Low-Medium |
 
 ## Version Target
 
-Target: Sampai v0.5.0 (major feature release)
+- **V1.0** (Sampai v0.5.0): Phases 1-4 (Core, Advanced, Diagnostics, Polish)
+- **V1.5** (Sampai v0.6.0): Phases 5-6 (I/O, Adaptation, BCs, Workflow)
+- **V2.0** (Sampai v0.7.0+): Phases 7-8 (Critical, Usability, Performance) + V2+ features
