@@ -122,7 +122,11 @@ jobs:
           pybind11 \
           mpich \
           mpi4py \
-          boost
+          boost \
+          libfabric \
+          libboost-mpi \
+          libboost-devel \
+          libboost-headers
 
     - name: Build sampai with MPI
       run: |
