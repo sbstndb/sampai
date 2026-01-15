@@ -35,9 +35,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         bzip2-devel \
         zlib-devel || true
 
-    # Install xtensor (header-only, via pip)
-    echo "Installing xtensor (header-only)..."
-    pip install --upgrade xtensor xsim 2>/dev/null || true
+    # Note: xtensor is installed automatically via build-system.requires in pyproject.toml
 
     # Install CLI11 from source
     echo "Installing CLI11..."
@@ -95,9 +93,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     brew update || true
     brew install meson ninja hdf5 pugixml fmt cmake
 
-    # Install xtensor (header-only, via pip)
-    echo "Installing xtensor (header-only)..."
-    pip install --upgrade xtensor xsim 2>/dev/null || true
+    # Note: xtensor is installed automatically via build-system.requires in pyproject.toml
 
     # Install CLI11 via brew (or from source if not available)
     echo "Installing CLI11..."
