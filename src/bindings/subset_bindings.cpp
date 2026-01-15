@@ -140,9 +140,9 @@ void apply_projection_single(ScalarField<dim>& field, std::size_t coarse_level)
 {
     auto& mesh = field.mesh();
 
-    if (coarse_level < 1 || coarse_level > mesh.max_level())
+    if (coarse_level < mesh.min_level() || coarse_level >= mesh.max_level())
     {
-        throw std::runtime_error("Invalid coarse level for projection");
+        throw std::invalid_argument("Invalid coarse level for projection: must be in [min_level, max_level-1]");
     }
 
     // Project from fine to coarse
@@ -157,9 +157,9 @@ void apply_projection_two_fields(ScalarField<dim>& dest, const ScalarField<dim>&
 {
     auto& mesh = dest.mesh();
 
-    if (coarse_level < 1 || coarse_level > mesh.max_level())
+    if (coarse_level < mesh.min_level() || coarse_level >= mesh.max_level())
     {
-        throw std::runtime_error("Invalid coarse level for projection");
+        throw std::invalid_argument("Invalid coarse level for projection: must be in [min_level, max_level-1]");
     }
 
     auto set_at_coarse = samurai::intersection(mesh[mesh_id_t::cells][coarse_level],
@@ -175,9 +175,9 @@ void apply_prediction_single(ScalarField<dim>& field, std::size_t coarse_level, 
 {
     auto& mesh = field.mesh();
 
-    if (coarse_level >= mesh.max_level())
+    if (coarse_level < mesh.min_level() || coarse_level >= mesh.max_level())
     {
-        throw std::runtime_error("Invalid coarse level for prediction");
+        throw std::invalid_argument("Invalid coarse level for prediction: must be in [min_level, max_level-1]");
     }
 
     // Predict from coarse to fine
@@ -220,9 +220,9 @@ void apply_prediction_two_fields(ScalarField<dim>& dest,
 {
     auto& mesh = dest.mesh();
 
-    if (coarse_level >= mesh.max_level())
+    if (coarse_level < mesh.min_level() || coarse_level >= mesh.max_level())
     {
-        throw std::runtime_error("Invalid coarse level for prediction");
+        throw std::invalid_argument("Invalid coarse level for prediction: must be in [min_level, max_level-1]");
     }
 
     auto expr = samurai::intersection(mesh.domain(),

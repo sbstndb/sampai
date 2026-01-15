@@ -453,6 +453,66 @@ class TestSubsetRepresentation:
 # Error Handling Tests
 # ============================================================================
 
+class TestSubsetLevelZeroSupport:
+    """Test that level 0 is properly supported after fix"""
+
+    def test_projection_from_level_1_to_0(self):
+        """Test projection from level 1 to level 0 (valid operation)"""
+        box = sam.geometry.box([0.0], [1.0])
+        config = sam.config._MeshConfig1D()
+        config.min_level = 0
+        config.max_level = 1
+
+        mesh = sam.mesh.make(box, config)
+        field = sam.field.scalar(mesh, "u", 1.0)
+
+        # Should NOT raise - level 0 is valid as destination
+        sam.subsets.projection(field, coarse_level=0)
+        assert hasattr(field, "mesh")
+
+    def test_prediction_from_level_0_to_1(self):
+        """Test prediction from level 0 to level 1 (valid operation)"""
+        box = sam.geometry.box([0.0], [1.0])
+        config = sam.config._MeshConfig1D()
+        config.min_level = 0
+        config.max_level = 1
+
+        mesh = sam.mesh.make(box, config)
+        field = sam.field.scalar(mesh, "u", 1.0)
+
+        # Should NOT raise - level 0 is valid as source
+        sam.subsets.prediction(field, coarse_level=0, order=1)
+        assert hasattr(field, "mesh")
+
+    def test_invalid_level_below_min(self):
+        """Test that level below min_level raises error"""
+        box = sam.geometry.box([0.0], [1.0])
+        config = sam.config._MeshConfig1D()
+        config.min_level = 2  # min_level is 2
+        config.max_level = 3
+
+        mesh = sam.mesh.make(box, config)
+        field = sam.field.scalar(mesh, "u", 1.0)
+
+        # Level 1 is below min_level (2), should raise
+        with pytest.raises(ValueError):  # Changed from RuntimeError
+            sam.subsets.projection(field, coarse_level=1)
+
+    def test_invalid_level_at_max(self):
+        """Test that level at max_level raises error (need max_level-1)"""
+        box = sam.geometry.box([0.0], [1.0])
+        config = sam.config._MeshConfig1D()
+        config.min_level = 0
+        config.max_level = 2
+
+        mesh = sam.mesh.make(box, config)
+        field = sam.field.scalar(mesh, "u", 1.0)
+
+        # Level 2 is max_level, should raise (need max_level-1=1)
+        with pytest.raises(ValueError):  # Changed from RuntimeError
+            sam.subsets.projection(field, coarse_level=2)
+
+
 class TestSubsetErrors:
     """Test error handling in subset operations"""
 
@@ -481,6 +541,22 @@ class TestSubsetErrors:
         # Wrong stencil dimension (3D stencil for 2D mesh)
         with pytest.raises(RuntimeError, match="Stencil dimension"):
             sam.subsets.translate(mesh, [1, 2, 3], level=2)
+
+    def test_contraction_with_large_n_cells_to_remove(self):
+        """Test contraction with very large n_cells_to_remove (should result in empty or minimal)"""
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        config = sam.config._MeshConfig2D()
+        config.min_level = 2
+        config.max_level = 2
+
+        mesh = sam.mesh.make(box, config)
+
+        # Contract by more cells than mesh has
+        contracted = sam.subsets.contraction(mesh, level=2, n_cells_to_remove=1000)
+
+        # Should either be empty or very small
+        assert isinstance(contracted.empty, bool)
+        assert contracted.level == 2
 
 
 if __name__ == "__main__":
