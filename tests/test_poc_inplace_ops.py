@@ -465,6 +465,10 @@ class TestInPlaceOpsAfterMeshAdaptation:
         u_inplace.resize()
         u_copy.resize()
 
+        # Re-initialize fields after resize (resize leaves undefined values)
+        u_inplace.fill(1.0)
+        u_copy.fill(1.0)
+
         # IN-PLACE: Should work fine
         u_inplace += 1.0  # This works!
 
