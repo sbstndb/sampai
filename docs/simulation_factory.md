@@ -1080,64 +1080,6 @@ sim.run()
 
 ---
 
-### 16. Performance Features
-
-#### 16.1 Result Caching
-
-```python
-# Cache expensive operations
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .enable_cache(
-        operations=['flux_computation', 'adaptation'],
-        max_size=100,  # Max cached results
-        ttl=3600       # Time-to-live in seconds
-    )
-    .build()
-)
-```
-
-#### 16.2 Auto-Memoization
-
-```python
-# Automatically detect and cache repeated computations
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .auto_memoize = True  # Enable automatic memoization
-    .build()
-)
-```
-
-#### 16.3 Auto-Tuning
-
-```python
-# Automatic performance optimization
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .auto_tune(
-        suggest_optimizations=True,
-        warmup_steps=10,
-        tune_parameters=['adapt_frequency', 'checkpoint_interval']
-    )
-    .build()
-)
-
-# After warmup, prints suggestions:
-# "Consider reducing adaptation frequency to every 2 steps (15% speedup)"
-# "Consider increasing checkpoint interval to 5.0s (8% I/O reduction)"
-```
-
----
-
 ## Complete V1+ Feature Scope
 
 ### Included in V1+ (Extended)
@@ -1159,7 +1101,6 @@ sim = (
 | **Workflow** | Batch execution, parameter sweep | 6 |
 | **Critical** | UQ, adjoint, optimization interface | 7 |
 | **Usability** | Presets, code gen, JSON config, explain mode | 8 |
-| **Performance** | Caching, memoization, auto-tuning | 8 |
 
 ### Deferred to V2+
 
@@ -1172,6 +1113,7 @@ sim = (
 | **Parallel** | MPI domain decomposition |
 | **Advanced** | Data assimilation, sensitivity analysis, optimal control |
 | **ML** | Learned subgrid models, ML-enhanced physics |
+| **Performance** | Result caching, auto-memoization, auto-tuning |
 
 ---
 
@@ -1186,10 +1128,10 @@ sim = (
 | **Phase 5** | I/O & Adaptation: Compression, Run ID, load balancing, error estimators | Medium |
 | **Phase 6** | BCs & Workflow: Time BCs, partial periodicity, coupled BCs, batch exec | High |
 | **Phase 7** | Critical: UQ, adjoint, optimization | Very High |
-| **Phase 8** | Usability & Performance: Presets, code gen, caching, auto-tune | Low-Medium |
+| **Phase 8** | Usability: Presets, code gen, JSON config, explain mode | Low |
 
 ## Version Target
 
 - **V1.0** (Sampai v0.5.0): Phases 1-4 (Core, Advanced, Diagnostics, Polish)
 - **V1.5** (Sampai v0.6.0): Phases 5-6 (I/O, Adaptation, BCs, Workflow)
-- **V2.0** (Sampai v0.7.0+): Phases 7-8 (Critical, Usability, Performance) + V2+ features
+- **V2.0** (Sampai v0.7.0+): Phases 7-8 (Critical, Usability) + V2+ features (including Performance)
