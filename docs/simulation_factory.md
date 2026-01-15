@@ -458,6 +458,266 @@ src/sampai/
 | **Runtime Reconfiguration** | Dynamic parameter changes, scheme swapping, adaptation control | Adaptive algorithms, multi-stage simulations |
 | **Hook System** | 7 hooks (@before_step, @after_step, @before_adapt, @after_adapt, @on_output, @on_checkpoint, @on_restart) | Custom logic injection |
 | **Progress Tracking** | Auto mesh statistics, progress bar, ETA | User feedback, debugging |
+| **Diagnostics** | Conservation, stability, norms, error estimation | Verification, validation |
+| **Multi-field** | Coupled fields (u, p, T...), adaptive dt | Multi-physics systems |
+| **Debug Tools** | Verbose logging, profiling, assertions | Development, troubleshooting |
+
+---
+
+## V1 Additional Features
+
+### 8. Diagnostics & Monitoring
+
+#### 8.1 Conservation Tracking
+
+```python
+# Track mass, energy, momentum conservation
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_conservation(['mass', 'energy', 'momentum'])
+    .build()
+)
+
+# Access conservation data
+@sim.after_step
+def check_conservation(u, t, iteration):
+    mass_error = sim.conservation.mass.error()
+    energy_error = sim.conservation.energy.error()
+    if abs(mass_error) > 1e-6:
+        print(f"Warning: mass conservation error = {mass_error}")
+```
+
+#### 8.2 Stability Monitoring
+
+```python
+# Automatic stability checks
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_stability_checks(
+        check_nan=True,
+        check_inf=True,
+        max_value_threshold=1e6,
+        on_error='save_checkpoint_and_reduce_dt'
+    )
+    .build()
+)
+
+# Or handle stability errors manually
+@sim.on_stability_error
+def handle_instability(u, t, error_type):
+    print(f"Stability error at t={t}: {error_type}")
+    sim.save_checkpoint(f'crash_{t}')
+    sim.dt *= 0.5
+```
+
+#### 8.3 Norm Tracking
+
+```python
+# Track L1, L2, Linf norms
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_norm_tracking(['L1', 'L2', 'Linf'])
+    .build()
+)
+
+# Access norm history
+u_final = sim.run()
+print(f"Final L2 norm: {sim.norms.L2[-1]}")
+
+# Export norms for analysis
+import numpy as np
+np.save('norms_history', {
+    't': sim.norms.t,
+    'L1': sim.norms.L1,
+    'L2': sim.norms.L2,
+    'Linf': sim.norms.Linf
+})
+```
+
+#### 8.4 Error Estimation
+
+```python
+# Estimate discretization error against reference solution
+u_ref = sam.load('reference_solution.h5')
+
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_error_estimation(
+        reference=u_ref,
+        norms=['L1', 'L2', 'Linf'],
+        compute_convergence_order=True
+    )
+    .build()
+)
+
+u_final = sim.run()
+print(f"L2 error: {sim.error.L2}")
+print(f"Convergence order: {sim.convergence_order}")
+```
+
+---
+
+### 9. Multi-Field Systems
+
+#### 9.1 Multiple Coupled Fields
+
+```python
+# Navier-Stokes style: velocity + pressure
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('projection')  # Velocity-pressure splitting
+    .solution([
+        ('u', 2),  # Vector field, 2 components
+        ('p', 1)   # Scalar field, 1 component
+    ])
+    .time(tf=1.0, cfl=0.95)
+    .build()
+)
+
+# Access individual fields
+u = sim.get_field('u')
+p = sim.get_field('p')
+
+# Apply different BCs per field
+sam.boundary.dirichlet(u, [0.0, 0.0])
+sam.boundary.neumann(p, 0.0)
+```
+
+#### 9.2 Adaptive Time Stepping
+
+```python
+# Automatic dt adjustment based on error estimator
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .adaptive_dt(
+        tol=1e-6,
+        dt_min=1e-6,
+        dt_max=0.1,
+        estimator='embedded_rk'  # Or 'richardson'
+    )
+    .build()
+)
+
+# Or manual adaptive dt control
+@sim.before_step
+def adaptive_dt_control(u, t, iteration):
+    # Reduce dt near shocks
+    if u.max() > 0.9:
+        sim.dt = max(sim.dt * 0.8, sim.config['time']['dt_min'])
+    else:
+        sim.dt = min(sim.dt * 1.1, sim.config['time']['dt_max'])
+```
+
+---
+
+### 10. Debug & Development Tools
+
+#### 10.1 Verbose Logging
+
+```python
+# Enable detailed logging
+import logging
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .set_log_level(logging.DEBUG)
+    .build()
+)
+
+# Console output during simulation:
+# DEBUG:sampai.simulation: Before adapt: 1523 cells
+# DEBUG:sampai.simulation: Adapting mesh...
+# DEBUG:sampai.simulation: After adapt: 1897 cells (+374)
+# DEBUG:sampai.simulation: Updating ghost cells...
+# DEBUG:sampai.simulation: Computing RK3 stage 1...
+# DEBUG:sampai.simulation: Computing RK3 stage 2...
+# DEBUG:sampai.simulation: Computing RK3 stage 3...
+# DEBUG:sampai.simulation: Step complete, t=0.001234, dt=0.000100
+```
+
+#### 10.2 Built-in Profiling
+
+```python
+# Profile simulation execution
+with sim.profile(output_dir='./profile'):
+    sim.run()
+
+# Generates:
+# - profile_call_tree.txt  # Call tree with timings
+# - profile_flamegraph.svg # Flamegraph visualization
+# - profile_stats.json     # JSON stats for analysis
+
+# Output example:
+# Time by function:
+#   adaptation.adapt()        : 45.2%  (1.23s)
+#   operators.convection_weno5: 32.1%  (0.87s)
+#   field.update_ghost()      : 15.4%  (0.42s)
+#   field.resize()            : 5.3%   (0.14s)
+#   other                     : 2.0%   (0.05s)
+```
+
+#### 10.3 Debug Mode (Assertions)
+
+```python
+# Enable comprehensive debug checks
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .enable_debug_mode(checks=[
+        'finite_values',      # No NaN/inf in fields
+        'ghost_consistency',  # Ghost cells match neighbors
+        'mass_conservation',  # Mass conserved (if applicable)
+        'mesh_validity',      # Mesh structure valid
+        'dt_positive'         # Time step positive
+    ])
+    .build()
+)
+
+# Debug mode automatically:
+# - Runs assertions before/after each step
+# - Logs detailed info on failure
+# - Saves checkpoint on assertion failure
+# - Provides stack trace with field values
+```
+
+---
+
+## Extended Hook System
+
+V1 includes all hooks from basic design plus additional diagnostic hooks:
+
+| Hook | Signature | When Called |
+|------|-----------|-------------|
+| `@before_step` | `func(u, t, iteration)` | Before time step |
+| `@after_step` | `func(u, t, iteration)` | After time step |
+| `@before_adapt` | `func(u)` | Before mesh adaptation |
+| `@after_adapt` | `func(u, mesh_stats)` | After mesh adaptation |
+| `@on_output` | `func(u, t, iteration)` | When output is saved |
+| `@on_checkpoint` | `func(u, t, iteration, checkpoint_path)` | When checkpoint is saved |
+| `@on_restart` | `func(checkpoint_path)` | After loading from checkpoint |
+| `@on_conservation_error` | `func(field, invariant, error)` | On conservation violation |
+| `@on_stability_error` | `func(u, t, error_type, details)` | On instability detected |
+| `@on_dt_change` | `func(dt_old, dt_new, reason)` | When time step changes |
 
 ---
 
@@ -466,9 +726,48 @@ src/sampai/
 - Predefined example shortcuts (use builder)
 - C++ implementation initially (Python first, profile later)
 - Symbolic equation parsing (keep it simple)
-- Parallel time-stepping (future work)
+- Parallel time-stepping (MPI domain decomposition) - future work
 - Automatic mesh deformation (mesh topology fixed, only refinement changes)
+- Operator splitting (IMEX, Strang) - V2 or later
+- Data assimilation / optimal control - future work
+- ML-enhanced physics - experimental
+
+---
+
+## V1 Feature Scope
+
+### Included in V1
+
+| Category | Features |
+|----------|----------|
+| **Core** | Builder API, Euler/RK3 schemes, auto fields, progress tracking |
+| **Geometry** | Pre-built mesh, Box helper, DomainBuilder (obstacles) |
+| **AMR** | Auto adaptation, frequency control, condition-based |
+| **Hooks** | 10 hooks including diagnostic hooks |
+| **Checkpoint** | Auto/manual, full state restoration |
+| **Reconfiguration** | Runtime parameter changes, scheme swapping |
+| **Diagnostics** | Conservation, stability, norms, error estimation |
+| **Multi-field** | Multiple coupled fields, adaptive dt |
+| **Debug** | Verbose logging, profiling, debug assertions |
+
+### Deferred to V2+
+
+| Category | Features |
+|----------|----------|
+| **Schemes** | IMEX, operator splitting, higher-order RK |
+| **Analysis** | FFT, structure detection, statistics |
+| **I/O** | VTK export, MP4 animation, Prometheus |
+| **Advanced** | Data assimilation, sensitivity, optimal control |
+| **Parallel** | MPI domain decomposition |
+| **ML** | Learned subgrid models |
+
+## Implementation Priority
+
+1. **Phase 1** (Core): Builder, Simulation, basic schemes, hooks
+2. **Phase 2** (Advanced): Checkpoint, reconfiguration, multi-field
+3. **Phase 3** (Diagnostics): Conservation, stability, norms, profiling, debug
+4. **Phase 4** (Polish): Error estimation, adaptive dt, logging
 
 ## Version Target
 
-Target: Sampai v0.4.0 or v0.5.0
+Target: Sampai v0.5.0 (major feature release)
