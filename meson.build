@@ -229,21 +229,37 @@ endif
 
 # Find boost-mpi and boost-serialization libraries explicitly
 # Using find_library is more reliable than dependency() for MPI
-boost_mpi_lib = cpp.find_library('boost_mpi', required: false)
-boost_serialization_lib = cpp.find_library('boost_serialization', required: false)
+boost_search_dirs = []
+if conda_prefix != ''
+    boost_search_dirs += [
+        join_paths(conda_prefix, 'lib'),
+        join_paths(conda_prefix, 'lib64'),
+    ]
+endif
+
+boost_mpi_lib = cpp.find_library('boost_mpi', dirs: boost_search_dirs, required: false)
+boost_serialization_lib = cpp.find_library('boost_serialization', dirs: boost_search_dirs, required: false)
+
+has_boost_mpi = boost_mpi_lib.found() and boost_serialization_lib.found()
 
 # Combine into a dependency-like object
-if boost_mpi_lib.found() and boost_serialization_lib.found()
+if has_boost_mpi
     boost_mpi_dep = declare_dependency(
-        link_args: ['-lboost_mpi', '-lboost_serialization']
+        dependencies: [boost_mpi_lib, boost_serialization_lib]
     )
     message('Found boost-mpi and boost-serialization libraries')
 else
     boost_mpi_dep = declare_dependency()
-    warning('boost-mpi or boost-serialization not found - MPI support may be limited')
+    if enable_mpi
+        warning('boost-mpi or boost-serialization not found - MPI support may be limited')
+    endif
 endif
 
 has_mpi = enable_mpi and mpi_dep.found()
+
+if enable_mpi and not has_boost_mpi
+    error('MPI support requires Boost.MPI and Boost.Serialization; install libboost-mpi and libboost-serialization')
+endif
 
 # Collect cpp_args for conditional compilation
 extra_cpp_args = []
@@ -252,7 +268,7 @@ if has_mpi
     message('')
     message('=== MPI Support Enabled ===')
     message('MPI library: @0@'.format(mpi_dep.name()))
-    if boost_mpi_dep.found()
+    if has_boost_mpi
         message('Boost.MPI: found')
     else
         warning('Boost.MPI not found - MPI support may be limited')
@@ -336,9 +352,7 @@ all_dependencies = [
 # Add MPI dependencies if enabled
 if has_mpi
     all_dependencies += [mpi_dep]
-    if boost_mpi_dep.found()
-        all_dependencies += [boost_mpi_dep]
-    endif
+    all_dependencies += [boost_mpi_dep]
 endif
 
 # Collect all cpp_args
