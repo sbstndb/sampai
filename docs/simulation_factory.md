@@ -24,16 +24,64 @@ High-level `Simulation` class to orchestrate time-stepping loops with mesh adapt
 
 ### 1. Builder API (Primary)
 
+#### 1.1 Geometry Specification
+
+**Option A: Pre-built Mesh (Flexible)**
 ```python
 import sampai as sam
+
+# User creates mesh separately (full control)
+box = sam.geometry.box([-1.0, -1.0], [1.0, 1.0])
+mesh = sam.mesh.make(box, min_level=5, max_level=9)
 
 sim = (
     sam.SimulationBuilder(mesh)
     .scheme('rk3', cfl=0.95)
     .solution('u', init='hat')
     .time(tf=1.0, dt=None)
+    .build()
+)
+```
+
+**Option B: Box via Builder (Convenient)**
+```python
+sim = (
+    sam.SimulationBuilder()
+    .box([-1.0, -1.0], [1.0, 1.0], min_level=5, max_level=9)
+    .scheme('rk3', cfl=0.95)
+    .solution('u', init='hat')
+    .time(tf=1.0)
+    .build()
+)
+```
+
+**Option C: Complex Domain with Obstacles**
+```python
+domain = sam.geometry.DomainBuilder2D([-1.0, -1.0], [1.0, 1.0])
+domain.remove([0.0, 0.0], [0.4, 0.4])  # Create obstacle
+
+sim = (
+    sam.SimulationBuilder()
+    .domain(domain, min_level=5, max_level=9)
+    .scheme('rk3', rhs=lambda u: sam.operators.convection_weno5(u))
+    .solution('u', init='hat')
+    .time(tf=1.0)
+    .build()
+)
+```
+
+#### 1.2 Full Builder Example
+
+```python
+sim = (
+    sam.SimulationBuilder()
+    .box([-1.0, -1.0], [1.0, 1.0], min_level=5, max_level=9)
+    .scheme('rk3', cfl=0.95)
+    .solution('u', init='hat')
+    .time(tf=1.0, dt=None)
     .adapt(epsilon=2e-4, frequency='every')
     .output('./results', interval=0.1, format='hdf5')
+    .checkpoint('./checkpoints', interval=1.0)
     .progress(desc='Burgers 2D')
     .build()
 )
@@ -43,11 +91,15 @@ sim = (
 
 | Method | Parameters | Description |
 |--------|------------|-------------|
+| `.box()` | `min_corner, max_corner, min_level, max_level, ...` | Create simple box domain |
+| `.domain()` | `DomainBuilder, min_level, max_level, ...` | Create mesh from complex domain (with obstacles) |
+| `__init__(mesh)` | `mesh: MRMesh` | Use pre-built mesh (Option A) |
 | `.scheme()` | `name: str` ('euler', 'rk3') or `Scheme` instance, `**kwargs` | Time-stepping scheme with optional params (cfl, rhs) |
 | `.solution()` | `name: str`, `init: float|str|callable` | Main solution field, auto-created |
 | `.time()` | `tf: float`, `dt: float=None`, `cfl: float` | Time configuration |
 | `.adapt()` | `epsilon: float`, `frequency: str|int|callable` | MRA config, 'every', N, or condition(t,iter) |
 | `.output()` | `path: str`, `interval: float`, `format: str` | Auto-output configuration |
+| `.checkpoint()` | `path: str`, `interval: float=None` | Checkpoint configuration (None = manual only) |
 | `.progress()` | `desc: str`, `enable: bool=True` | Progress bar control |
 | `.build()` | - | Creates and validates the `Simulation` |
 
@@ -75,6 +127,11 @@ def log_mesh(u, mesh_stats):
 @sim.on_output
 def save_custom(u, t, iteration):
     np.save(f'stats_{iteration}.npy', u.max())
+
+@sim.on_checkpoint
+def save_additional_data(u, t, iteration, checkpoint_path):
+    # Save additional data alongside checkpoint
+    np.save(f'{checkpoint_path}/custom_data.npy', {'t': t, 'iter': iteration})
 ```
 
 | Hook | Signature | When Called |
@@ -84,6 +141,8 @@ def save_custom(u, t, iteration):
 | `@before_adapt` | `func(u)` | Before mesh adaptation |
 | `@after_adapt` | `func(u, mesh_stats)` | After mesh adaptation |
 | `@on_output` | `func(u, t, iteration)` | When output is saved |
+| `@on_checkpoint` | `func(u, t, iteration, checkpoint_path)` | When checkpoint is saved |
+| `@on_restart` | `func(checkpoint_path)` | After loading from checkpoint |
 
 ---
 
@@ -109,7 +168,175 @@ with sim:
 
 ---
 
-### 4. Custom Schemes (Extensibility)
+### 4. Execution Methods
+
+```python
+# Full auto-run
+u_final = sim.run()
+
+# Step-by-step control
+with sim:
+    while sim.running:
+        u = sim.step()
+        # custom logic between steps
+
+# Manual checkpoint during step loop
+with sim:
+    while sim.running:
+        u = sim.step()
+        if sim.t > 5.0:
+            sim.save_checkpoint()  # Manual checkpoint
+        if some_condition:
+            break
+    sim.save_checkpoint('final')  # Save final state
+```
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `.run()` | `Field` | Runs complete simulation, returns final solution |
+| `.step()` | `Field` | Executes single time step with AMR |
+| `.save_checkpoint()` | `str` | Save current state to checkpoint file, returns path |
+| `.load_checkpoint()` | - | Load state from checkpoint file |
+| `__enter__()` | `Simulation` | Context manager entry |
+| `__exit__()` | - | Context manager exit |
+
+---
+
+### 5. Checkpoint & Restart
+
+#### 5.1 Automatic Checkpoints
+
+```python
+sim = (
+    sam.SimulationBuilder()
+    .box([-1, -1], [1, 1], min_level=5, max_level=9)
+    .scheme('rk3')
+    .solution('u', init='hat')
+    .time(tf=10.0)
+    .checkpoint('./checkpoints', interval=1.0)  # Every 1.0 time unit
+    .build()
+)
+
+u_final = sim.run()
+# Checkpoints auto-saved to:
+# ./checkpoints/checkpoint_0001.0000.h5
+# ./checkpoints/checkpoint_0002.0000.h5
+# ...
+```
+
+#### 5.2 Manual Checkpoints
+
+```python
+with sim:
+    while sim.running:
+        u = sim.step()
+
+        # Manual checkpoint based on condition
+        if u.max() > 0.9:
+            path = sim.save_checkpoint('near_shock')  # ./checkpoints/near_shock_t=0.543.h5
+```
+
+#### 5.3 Restart from Checkpoint
+
+```python
+# Resume from last checkpoint
+sim = sam.Simulation.load('./checkpoints/checkpoint_0050.0000.h5')
+# Simulation state fully restored: u, t, iteration, mesh, config
+
+# Change final time and continue
+sim.config['time']['tf'] = 20.0  # Extend simulation
+u_final = sim.run()
+```
+
+#### 5.4 Checkpoint Content
+
+Each checkpoint file contains:
+- Solution field `u` (HDF5 dataset)
+- Current time `t`
+- Current iteration count
+- Mesh state (cell structure, levels)
+- MRA configuration
+- Scheme metadata
+- User-defined custom data (via `@on_checkpoint`)
+
+---
+
+### 6. Runtime Reconfiguration
+
+#### 6.1 Simple Parameter Changes
+
+```python
+sim = sam.SimulationBuilder()... .build()
+
+with sim:
+    while sim.running:
+        u = sim.step()
+
+        # Dynamically adjust adaptation threshold
+        if u.max() > 0.95:  # Near shock
+            sim.set_adapt_epsilon(1e-4)  # Refine more
+        else:
+            sim.set_adapt_epsilon(2e-4)  # Standard
+
+        # Change CFL based on stability
+        if u.max() > 1.0:
+            sim.set_cfl(0.5)  # Reduce for stability
+        else:
+            sim.set_cfl(0.95)  # Standard
+```
+
+#### 6.2 Conditional Adaptation Control
+
+```python
+# Initially adapt every step
+sim = sam.SimulationBuilder()... .adapt(epsilon=2e-4, frequency='every').build()
+
+with sim:
+    while sim.running:
+        u = sim.step()
+
+        # Switch adaptation frequency based on solution smoothness
+        if sim.iteration == 100 and u.max() < 0.5:
+            # Solution smoothed out, adapt less frequently
+            sim.set_adapt_frequency(5)  # Every 5 steps
+
+        # Or use custom condition
+        sim.set_adapt_condition(lambda t, it: it % 10 == 0)
+```
+
+#### 6.3 Scheme Swapping (Advanced)
+
+```python
+# Start with Euler for rapid initial transient
+sim = sam.SimulationBuilder()... .scheme('euler', rhs=my_rhs).build()
+
+with sim:
+    while sim.running:
+        u = sim.step()
+
+        # Switch to RK3 for accuracy after initial transient
+        if sim.t > 1.0 and isinstance(sim.stepper, EulerStepper):
+            sim.set_scheme('rk3', rhs=my_rhs)
+            print(f"Switched to RK3 at t={sim.t}")
+```
+
+#### 6.4 Hook-Based Control
+
+```python
+@sim.before_step
+def adaptive_control(u, t, iteration):
+    # Hook can influence simulation behavior
+    if u.max() > 1.0:
+        # Reduce dt for stability
+        sim.dt = 0.5 * sim.dt
+    elif u.max() < 0.1:
+        # Increase dt for efficiency
+        sim.dt = 1.5 * sim.dt
+```
+
+---
+
+### 7. Custom Schemes (Extensibility)
 
 #### Option A: RHS Callable (Simple)
 
@@ -217,6 +444,20 @@ src/sampai/
 - **Field allocation**: Automatic based on scheme
 - **Ghost update**: Automatic before flux computation
 - **Output**: HDF5 + XDMF for Paraview
+- **Checkpointing**: Opt-in via `.checkpoint()` builder method
+- **Reconfiguration**: Allowed at runtime via setter methods
+
+---
+
+## Advanced Features Summary
+
+| Feature | Description | Use Case |
+|---------|-------------|----------|
+| **Geometry Options** | Pre-built mesh, Box helper, DomainBuilder with obstacles | Simple to complex domains |
+| **Checkpoint/Restart** | Auto or manual checkpointing, full state restoration | Long simulations, crash recovery |
+| **Runtime Reconfiguration** | Dynamic parameter changes, scheme swapping, adaptation control | Adaptive algorithms, multi-stage simulations |
+| **Hook System** | 7 hooks (@before_step, @after_step, @before_adapt, @after_adapt, @on_output, @on_checkpoint, @on_restart) | Custom logic injection |
+| **Progress Tracking** | Auto mesh statistics, progress bar, ETA | User feedback, debugging |
 
 ---
 
@@ -226,6 +467,7 @@ src/sampai/
 - C++ implementation initially (Python first, profile later)
 - Symbolic equation parsing (keep it simple)
 - Parallel time-stepping (future work)
+- Automatic mesh deformation (mesh topology fixed, only refinement changes)
 
 ## Version Target
 
