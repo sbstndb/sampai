@@ -157,7 +157,7 @@ jobs:
         conda activate sampai-mpi
 
         cd sampai
-        pip install --no-build-isolation --no-deps -e .
+        pip install --no-build-isolation --no-deps -e . -Csetup-args=-Dmpi=true
 
     - name: Run MPI tests
       run: |
