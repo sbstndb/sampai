@@ -138,6 +138,13 @@ jobs:
         export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
         export MPICC="$CONDA_PREFIX/bin/mpicc"
         export MPICXX="$CONDA_PREFIX/bin/mpicxx"
+        # Ensure libfabric has an unversioned symlink for the linker
+        if [ ! -e "$CONDA_PREFIX/lib/libfabric.so" ]; then
+          libfabric_target="$(ls "$CONDA_PREFIX"/lib/libfabric.so.* 2>/dev/null | head -n 1)"
+          if [ -n "$libfabric_target" ]; then
+            ln -s "$libfabric_target" "$CONDA_PREFIX/lib/libfabric.so"
+          fi
+        fi
 
         cd sampai
         meson setup builddir -Dmpi=true
