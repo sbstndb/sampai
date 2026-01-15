@@ -43,8 +43,9 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "Installing CLI11..."
     CLI11_VER="2.6.1"
     if [ ! -f "/usr/local/include/cli/cli.hpp" ]; then
-        curl -LO "https://github.com/CLIUtils/CLI11/releases/download/v${CLI11_VER}/CLI11-${CLI11_VER}.tar.gz"
-        tar -xzf "CLI11-${CLI11_VER}.tar.gz"
+        # Use GitHub archive URL instead of releases
+        curl -LO "https://github.com/CLIUtils/CLI11/archive/refs/tags/v${CLI11_VER}.tar.gz"
+        tar -xzf "v${CLI11_VER}.tar.gz"
         cd "CLI11-${CLI11_VER}"
         cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -54,7 +55,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         cmake --build build --parallel
         cmake --install build
         cd ..
-        rm -rf "CLI11-${CLI11_VER}" "CLI11-${CLI11_VER}.tar.gz"
+        rm -rf "CLI11-${CLI11_VER}" "v${CLI11_VER}.tar.gz"
         echo "CLI11 installed"
     else
         echo "CLI11 already installed"
@@ -105,8 +106,9 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     # Check if CLI11 was installed, if not, install from source
     if [ ! -f "/usr/local/include/cli/cli.hpp" ] && [ ! -f "$(brew --prefix)/include/cli/cli.hpp" ]; then
         CLI11_VER="2.6.1"
-        curl -LO "https://github.com/CLIUtils/CLI11/releases/download/v${CLI11_VER}/CLI11-${CLI11_VER}.tar.gz"
-        tar -xzf "CLI11-${CLI11_VER}.tar.gz"
+        # Use GitHub archive URL instead of releases
+        curl -LO "https://github.com/CLIUtils/CLI11/archive/refs/tags/v${CLI11_VER}.tar.gz"
+        tar -xzf "v${CLI11_VER}.tar.gz"
         cd "CLI11-${CLI11_VER}"
         cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -116,7 +118,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
         cmake --build build --parallel
         cmake --install build
         cd ..
-        rm -rf "CLI11-${CLI11_VER}" "CLI11-${CLI11_VER}.tar.gz"
+        rm -rf "CLI11-${CLI11_VER}" "v${CLI11_VER}.tar.gz"
         echo "CLI11 installed from source"
     else
         echo "CLI11 already installed"
