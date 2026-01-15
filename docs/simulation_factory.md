@@ -436,6 +436,73 @@ src/sampai/
 | `'projection'` | Velocity-pressure splitting (Navier-Stokes) | 3+ per field | Yes |
 | Custom | User-defined `Scheme` subclass | Variable | Variable |
 
+---
+
+## Available Samurai Operators
+
+The Simulation API composes existing Samurai operators. Below are operators available for use in RHS callables:
+
+### Currently Exposed (Python Bindings)
+
+```python
+# Convection operators (from sam.operators module)
+flux = sam.operators.upwind(field, velocity)           # 1st order upwind
+flux = sam.make_convection_weno5(field, velocity)      # 5th order WENO
+
+# Can be used in custom RHS
+def my_rhs(u):
+    return sam.operators.upwind(u, [1.0, 0.5])
+
+sim = sam.SimulationBuilder().scheme('euler', rhs=my_rhs).build()
+```
+
+### Available in C++ (Require Python Bindings)
+
+**CRITICAL Missing Features:**
+
+| Operator | C++ Function | Status | Impact |
+|----------|-------------|--------|--------|
+| **Diffusion** | `make_diffusion_order2(k)` | NOT EXPOSED | Heat equation IMPOSSIBLE |
+| **Laplacian** | `make_laplacian_order2()` | NOT EXPOSED | ∇²u operator missing |
+| **Gradient** | `make_gradient_order2()` | NOT EXPOSED | ∇u computation missing |
+| **Divergence** | `make_divergence_order2()` | NOT EXPOSED | ∇·v computation missing |
+
+**Workaround for V1:**
+```python
+# Users must implement diffusion manually via subset operations
+# (Note: subset operations also not exposed - see limitation below)
+```
+
+### Operator Composition (C++ Only)
+
+```cpp
+// C++ supports operator algebra
+auto scheme = make_diffusion_order2(1.0) + make_identity();
+auto combined = 2.0 * make_convection_upwind(v) + scheme;
+```
+
+**Python Status:** NOT EXPOSED - Requires new bindings
+
+### Field Operations (Fully Exposed)
+
+```python
+# Arithmetic operators
+result = field + 2.0        # New field
+field += 1.0                # In-place (1.5-2x faster)
+
+# Assignment (critical after mesh adaptation)
+unp1.assign(u - dt * flux)  # Safe: preserves mesh reference
+
+# Array swapping (zero-copy time-stepping)
+sam.swap_field_arrays_2d(u, unp1)
+
+# NumPy integration
+arr = field.numpy_view()    # Zero-copy access
+arr[:] = np.sin(x)
+```
+
+---
+
 ## Default Behavior
 
 - **Mesh adaptation**: Every time step (configurable)
@@ -566,11 +633,126 @@ print(f"L2 error: {sim.error.L2}")
 print(f"Convergence order: {sim.convergence_order}")
 ```
 
+#### 7.5 Samurai Utilities Integration
+
+```python
+# Mesh statistics (from samurai)
+mesh_stats = {
+    'n_cells': u.mesh.nb_cells,
+    'min_level': u.mesh.min_level,
+    'max_level': u.mesh.max_level,
+    'min_cell_length': u.mesh.min_cell_length
+}
+
+@sim.after_adapt
+def log_mesh_stats(u, mesh_stats_dict):
+    print(f"Cells: {mesh_stats_dict['n_cells']}")
+    print(f"Levels: {mesh_stats_dict['min_level']}-{mesh_stats_dict['max_level']}")
+
+# Field operations (fully supported)
+@sim.before_step
+def check_field_bounds(u, t, iteration):
+    # NumPy zero-copy view
+    arr = u.numpy_view()
+    if np.any(arr > 1.0):
+        print(f"Warning: u exceeds 1.0, max = {arr.max()}")
+```
+
 ---
 
-### 8. Multi-Field Systems
+### 8. Algorithms and Iteration Patterns
 
-#### 8.1 Multiple Coupled Fields
+Samurai provides iteration algorithms for mesh traversal. The Simulation API uses these internally but they can also be used directly:
+
+#### 8.1 Cell-Based Iteration (Exposed)
+
+```python
+import sampai as sam
+
+# Iterate over all cells
+def init_circular(u, center=(0.3, 0.3), radius=0.2):
+    def init_cell(cell):
+        x, y = cell.center()
+        if (x - center[0])**2 + (y - center[1])**2 < radius**2:
+            u[cell.index] = 1.0
+        else:
+            u[cell.index] = 0.0
+
+    sam.algorithms.for_each_cell(u.mesh, init_cell)
+
+# Cell properties available
+def process_cell(cell):
+    level = cell.level          # Refinement level
+    index = cell.index          # Linear index in field array
+    length = cell.length        # Physical cell size
+    center = cell.center()      # (x, y, z) tuple
+    corner = cell.corner()      # (x, y, z) min corner
+```
+
+#### 8.2 Subset Operations (C++ Only - NOT Exposed)
+
+**CRITICAL Missing Features:**
+
+| Operation | C++ Function | Status | Use Case |
+|-----------|-------------|--------|----------|
+| **Intersection** | `intersection(set1, set2)` | NOT EXPOSED | Find overlapping cells |
+| **Union** | `union_(set1, set2)` | NOT EXPOSED | Combine cell sets |
+| **Difference** | `difference(set1, set2)` | NOT EXPOSED | Subtract cell sets |
+| **Translate** | `translate(set, stencil)` | NOT EXPOSED | Shift subset |
+| **Expand** | `expand(set, width)` | NOT EXPOSED | Grow subset |
+| **Contract** | `contract(set, width)` | NOT EXPOSED | Shrink subset |
+
+**Impact:** Regional operations (e.g., apply BC only on left boundary) require full iteration.
+
+**Workaround for V1:**
+```python
+# Use conditional iteration
+def left_boundary_only(cell):
+    x, _ = cell.center()
+    if x < 0.01:  # Near left boundary
+        u[cell.index] = 0.0
+
+sam.algorithms.for_each_cell(mesh, left_boundary_only)
+```
+
+#### 8.3 Level-Based Iteration (NOT Exposed)
+
+```cpp
+// C++ supports level iteration
+for_each_level(mesh, [&](std::size_t level) {
+    // Process all cells at this level
+});
+```
+
+**Python Status:** NOT EXPOSED - Requires new bindings
+
+#### 8.4 Cell Finding (NOT Exposed)
+
+```cpp
+// C++ can find cell from coordinates
+auto cell = find_cell(mesh, {x, y});
+if (cell.is_valid()) {
+    u(cell) = value;
+}
+```
+
+**Python Status:** NOT EXPOSED - Requires new bindings
+
+**Workaround for V1:**
+```python
+# Iterate to find cell (inefficient but works)
+def find_and_set(mesh, u, target_coords, value):
+    def check_cell(cell):
+        if np.allclose(cell.center(), target_coords, atol=cell.length/2):
+            u[cell.index] = value
+    sam.algorithms.for_each_cell(mesh, check_cell)
+```
+
+---
+
+### 9. Multi-Field Systems
+
+#### 9.1 Multiple Coupled Fields
 
 ```python
 # Navier-Stokes style: velocity + pressure
@@ -1169,6 +1351,31 @@ When using `.domain()` with `DomainBuilder` for complex geometries with obstacle
 | **Prediction order default 1** | Orders 2-5 require C++ implementation |
 | **Fixed CFL-based dt** | Adaptive time-stepping requires manual hooks |
 
+### Operators (CRITICAL)
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| **Diffusion operators NOT exposed** | Heat equation ∂u/∂t = k∇²u IMPOSSIBLE | Use C++ or implement manually |
+| **Gradient/Div NOT exposed** | Vector calculus operations unavailable | Use C++ or finite differences |
+| **Operator composition NOT exposed** | Cannot combine schemes algebraically | Implement combined RHS manually |
+| **Custom operators NOT possible** | Locked into predefined schemes | Use C++ for new operators |
+
+### Algorithms and Iteration
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| **Subset operations NOT exposed** | Cannot do regional operations efficiently | Use conditional iteration in Python |
+| **for_each_level NOT exposed** | Level-based iteration unavailable | Filter cells by level in Python |
+| **find_cell NOT exposed** | Cannot find cell from coordinates | Iterate and check coordinates |
+
+### I/O and Metadata
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| **No version metadata in HDF5** | Backward compatibility risks | Document Samurai version externally |
+| **No HDF5 compression** | Larger file sizes | Post-process compression |
+| **No appendable time series** | Many files for long simulations | Combine externally with h5py |
+
 ---
 
 ### Deferred to V2+
@@ -1176,10 +1383,12 @@ When using `.domain()` with `DomainBuilder` for complex geometries with obstacle
 | Category | Features |
 |----------|----------|
 | **Schemes** | IMEX, operator splitting, symplectic, geometric integration |
+| **Operators** | Diffusion, Gradient, Divergence, Laplacian, operator composition, custom operators |
 | **Analysis** | FFT on-the-fly, POD/DMD, spatial derivatives, structure detection |
-| **I/O** | VTK export, MP4 animation, Prometheus metrics |
-| **BCs** | Absorbing BCs (PML) |
+| **I/O** | VTK export, MP4 animation, Prometheus metrics, HDF5 compression, version metadata |
+| **BCs** | Absorbing BCs (PML), FunctionBc exposure |
 | **Parallel** | MPI domain decomposition |
+| **Algorithms** | Subset operations, for_each_level, find_cell, parallel iteration |
 | **Advanced** | Data assimilation, sensitivity analysis, optimal control |
 | **ML** | Learned subgrid models, ML-enhanced physics |
 | **Performance** | Result caching, auto-memoization, auto-tuning |
