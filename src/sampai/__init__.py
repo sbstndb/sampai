@@ -7,7 +7,7 @@ This package provides the Python bindings for Samurai, combining:
 """
 
 import sys
-from importlib import import_module
+from importlib import import_module, util as importlib_util
 from pathlib import Path
 
 
@@ -27,21 +27,36 @@ def _load_compiled_module():
 
     build_roots = (repo_root / "build", repo_root / "builddir")
     patterns = ("_sampai*.so", "_sampai*.pyd", "_sampai*.dylib")
+    candidates = []
     for build_root in build_roots:
         if not build_root.is_dir():
             continue
         for pattern in patterns:
             for ext_path in build_root.rglob(pattern):
-                ext_dir = str(ext_path.parent)
-                sys.path.insert(0, ext_dir)
-                try:
-                    compiled = import_module("_sampai")
-                    sys.modules["_sampai"] = compiled
-                    return compiled
-                except Exception as exc:
-                    last_error = exc
-                finally:
-                    sys.path.pop(0)
+                if ext_path.is_file() and ext_path.stat().st_size > 0:
+                    candidates.append(ext_path)
+
+    for ext_path in sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True):
+        ext_dir = str(ext_path.parent)
+        sys.path.insert(0, ext_dir)
+        try:
+            compiled = import_module("_sampai")
+            sys.modules["_sampai"] = compiled
+            return compiled
+        except Exception as exc:
+            last_error = exc
+        finally:
+            sys.path.pop(0)
+
+        try:
+            spec = importlib_util.spec_from_file_location("_sampai", ext_path)
+            if spec and spec.loader:
+                compiled = importlib_util.module_from_spec(spec)
+                spec.loader.exec_module(compiled)
+                sys.modules["_sampai"] = compiled
+                return compiled
+        except Exception as exc:
+            last_error = exc
 
     if last_error:
         raise last_error
