@@ -938,6 +938,8 @@ V1 includes all hooks from basic design plus additional diagnostic hooks:
 | **Schemes** | IMEX, operator splitting, higher-order RK |
 | **Analysis** | FFT, structure detection, statistics |
 | **I/O** | VTK export, MP4 animation, Prometheus |
+| **Config** | JSON config import/export, Explain mode |
+| **Critical** | Uncertainty quantification (UQ), Adjoint solver, Optimization interface |
 | **Advanced** | Data assimilation, sensitivity, optimal control |
 | **Parallel** | MPI domain decomposition |
 | **ML** | Learned subgrid models |
@@ -950,8 +952,7 @@ V1 includes all hooks from basic design plus additional diagnostic hooks:
 4. **Phase 4** (Polish): Error estimation, adaptive dt, logging
 5. **Phase 5** (I/O & Adaptation): Compression, Run ID, Load balancing, Error estimators
 6. **Phase 6** (BCs & Workflow): Time-dependent BCs, Partial periodicity, Coupled BCs, Batch execution
-7. **Phase 7** (Critical): Uncertainty quantification, Adjoint, Optimization interface
-8. **Phase 8** (Usability & Performance): Presets, Code gen, JSON config, Caching, Memoization
+7. **Phase 7** (Usability): Presets, Code gen
 
 ---
 
@@ -1142,90 +1143,6 @@ sam.boundary.couple_fields(
 
 ---
 
-### 14. Critical Research Features
-
-#### 14.1 Uncertainty Quantification
-
-```python
-# Monte Carlo uncertainty propagation
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .quantify_uncertainty(
-        parameters={'epsilon': (2e-4, 5e-5)},  # (mean, std)
-        n_samples=100,
-        ic_perturbation='gaussian',
-        output_stats=['mean', 'variance', 'ci_95']
-    )
-    .build()
-)
-
-u_final = sim.run()
-# Access statistics
-print(f"Mean: {u_final.mean()}")
-print(f"95% CI: {u_final.ci_95()}")
-```
-
-#### 14.2 Adjoint Solver
-
-```python
-# Compute gradients for optimization
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .build()
-)
-
-# Run forward simulation
-u_final = sim.run()
-
-# Compute adjoint
-adjoint = sim.compute_adjoint(
-    objective=lambda u: u.sum(),  # Function to differentiate
-    parameter='epsilon',           # Parameter to differentiate wrt
-    checkpoint_strategy='checkpoint_all'  # For memory efficiency
-)
-
-print(f"Gradient dJ/dε = {adjoint.gradient}")
-```
-
-#### 14.3 Optimization Interface
-
-```python
-# Interface with scipy.optimize
-import scipy.optimize as opt
-
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .build()
-
-# Define objective function
-def objective(params):
-    eps, cfl = params
-    sim.set_adapt_epsilon(eps)
-    sim.set_cfl(cfl)
-    u = sim.run()
-    return u.max()  # Minimize maximum value
-
-# Optimize
-result = opt.minimize(
-    objective,
-    x0=[2e-4, 0.95],
-    bounds=[(1e-5, 1e-3), (0.1, 1.0)],
-    method='L-BFGS-B'
-)
-
-print(f"Optimal epsilon={result.x[0]}, CFL={result.x[1]}")
-```
-
----
 
 ### 15. Usability Features
 
@@ -1265,43 +1182,10 @@ sim.to_file('my_simulation.py')
 # with all imports, setup, and execution logic
 ```
 
-#### 15.3 JSON Config Import/Export
 
-```python
-# Export configuration to JSON
-sim = sam.SimulationBuilder()... .build()
-sim.save_config('config.json')
+## Complete V1 Feature Scope
 
-# Import from JSON
-sim2 = sam.SimulationBuilder.from_config('config.json')
-sim2.build().run()
-```
-
-#### 15.4 Explain Mode
-
-```python
-# Educational mode that explains what's happening
-sim = (
-    sam.SimulationBuilder()
-    .box([-1, -1], [1, 1], min_level=5, max_level=9)
-    .scheme('rk3')
-    .solution('u', init='hat')
-    .explain(verbose=True)  # Show what's happening and why
-    .build()
-)
-
-sim.run()
-# Output:
-# "Adapting mesh because max detail coefficient (2.3e-4) > epsilon (2e-4)"
-# "Reducing dt from 0.01 to 0.005 for stability (CFL condition)"
-# "Coarsening mesh in smooth region (gradient < 1e-5)"
-```
-
----
-
-## Complete V1+ Feature Scope
-
-### Included in V1+ (Extended)
+### Included in V1
 
 | Category | Features | Phase |
 |----------|----------|-------|
@@ -1318,8 +1202,7 @@ sim.run()
 | **Adaptation** | Load balancing, error estimators | 5 |
 | **BCs** | Time-dependent, partial periodicity, coupled fields | 6 |
 | **Workflow** | Batch execution, parameter sweep | 6 |
-| **Critical** | UQ, adjoint, optimization interface | 7 |
-| **Usability** | Presets, code gen, JSON config, explain mode | 8 |
+| **Usability** | Presets, code gen | 8 |
 
 ---
 
@@ -1405,11 +1288,10 @@ When using `.domain()` with `DomainBuilder` for complex geometries with obstacle
 | **Phase 4** | Polish: Error estimation, adaptive dt, logging | Medium |
 | **Phase 5** | I/O & Adaptation: Compression, Run ID, load balancing, error estimators | Medium |
 | **Phase 6** | BCs & Workflow: Time BCs, partial periodicity, coupled BCs, batch exec | High |
-| **Phase 7** | Critical: UQ, adjoint, optimization | Very High |
-| **Phase 8** | Usability: Presets, code gen, JSON config, explain mode | Low |
+| **Phase 7** | Usability: Presets, code gen | Low |
 
 ## Version Target
 
 - **V1.0** (Sampai v0.5.0): Phases 1-4 (Core, Advanced, Diagnostics, Polish)
-- **V1.5** (Sampai v0.6.0): Phases 5-6 (I/O, Adaptation, BCs, Workflow)
-- **V2.0** (Sampai v0.7.0+): Phases 7-8 (Critical, Usability) + V2+ features (including Performance)
+- **V1.5** (Sampai v0.6.0): Phases 5-7 (I/O, Adaptation, BCs, Workflow, Usability)
+- **V2.0** (Sampai v0.7.0+): Critical research features (UQ, adjoint, optimization) + V2+ features
