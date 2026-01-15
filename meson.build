@@ -144,14 +144,36 @@ pugixml_dep = dependency('pugixml', required: false)
 xtensor_include_dirs = []
 if not xtensor_dep.found()
     # xtensor might be installed via pip (in site-packages)
-    # Try to find it using Python
-    find_xtensor = run_command(py, '-c', 'import xtensor; import os; print(os.path.join(os.path.dirname(xtensor.__file__), "include"))', check: false)
+    # Use Python to find xtensor include path directly
+    find_xtensor = run_command(py, '-c', '''
+import sysconfig
+import os
+
+# Check purelib (pip install location)
+purelib = sysconfig.get_path("purelib")
+xtensor_path = os.path.join(purelib, "xtensor", "include")
+if os.path.isdir(xtensor_path):
+    print(xtensor_path)
+else:
+    # Try platlib as well
+    platlib = sysconfig.get_path("platlib")
+    xtensor_path = os.path.join(platlib, "xtensor", "include")
+    if os.path.isdir(xtensor_path):
+        print(xtensor_path)
+    else:
+        print("")
+''', check: false)
+
     if find_xtensor.returncode() == 0
-        xtensor_include_path = find_xtensor.stdout().strip()
-        if xtensor_include_path != ''
-            xtensor_include_dirs = [include_directories(xtensor_include_path)]
-            message('Using xtensor from pip: @0@'.format(xtensor_include_path))
+        xtensor_path = find_xtensor.stdout().strip()
+        if xtensor_path != ''
+            xtensor_include_dirs += include_directories(xtensor_path)
+            message('Using xtensor from pip: @0@'.format(xtensor_path))
+        else
+            warning('xtensor not found via pip. Ensure xtensor is installed.')
         endif
+    else
+        warning('Failed to search for xtensor in site-packages')
     endif
 endif
 
@@ -205,6 +227,13 @@ py_debug = py.get_variable('Py_DEBUG', false)
 # Build the pybind11 extension module
 # Note: We use _sampai (private) so the Python package can import it
 # The extension module will be installed as _sampai.so alongside sampai/ package
+
+# Build include directories list
+module_includes = [include_directories('src')]
+if xtensor_include_dirs.length() > 0
+    module_includes += xtensor_include_dirs
+endif
+
 pybind11_module = py.extension_module(
     '_sampai',
     binding_sources,
@@ -217,10 +246,7 @@ pybind11_module = py.extension_module(
         highfive_dep,
         pugixml_dep,
     ],
-    include_directories: [
-        include_directories('src'),
-        xtensor_include_dirs,  # Add xtensor includes if found via pip
-    ],
+    include_directories: module_includes,
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance
