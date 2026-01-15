@@ -22,6 +22,7 @@
 #include "mesh_config_bindings.hpp"
 #include "mra_config_bindings.hpp"
 #include "operator_bindings.hpp"
+#include "subset_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -67,6 +68,7 @@ PYBIND11_MODULE(_sampai, m)
            sampai.interval
            sampai.algorithms
            sampai.adaptation
+           sampai.subsets
            sampai.io
 
         Main Module Functions
@@ -107,6 +109,7 @@ PYBIND11_MODULE(_sampai, m)
     init_bc_bindings(m);
     init_mra_config_bindings(m);
     init_adapt_bindings(m);
+    init_subset_bindings(m);
     init_io_bindings(m);
 
     // TODO: Add more submodule initializers as they are implemented
