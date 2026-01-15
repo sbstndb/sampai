@@ -74,7 +74,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
             -DHIGHFIVE_USE_BOOST=OFF \
             -DCMAKE_INSTALL_PREFIX=/usr/local \
             -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        cmake --build build --parallel
+        # Only install, don't build examples/tests (they fail with old HDF5)
         cmake --install build
         cd ..
         rm -rf "HighFive-${HIGHFIVE_VER}" "v${HIGHFIVE_VER}.tar.gz"
