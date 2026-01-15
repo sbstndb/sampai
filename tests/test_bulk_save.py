@@ -405,5 +405,204 @@ class TestBulkLoad:
             assert os.path.exists(h5_file)
 
 
+class TestVectorFieldBulk:
+    """Tests for bulk save/dump/load with VectorField."""
+
+    def test_bulk_save_vector_1d_single_field(self):
+        """Test bulk save with a single 1D vector field (n_comp=2)."""
+        config = sam.config.make(1)
+        config.min_level = 2
+        config.max_level = 4
+
+        box = sam.geometry.box([0.0], [1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create a 1D vector field
+        velocity = sam.field.full_vector(mesh, 1.5, name="velocity")
+
+        # Save with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_1d_single")
+            sam.save_vector(filepath, velocity)
+
+            # Verify files were created
+            h5_file = os.path.join(tmpdir, "test_vec_1d_single.h5")
+            xdmf_file = os.path.join(tmpdir, "test_vec_1d_single.xdmf")
+            assert os.path.exists(h5_file)
+            assert os.path.exists(xdmf_file)
+
+    def test_bulk_save_vector_1d_multiple_fields(self):
+        """Test bulk save with multiple 1D vector fields."""
+        config = sam.config.make(1)
+        config.min_level = 2
+        config.max_level = 4
+
+        box = sam.geometry.box([0.0], [1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create multiple vector fields
+        u = sam.field.full_vector(mesh, 1.0, name="u")
+        v = sam.field.full_vector(mesh, 2.0, name="v")
+
+        # Save with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_1d_multi")
+            sam.save_vector(filepath, u, v)
+
+            # Verify files were created
+            h5_file = os.path.join(tmpdir, "test_vec_1d_multi.h5")
+            xdmf_file = os.path.join(tmpdir, "test_vec_1d_multi.xdmf")
+            assert os.path.exists(h5_file)
+            assert os.path.exists(xdmf_file)
+
+    def test_bulk_save_vector_2d_single_field(self):
+        """Test bulk save with a single 2D vector field (n_comp=2)."""
+        config = sam.config.make(2)
+        config.min_level = 2
+        config.max_level = 3
+
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create a 2D vector field (note: fill_value comes before name in the signature)
+        velocity = sam.field.full_vector(mesh, 1.5, name="velocity")
+
+        # Save with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_single")
+            sam.save_vector(filepath, velocity)
+
+            # Verify files were created
+            h5_file = os.path.join(tmpdir, "test_vec_single.h5")
+            xdmf_file = os.path.join(tmpdir, "test_vec_single.xdmf")
+            assert os.path.exists(h5_file)
+            assert os.path.exists(xdmf_file)
+
+    def test_bulk_save_vector_2d_multiple_fields(self):
+        """Test bulk save with multiple 2D vector fields."""
+        config = sam.config.make(2)
+        config.min_level = 2
+        config.max_level = 3
+
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create multiple vector fields
+        u = sam.field.full_vector(mesh, 1.0, name="u")
+        v = sam.field.full_vector(mesh, 2.0, name="v")
+
+        # Save with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_multi")
+            sam.save_vector(filepath, u, v)
+
+            # Verify files were created
+            h5_file = os.path.join(tmpdir, "test_vec_multi.h5")
+            xdmf_file = os.path.join(tmpdir, "test_vec_multi.xdmf")
+            assert os.path.exists(h5_file)
+            assert os.path.exists(xdmf_file)
+
+    def test_bulk_save_vector_3d(self):
+        """Test bulk save with 3D vector fields (n_comp=3)."""
+        config = sam.config.make(3)
+        config.min_level = 1
+        config.max_level = 2
+
+        box = sam.geometry.box([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create 3D vector fields
+        velocity = sam.field.full_vector(mesh, 1.5, name="velocity", n_components=3)
+
+        # Save with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_3d")
+            sam.save_vector(filepath, velocity)
+
+            # Verify files were created
+            h5_file = os.path.join(tmpdir, "test_vec_3d.h5")
+            xdmf_file = os.path.join(tmpdir, "test_vec_3d.xdmf")
+            assert os.path.exists(h5_file)
+            assert os.path.exists(xdmf_file)
+
+    def test_bulk_dump_vector_2d_multiple_fields(self):
+        """Test bulk dump with multiple 2D vector fields."""
+        config = sam.config.make(2)
+        config.min_level = 2
+        config.max_level = 3
+
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create multiple vector fields
+        u = sam.field.full_vector(mesh, 1.0, name="u")
+        v = sam.field.full_vector(mesh, 2.0, name="v")
+
+        # Dump with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_dump")
+            sam.dump_vector(filepath, u, v)
+
+            # Verify HDF5 file was created (no XDMF for dump)
+            h5_file = os.path.join(tmpdir, "test_vec_dump.h5")
+            assert os.path.exists(h5_file)
+
+    def test_bulk_dump_load_vector_2d(self):
+        """Test bulk dump and load with 2D vector fields."""
+        config = sam.config.make(2)
+        config.min_level = 2
+        config.max_level = 3
+
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create vector fields with specific initial values
+        u = sam.field.full_vector(mesh, 1.0, name="u")
+        v = sam.field.full_vector(mesh, 2.0, name="v")
+
+        # Dump all fields with bulk API
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_restart")
+            sam.dump_vector(filepath, u, v)
+
+            # Create new mesh and fields for loading
+            mesh2 = sam.mesh.make(box, config)
+            u2 = sam.field.zeros_vector(mesh2, name="u")
+            v2 = sam.field.zeros_vector(mesh2, name="v")
+
+            # Load all fields with bulk API
+            sam.load_vector(filepath, u2, v2)
+
+            # Verify the file still exists
+            h5_file = os.path.join(tmpdir, "test_vec_restart.h5")
+            assert os.path.exists(h5_file)
+
+    def test_bulk_dump_load_vector_3d(self):
+        """Test bulk dump and load with 3D vector fields."""
+        config = sam.config.make(3)
+        config.min_level = 1
+        config.max_level = 2
+
+        box = sam.geometry.box([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
+        mesh = sam.mesh.make(box, config)
+
+        # Create 3D vector field
+        velocity = sam.field.full_vector(mesh, 1.5, name="velocity", n_components=3)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filepath = os.path.join(tmpdir, "test_vec_3d_restart")
+            sam.dump_vector(filepath, velocity)
+
+            # Create new mesh and field for loading
+            mesh2 = sam.mesh.make(box, config)
+            velocity2 = sam.field.zeros_vector(mesh2, name="velocity", n_components=3)
+
+            # Load with bulk API
+            sam.load_vector(filepath, velocity2)
+
+            h5_file = os.path.join(tmpdir, "test_vec_3d_restart.h5")
+            assert os.path.exists(h5_file)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -1389,6 +1389,524 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
 }
 
 // ============================================================
+// Bulk VectorField save() - support multiple vector fields
+// Uses py::args to capture variable-length field lists
+// ============================================================
+
+// Helper to validate VectorField (1D, n_comp=2) and extract mesh
+const MRMesh<1>* try_validate_and_get_mesh_vector_1d_2(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const VectorField1D_2&>();
+        const auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const VectorField1D_2&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate VectorField (1D, n_comp=2) and extract mesh (non-const for load)
+MRMesh<1>* try_validate_and_get_mesh_vector_1d_2_nonconst(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        auto& first_field = fields[0].cast<VectorField1D_2&>();
+        auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            auto& field = fields[i].cast<VectorField1D_2&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate VectorField (2D, n_comp=2) and extract mesh
+const MRMesh<2>* try_validate_and_get_mesh_vector_2d_2(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const VectorField2D_2&>();
+        const auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const VectorField2D_2&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate VectorField (3D, n_comp=3) and extract mesh
+const MRMesh<3>* try_validate_and_get_mesh_vector_3d_3(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const VectorField3D_3&>();
+        const auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const VectorField3D_3&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Bulk save for VectorFields
+void save_bulk_vector(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one vector field must be provided");
+    }
+
+    if (n > 3)
+    {
+        throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+    }
+
+    // Try 1D VectorField (n_comp=2)
+    const MRMesh<1>* mesh_1d = try_validate_and_get_mesh_vector_1d_2(fields, n);
+    if (mesh_1d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                samurai::save(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField1D_2&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 2D VectorField (n_comp=2)
+    const MRMesh<2>* mesh_2d = try_validate_and_get_mesh_vector_2d_2(fields, n);
+    if (mesh_2d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                samurai::save(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField2D_2&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 3D VectorField (n_comp=3)
+    const MRMesh<3>* mesh_3d = try_validate_and_get_mesh_vector_3d_3(fields, n);
+    if (mesh_3d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                samurai::save(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto& f2 = fields[2].cast<const VectorField3D_3&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+}
+
+// Bulk dump for VectorFields
+void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one vector field must be provided");
+    }
+
+    if (n > 3)
+    {
+        throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+    }
+
+    // Try 1D VectorField (n_comp=2)
+    const MRMesh<1>* mesh_1d = try_validate_and_get_mesh_vector_1d_2(fields, n);
+    if (mesh_1d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                samurai::dump(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField1D_2&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 2D VectorField (n_comp=2)
+    const MRMesh<2>* mesh_2d = try_validate_and_get_mesh_vector_2d_2(fields, n);
+    if (mesh_2d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                samurai::dump(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField2D_2&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 3D VectorField (n_comp=3)
+    const MRMesh<3>* mesh_3d = try_validate_and_get_mesh_vector_3d_3(fields, n);
+    if (mesh_3d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                samurai::dump(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto& f2 = fields[2].cast<const VectorField3D_3&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+}
+
+// Bulk load for VectorFields (non-const version)
+void load_bulk_vector(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one vector field must be provided");
+    }
+
+    if (n > 3)
+    {
+        throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+    }
+
+    // Try 1D VectorField (n_comp=2) - non-const
+    MRMesh<1>* mesh_1d = try_validate_and_get_mesh_vector_1d_2_nonconst(fields, n);
+    if (mesh_1d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<VectorField1D_2&>();
+                samurai::load(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<VectorField1D_2&>();
+                auto& f1 = fields[1].cast<VectorField1D_2&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<VectorField1D_2&>();
+                auto& f1 = fields[1].cast<VectorField1D_2&>();
+                auto& f2 = fields[2].cast<VectorField1D_2&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 2D VectorField (n_comp=2) - non-const
+    MRMesh<2>* mesh_2d = nullptr;
+    try
+    {
+        auto& first_field = fields[0].cast<VectorField2D_2&>();
+        mesh_2d = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < n; ++i)
+        {
+            auto& field = fields[i].cast<VectorField2D_2&>();
+            if (&field.mesh() != mesh_2d)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+    }
+    catch (const py::cast_error&)
+    {
+        mesh_2d = nullptr;
+    }
+
+    if (mesh_2d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<VectorField2D_2&>();
+                samurai::load(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<VectorField2D_2&>();
+                auto& f1 = fields[1].cast<VectorField2D_2&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<VectorField2D_2&>();
+                auto& f1 = fields[1].cast<VectorField2D_2&>();
+                auto& f2 = fields[2].cast<VectorField2D_2&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 3D VectorField (n_comp=3) - non-const
+    MRMesh<3>* mesh_3d = nullptr;
+    try
+    {
+        auto& first_field = fields[0].cast<VectorField3D_3&>();
+        mesh_3d = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < n; ++i)
+        {
+            auto& field = fields[i].cast<VectorField3D_3&>();
+            if (&field.mesh() != mesh_3d)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+    }
+    catch (const py::cast_error&)
+    {
+        mesh_3d = nullptr;
+    }
+
+    if (mesh_3d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<VectorField3D_3&>();
+                samurai::load(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<VectorField3D_3&>();
+                auto& f1 = fields[1].cast<VectorField3D_3&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<VectorField3D_3&>();
+                auto& f1 = fields[1].cast<VectorField3D_3&>();
+                auto& f2 = fields[2].cast<VectorField3D_3&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+}
+
+// ============================================================
 // Module initialization
 // ============================================================
 
@@ -1528,6 +2046,99 @@ void init_io_bindings(py::module_& m)
           py::arg("field"),
           "Dump 3D vector field (3 components) mesh and data to HDF5 for checkpoint/restart. "
           "Parameters: filepath (str/Path), field (VectorField3D).");
+
+    // ============================================================
+    // VectorField bulk() bindings - support multiple vector fields
+    // ============================================================
+
+    m.def("save_vector",
+          &save_bulk_vector,
+          py::arg("filepath"),
+          R"pbdoc(
+            Save mesh and multiple vector fields to HDF5 + XDMF.
+
+            Supports 1-3 vector fields for 1D (n_comp=2), 2D (n_comp=2), and 3D (n_comp=3).
+            All fields must share the same mesh and have the same n_comp.
+            The dimension is automatically detected from the fields provided.
+
+            Parameters
+            ----------
+            filepath : str or Path
+                Unified file path (e.g., "results/solution.h5")
+            *fields : VectorField
+                Variable number of vector fields (1-3)
+
+            Examples
+            --------
+            >>> import sampai as sam
+            >>> samurai.save_vector("results/velocities.h5", vel1, vel2)
+            >>> samurai.save_vector("results/fields.h5", vel, vorticity, mag)
+
+            Notes
+            -----
+            All vector fields must have the same dimension and n_comp.
+            Maximum 3 vector fields supported.
+        )pbdoc");
+
+    m.def("dump_vector",
+          &dump_bulk_vector,
+          py::arg("filepath"),
+          R"pbdoc(
+            Dump mesh and multiple vector fields to HDF5 for checkpoint/restart.
+
+            Supports 1-3 vector fields for 1D (n_comp=2), 2D (n_comp=2), and 3D (n_comp=3).
+            All fields must share the same mesh and have the same n_comp.
+            The dimension is automatically detected from the fields provided.
+
+            Creates HDF5-only file (no XDMF metadata) for efficient
+            checkpointing and restarting simulations.
+
+            Parameters
+            ----------
+            filepath : str or Path
+                Unified file path (e.g., "checkpoints/solution.h5")
+            *fields : VectorField
+                Variable number of vector fields (1-3)
+
+            Examples
+            --------
+            >>> import sampai as sam
+            >>> samurai.dump_vector("checkpoints/velocities.h5", vel1, vel2)
+
+            Notes
+            -----
+            All vector fields must have the same dimension and n_comp.
+            Maximum 3 vector fields supported.
+        )pbdoc");
+
+    m.def("load_vector",
+          &load_bulk_vector,
+          py::arg("filepath"),
+          R"pbdoc(
+            Load mesh and multiple vector fields from HDF5 restart file.
+
+            Supports 1-3 vector fields for 1D (n_comp=2), 2D (n_comp=2), and 3D (n_comp=3).
+            All fields must share the same mesh and have the same n_comp.
+            The dimension is automatically detected from the fields provided.
+
+            Parameters
+            ----------
+            filepath : str or Path
+                Unified file path (e.g., "checkpoints/solution.h5")
+            *fields : VectorField
+                Variable number of vector fields to load data into (1-3)
+
+            Examples
+            --------
+            >>> import sampai as sam
+            >>> samurai.load_vector("checkpoints/velocities.h5", vel1, vel2)
+
+            Notes
+            -----
+            All vector fields must have the same dimension and n_comp.
+            Field names must match the names used when creating the restart file.
+            Maximum 3 vector fields supported.
+        )pbdoc");
 
     // ============================================================
     // load() function bindings - unified filepath API
