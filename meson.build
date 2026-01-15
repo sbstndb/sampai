@@ -65,11 +65,14 @@ if not pybind11_dep.found()
         pybind11_include = include_directories(conda_prefix / 'include')
         message('Using conda pybind11 from: @0@'.format(conda_prefix / 'include'))
     else
-        error('pybind11 not found. Install with: conda install -c conda-forge pybind11')
+        error('pybind11 not found. Install with: pip install pybind11 or conda install -c conda-forge pybind11')
     endif
 else
     message('pybind11 found: @0@'.format(pybind11_dep.version()))
-    pybind11_include = include_directories(pybind11_dep.get_variable('INCLUDEDIR', default_value: ''))
+    # When pybind11 is found via cmake/pkg-config, get the include dir correctly
+    pybind11_include = include_directories(pybind11_dep.get_variable('pybind11_INCLUDE_DIRS',
+                                                             pybind11_dep.get_variable('INCLUDEDIR',
+                                                             '')))
 endif
 
 # ============================================================================
@@ -181,6 +184,7 @@ pybind11_module = py.extension_module(
     '_sampai',
     binding_sources,
     dependencies: [
+        pybind11_dep,  # pybind11 dependency (adds includes automatically)
         samurai_dep,
         fmt_dep,
         cli11_dep,
@@ -189,7 +193,6 @@ pybind11_module = py.extension_module(
         pugixml_dep,
     ],
     include_directories: [
-        pybind11_include,
         include_directories('src'),
     ],
     install: true,
