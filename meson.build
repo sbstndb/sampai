@@ -150,8 +150,9 @@ if not mpi_dep.found() and enable_mpi
         mpi_cxx_lib_path = join_paths(conda_prefix, 'lib/libmpi_cxx.so')
         mpi_lib_dir = join_paths(conda_prefix, 'lib')
 
-        mpi_lib_found = run_command('test', '-f', mpi_lib_path, check: false).returncode() == 0
-        mpi_cxx_lib_found = run_command('test', '-f', mpi_cxx_lib_path, check: false).returncode() == 0
+        # Use -e (exists) instead of -f (regular file) because libmpi.so is often a symlink
+        mpi_lib_found = run_command('test', '-e', mpi_lib_path, check: false).returncode() == 0
+        mpi_cxx_lib_found = run_command('test', '-e', mpi_cxx_lib_path, check: false).returncode() == 0
 
         if mpi_lib_found
             # Build link args conditionally (mpi_cxx may not exist in conda-forge)
