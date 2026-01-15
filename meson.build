@@ -140,6 +140,21 @@ highfive_dep = dependency('highfive', version: '>=2.10', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 pugixml_dep = dependency('pugixml', required: false)
 
+# Find xtensor include dirs (if not found via pkg-config/cmake)
+xtensor_include_dirs = []
+if not xtensor_dep.found()
+    # xtensor might be installed via pip (in site-packages)
+    # Try to find it using Python
+    find_xtensor = run_command(py, '-c', 'import xtensor; import os; print(os.path.join(os.path.dirname(xtensor.__file__), "include"))', check: false)
+    if find_xtensor.returncode() == 0
+        xtensor_include_path = find_xtensor.stdout().strip()
+        if xtensor_include_path != ''
+            xtensor_include_dirs = [include_directories(xtensor_include_path)]
+            message('Using xtensor from pip: @0@'.format(xtensor_include_path))
+        endif
+    endif
+endif
+
 message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
@@ -147,6 +162,8 @@ message('pybind11: found')
 message('samurai: from GitHub (auto-downloaded via subproject)')
 if xtensor_dep.found()
     message('xtensor: @0@'.format(xtensor_dep.version()))
+elif xtensor_include_dirs.length() > 0
+    message('xtensor: from pip (site-packages)')
 endif
 if hdf5_dep.found()
     message('hdf5: @0@'.format(hdf5_dep.version()))
@@ -202,6 +219,7 @@ pybind11_module = py.extension_module(
     ],
     include_directories: [
         include_directories('src'),
+        xtensor_include_dirs,  # Add xtensor includes if found via pip
     ],
     install: true,
     install_tag: 'runtime',
