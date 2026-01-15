@@ -97,7 +97,7 @@ sim = (
 | `.scheme()` | `name: str` ('euler', 'rk3') or `Scheme` instance, `**kwargs` | Time-stepping scheme with optional params (cfl, rhs) |
 | `.solution()` | `name: str`, `init: float|str|callable` | Main solution field, auto-created |
 | `.time()` | `tf: float`, `dt: float=None`, `cfl: float` | Time configuration |
-| `.adapt()` | `epsilon: float`, `frequency: str|int|callable` | MRA config, 'every', N, or condition(t,iter) |
+| `.adapt()` | `epsilon: float`, `frequency: str|int|callable`, `regularity: float=1.0`, `prediction_order: int=1`, `graduation_width: int=1` | MRA config with prediction order (0-5) and mesh gradation |
 | `.output()` | `path: str`, `interval: float`, `format: str` | Auto-output configuration |
 | `.checkpoint()` | `path: str`, `interval: float=None` | Checkpoint configuration (None = manual only) |
 | `.progress()` | `desc: str`, `enable: bool=True` | Progress bar control |
@@ -268,7 +268,21 @@ with sim:
             sim.set_cfl(0.95)  # Standard
 ```
 
-#### 5.2 Conditional Adaptation Control
+#### 5.2 Advanced Adaptation Parameters
+
+```python
+# Higher-order prediction for smoother adaptation
+sim = sam.SimulationBuilder()... .adapt(
+    epsilon=2e-4,
+    prediction_order=2,  # Quadratic prediction (orders 0-5)
+    regularity=2.0,       # Smoother mesh gradation
+    graduation_width=2    # Allow 2-level jumps
+).build()
+```
+
+**Note:** Prediction orders > 1 require C++ implementation. Default order=1 is sufficient for most cases.
+
+#### 5.3 Conditional Adaptation Control
 
 ```python
 # Initially adapt every step
@@ -287,7 +301,7 @@ with sim:
         sim.set_adapt_condition(lambda t, it: it % 10 == 0)
 ```
 
-#### 5.3 Scheme Swapping (Advanced)
+#### 5.4 Scheme Swapping (Advanced)
 
 ```python
 # Start with Euler for rapid initial transient
@@ -303,7 +317,7 @@ with sim:
             print(f"Switched to RK3 at t={sim.t}")
 ```
 
-#### 5.4 Hook-Based Control
+#### 5.5 Hook-Based Control
 
 ```python
 @sim.before_step
@@ -888,7 +902,30 @@ sam.boundary.dirichlet(
 )
 ```
 
-#### 13.2 Partial Periodicity
+#### 13.2 Polynomial Extrapolation BC
+
+```python
+# Outflow BC: extrapolate from interior (orders 1-3)
+sam.boundary.polynomial_extrapolation(
+    sim.get_field('u'),
+    order=2,  # Quadratic extrapolation
+    boundaries=['right']
+)
+```
+
+#### 13.3 Higher-Order Dirichlet BC
+
+```python
+# Higher-order Dirichlet (orders 1-4)
+sam.boundary.dirichlet(
+    sim.get_field('u'),
+    0.0,
+    order=3,  # Cubic polynomial reconstruction
+    boundaries=['all']
+)
+```
+
+#### 13.4 Partial Periodicity
 
 ```python
 # Periodic in one direction only
@@ -898,7 +935,7 @@ config.set_periodic(axis='x')  # Periodic in x, not in y
 config.set_periodic(direction=[True, False])  # [x, y]
 ```
 
-#### 13.3 Coupled Field BCs
+#### 13.5 Coupled Field BCs
 
 ```python
 # Navier-Stokes: velocity and pressure coupling
@@ -1101,6 +1138,38 @@ sim.run()
 | **Workflow** | Batch execution, parameter sweep | 6 |
 | **Critical** | UQ, adjoint, optimization interface | 7 |
 | **Usability** | Presets, code gen, JSON config, explain mode | 8 |
+
+---
+
+## Known Limitations
+
+### DomainBuilder Constraints
+
+When using `.domain()` with `DomainBuilder` for complex geometries with obstacles:
+
+| Limitation | Impact | Workaround |
+|------------|--------|------------|
+| **No periodic BCs** | Cannot use `config.set_periodic()` with obstacles | Use explicit BCs on all boundaries |
+| **No MPI parallelization** | Single-process execution only | For large domains, use `Box` geometry instead |
+| **Minimum hole size** | Holes must be ≥ `2 × stencil_width × cell_length` | Increase `max_level` or enlarge holes |
+| **Box obstacles only** | Axis-aligned rectangular obstacles | Approximate curved shapes with multiple boxes |
+
+### Boundary Conditions
+
+| Limitation | Impact |
+|------------|--------|
+| **FunctionBc not exposed** | Time-dependent BCs require workaround (see §13.1) |
+| **Neumann order 1 only** | Higher-order Neumann BCs not available |
+| **Coupled BCs manual** | Navier-Stokes coupling requires manual setup |
+
+### Adaptation
+
+| Limitation | Impact |
+|------------|--------|
+| **Prediction order default 1** | Orders 2-5 require C++ implementation |
+| **Fixed CFL-based dt** | Adaptive time-stepping requires manual hooks |
+
+---
 
 ### Deferred to V2+
 
