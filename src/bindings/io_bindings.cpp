@@ -20,6 +20,12 @@ namespace py = pybind11;
 using namespace samurai::python::bindings;
 
 // ============================================================
+// Constants for bulk field operations
+// ============================================================
+
+constexpr std::size_t MAX_BULK_FIELDS = 9;
+
+// ============================================================
 // Helper to convert Python path/string to fs::path
 // Supports pathlib.Path objects and PathLike protocol
 // ============================================================
@@ -519,7 +525,7 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 1D bulk save, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk save, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -620,7 +626,7 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 2D bulk save, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk save, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -721,7 +727,7 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 3D bulk save, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk save, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -846,7 +852,7 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 1D bulk dump, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk dump, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -947,7 +953,7 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 2D bulk dump, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk dump, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1048,7 +1054,7 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 3D bulk dump, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk dump, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1173,7 +1179,7 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 1D bulk load, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk load, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1274,7 +1280,7 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 2D bulk load, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk load, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1375,7 +1381,7 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error("Maximum 9 fields supported for 3D bulk load, got " + std::to_string(n));
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk load, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
