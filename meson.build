@@ -206,7 +206,7 @@ if not mpi_dep.found() and enable_mpi
 
             mpi_dep = declare_dependency(
                 include_directories: mpi_include_dirs,
-                link_with: mpi_libs,
+                dependencies: mpi_libs,
             )
             message('Found MPI libraries via conda environment')
         endif
@@ -216,7 +216,7 @@ if not mpi_dep.found() and enable_mpi
     if not mpi_dep.found()
         mpi_lib = cpp.find_library('mpi', required: false)
         if mpi_lib.found()
-            mpi_dep = declare_dependency(link_with: mpi_lib)
+            mpi_dep = declare_dependency(dependencies: mpi_lib)
             message('Found MPI libraries via system search')
         endif
     endif
