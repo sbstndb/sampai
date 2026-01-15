@@ -185,9 +185,9 @@ with sim:
 
 ---
 
-### 5. Checkpoint & Restart
+### 4. Checkpoint & Restart
 
-#### 5.1 Automatic Checkpoints
+#### 4.1 Automatic Checkpoints
 
 ```python
 sim = (
@@ -207,7 +207,7 @@ u_final = sim.run()
 # ...
 ```
 
-#### 5.2 Manual Checkpoints
+#### 4.2 Manual Checkpoints
 
 ```python
 with sim:
@@ -219,7 +219,7 @@ with sim:
             path = sim.save_checkpoint('near_shock')  # ./checkpoints/near_shock_t=0.543.h5
 ```
 
-#### 5.3 Restart from Checkpoint
+#### 4.3 Restart from Checkpoint
 
 ```python
 # Resume from last checkpoint
@@ -231,7 +231,7 @@ sim.config['time']['tf'] = 20.0  # Extend simulation
 u_final = sim.run()
 ```
 
-#### 5.4 Checkpoint Content
+#### 4.4 Checkpoint Content
 
 Each checkpoint file contains:
 - Solution field `u` (HDF5 dataset)
@@ -244,9 +244,9 @@ Each checkpoint file contains:
 
 ---
 
-### 6. Runtime Reconfiguration
+### 5. Runtime Reconfiguration
 
-#### 6.1 Simple Parameter Changes
+#### 5.1 Simple Parameter Changes
 
 ```python
 sim = sam.SimulationBuilder()... .build()
@@ -268,7 +268,7 @@ with sim:
             sim.set_cfl(0.95)  # Standard
 ```
 
-#### 6.2 Conditional Adaptation Control
+#### 5.2 Conditional Adaptation Control
 
 ```python
 # Initially adapt every step
@@ -287,7 +287,7 @@ with sim:
         sim.set_adapt_condition(lambda t, it: it % 10 == 0)
 ```
 
-#### 6.3 Scheme Swapping (Advanced)
+#### 5.3 Scheme Swapping (Advanced)
 
 ```python
 # Start with Euler for rapid initial transient
@@ -303,7 +303,7 @@ with sim:
             print(f"Switched to RK3 at t={sim.t}")
 ```
 
-#### 6.4 Hook-Based Control
+#### 5.4 Hook-Based Control
 
 ```python
 @sim.before_step
@@ -319,7 +319,7 @@ def adaptive_control(u, t, iteration):
 
 ---
 
-### 7. Custom Schemes (Extensibility)
+### 6. Custom Schemes (Extensibility)
 
 #### Option A: RHS Callable (Simple)
 
@@ -441,7 +441,7 @@ src/sampai/
 | **Geometry Options** | Pre-built mesh, Box helper, DomainBuilder with obstacles | Simple to complex domains |
 | **Checkpoint/Restart** | Auto or manual checkpointing, full state restoration | Long simulations, crash recovery |
 | **Runtime Reconfiguration** | Dynamic parameter changes, scheme swapping, adaptation control | Adaptive algorithms, multi-stage simulations |
-| **Hook System** | 7 hooks (@before_step, @after_step, @before_adapt, @after_adapt, @on_output, @on_checkpoint, @on_restart) | Custom logic injection |
+| **Hook System** | 10 hooks (@before_step, @after_step, @before_adapt, @after_adapt, @on_output, @on_checkpoint, @on_restart, @on_conservation_error, @on_stability_error, @on_dt_change) | Custom logic injection |
 | **Progress Tracking** | Auto mesh statistics, progress bar, ETA | User feedback, debugging |
 | **Diagnostics** | Conservation, stability, norms, error estimation | Verification, validation |
 | **Multi-field** | Coupled fields (u, p, T...), adaptive dt | Multi-physics systems |
@@ -451,9 +451,9 @@ src/sampai/
 
 ## V1 Additional Features
 
-### 8. Diagnostics & Monitoring
+### 7. Diagnostics & Monitoring
 
-#### 8.1 Conservation Tracking
+#### 7.1 Conservation Tracking
 
 ```python
 # Track mass, energy, momentum conservation
@@ -475,7 +475,7 @@ def check_conservation(u, t, iteration):
         print(f"Warning: mass conservation error = {mass_error}")
 ```
 
-#### 8.2 Stability Monitoring
+#### 7.2 Stability Monitoring
 
 ```python
 # Automatic stability checks
@@ -501,7 +501,7 @@ def handle_instability(u, t, error_type):
     sim.dt *= 0.5
 ```
 
-#### 8.3 Norm Tracking
+#### 7.3 Norm Tracking
 
 ```python
 # Track L1, L2, Linf norms
@@ -528,7 +528,7 @@ np.save('norms_history', {
 })
 ```
 
-#### 8.4 Error Estimation
+#### 7.4 Error Estimation
 
 ```python
 # Estimate discretization error against reference solution
@@ -554,9 +554,9 @@ print(f"Convergence order: {sim.convergence_order}")
 
 ---
 
-### 9. Multi-Field Systems
+### 8. Multi-Field Systems
 
-#### 9.1 Multiple Coupled Fields
+#### 8.1 Multiple Coupled Fields
 
 ```python
 # Navier-Stokes style: velocity + pressure
@@ -581,7 +581,7 @@ sam.boundary.dirichlet(u, [0.0, 0.0])
 sam.boundary.neumann(p, 0.0)
 ```
 
-#### 9.2 Adaptive Time Stepping
+#### 8.2 Adaptive Time Stepping
 
 ```python
 # Automatic dt adjustment based on error estimator
@@ -611,9 +611,9 @@ def adaptive_dt_control(u, t, iteration):
 
 ---
 
-### 10. Debug & Development Tools
+### 9. Debug & Development Tools
 
-#### 10.1 Verbose Logging
+#### 9.1 Verbose Logging
 
 ```python
 # Enable detailed logging
@@ -638,7 +638,7 @@ sim = (
 # DEBUG:sampai.simulation: Step complete, t=0.001234, dt=0.000100
 ```
 
-#### 10.2 Built-in Profiling
+#### 9.2 Built-in Profiling
 
 ```python
 # Profile simulation execution
@@ -659,7 +659,7 @@ with sim.profile(output_dir='./profile'):
 #   other                     : 2.0%   (0.05s)
 ```
 
-#### 10.3 Debug Mode (Assertions)
+#### 9.3 Debug Mode (Assertions)
 
 ```python
 # Enable comprehensive debug checks
@@ -761,9 +761,9 @@ V1 includes all hooks from basic design plus additional diagnostic hooks:
 
 ## V1+ Extended Features (Previously Overlooked)
 
-### 11. I/O Enhancements
+### 10. I/O Enhancements
 
-#### 11.1 Checkpoint Compression
+#### 10.1 Checkpoint Compression
 
 ```python
 # Compress checkpoints to save disk space
@@ -779,7 +779,7 @@ sim = (
 )
 ```
 
-#### 11.2 Run ID Management
+#### 10.2 Run ID Management
 
 ```python
 # Automatic unique run identification
@@ -803,9 +803,9 @@ sim = (
 
 ---
 
-### 12. Advanced Adaptation
+### 11. Advanced Adaptation
 
-#### 12.1 Load Balancing (MPI)
+#### 11.1 Load Balancing (MPI)
 
 ```python
 # Enable automatic load balancing for parallel runs
@@ -820,7 +820,7 @@ sim = (
 )
 ```
 
-#### 12.2 Error-Based Adaptation
+#### 11.2 Error-Based Adaptation
 
 ```python
 # Adapt based on error estimator instead of detail coefficient
@@ -837,9 +837,9 @@ sim = (
 
 ---
 
-### 13. Workflow Automation
+### 12. Workflow Automation
 
-#### 13.1 Batch Execution
+#### 12.1 Batch Execution
 
 ```python
 # Run multiple simulations in parallel
@@ -863,9 +863,9 @@ results = sam.Simulation.run_batch(
 
 ---
 
-### 14. Advanced Boundary Conditions
+### 13. Advanced Boundary Conditions
 
-#### 14.1 Time-Dependent BCs
+#### 13.1 Time-Dependent BCs
 
 ```python
 # Time-varying boundary conditions
@@ -888,7 +888,7 @@ sam.boundary.dirichlet(
 )
 ```
 
-#### 14.2 Partial Periodicity
+#### 13.2 Partial Periodicity
 
 ```python
 # Periodic in one direction only
@@ -898,7 +898,7 @@ config.set_periodic(axis='x')  # Periodic in x, not in y
 config.set_periodic(direction=[True, False])  # [x, y]
 ```
 
-#### 14.3 Coupled Field BCs
+#### 13.3 Coupled Field BCs
 
 ```python
 # Navier-Stokes: velocity and pressure coupling
@@ -923,9 +923,9 @@ sam.boundary.couple_fields(
 
 ---
 
-### 15. Critical Research Features
+### 14. Critical Research Features
 
-#### 15.1 Uncertainty Quantification
+#### 14.1 Uncertainty Quantification
 
 ```python
 # Monte Carlo uncertainty propagation
@@ -949,7 +949,7 @@ print(f"Mean: {u_final.mean()}")
 print(f"95% CI: {u_final.ci_95()}")
 ```
 
-#### 15.2 Adjoint Solver
+#### 14.2 Adjoint Solver
 
 ```python
 # Compute gradients for optimization
@@ -974,7 +974,7 @@ adjoint = sim.compute_adjoint(
 print(f"Gradient dJ/dε = {adjoint.gradient}")
 ```
 
-#### 15.3 Optimization Interface
+#### 14.3 Optimization Interface
 
 ```python
 # Interface with scipy.optimize
@@ -1008,9 +1008,9 @@ print(f"Optimal epsilon={result.x[0]}, CFL={result.x[1]}")
 
 ---
 
-### 16. Usability Features
+### 15. Usability Features
 
-#### 16.1 Config Presets
+#### 15.1 Config Presets
 
 ```python
 # Quick start with presets
@@ -1029,7 +1029,7 @@ sim.build().run()
 # - 'heat_equation_1d', 'heat_equation_2d'
 ```
 
-#### 16.2 Code Generator
+#### 15.2 Code Generator
 
 ```python
 # Export simulation as standalone Python script
@@ -1046,7 +1046,7 @@ sim.to_file('my_simulation.py')
 # with all imports, setup, and execution logic
 ```
 
-#### 16.3 JSON Config Import/Export
+#### 15.3 JSON Config Import/Export
 
 ```python
 # Export configuration to JSON
@@ -1058,7 +1058,7 @@ sim2 = sam.SimulationBuilder.from_config('config.json')
 sim2.build().run()
 ```
 
-#### 16.4 Explain Mode
+#### 15.4 Explain Mode
 
 ```python
 # Educational mode that explains what's happening
@@ -1080,9 +1080,9 @@ sim.run()
 
 ---
 
-### 17. Performance Features
+### 16. Performance Features
 
-#### 17.1 Result Caching
+#### 16.1 Result Caching
 
 ```python
 # Cache expensive operations
@@ -1100,7 +1100,7 @@ sim = (
 )
 ```
 
-#### 17.2 Auto-Memoization
+#### 16.2 Auto-Memoization
 
 ```python
 # Automatically detect and cache repeated computations
@@ -1114,7 +1114,7 @@ sim = (
 )
 ```
 
-#### 17.3 Auto-Tuning
+#### 16.3 Auto-Tuning
 
 ```python
 # Automatic performance optimization
