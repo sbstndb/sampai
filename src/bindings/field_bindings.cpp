@@ -720,6 +720,80 @@ void bind_scalar_field(py::module_& m, const std::string& name)
         "Modifies this field in-place and returns self.");
 
     // ============================================================
+    // Python in-place operators (+=, -=, *=, /=)
+    // ============================================================
+    //
+    // These bind Python's +=, -=, *=, /= operators to use the same
+    // in-place functions as the .add_(), .sub_() methods.
+    // They modify the field in-place and return self.
+
+    // field += scalar
+    cls.def(
+        "__iadd__",
+        [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
+        {
+            add_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place addition operator: field += scalar");
+
+    // field -= scalar
+    cls.def(
+        "__isub__",
+        [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
+        {
+            sub_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place subtraction operator: field -= scalar");
+
+    // field *= scalar
+    cls.def(
+        "__imul__",
+        [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
+        {
+            mul_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place multiplication operator: field *= scalar");
+
+    // field /= scalar
+    cls.def(
+        "__itruediv__",
+        [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
+        {
+            div_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place division operator: field /= scalar");
+
+    // field += other_field
+    cls.def(
+        "__iadd__",
+        [](ScalarField<dim>& field, const ScalarField<dim>& other) -> ScalarField<dim>&
+        {
+            add_in_place(field, other);
+            return field;
+        },
+        py::arg("other"),
+        "In-place addition operator: field += other_field");
+
+    // field -= other_field
+    cls.def(
+        "__isub__",
+        [](ScalarField<dim>& field, const ScalarField<dim>& other) -> ScalarField<dim>&
+        {
+            sub_in_place(field, other);
+            return field;
+        },
+        py::arg("other"),
+        "In-place subtraction operator: field -= other_field");
+
+    // ============================================================
     // Utility methods
     // ============================================================
 
