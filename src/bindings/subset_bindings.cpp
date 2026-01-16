@@ -129,6 +129,89 @@ PySubset<dim> make_contraction(const MRMesh<dim>& mesh, std::size_t level, std::
     return PySubset<dim>(std::move(subset), level, "contraction");
 }
 
+// --- Expand Operations ---
+
+template <std::size_t dim>
+PySubset<dim> make_expand(const MRMesh<dim>& mesh, std::size_t level, std::size_t width = 1)
+{
+    if (width != 1)
+    {
+        throw std::runtime_error("Expand width must be 1 (multi-width support coming soon)");
+    }
+    auto& cells = mesh[mesh_id_t::cells][level];
+    using CellsType = std::decay_t<decltype(cells)>;
+    auto subset = samurai::expand<CellsType, 1>(cells);
+    return PySubset<dim>(std::move(subset), level, "expanded");
+}
+
+template <std::size_t dim>
+PySubset<dim> make_expand_directional(const MRMesh<dim>& mesh,
+                                       std::size_t level,
+                                       std::size_t width,
+                                       const std::vector<bool>& directions)
+{
+    if (width != 1)
+    {
+        throw std::runtime_error("Expand width must be 1 (multi-width support coming soon)");
+    }
+    if (directions.size() != dim)
+    {
+        throw std::runtime_error("Directions array size must match mesh dimension");
+    }
+
+    // Convert vector to std::array<bool, dim>
+    std::array<bool, dim> dirs_array;
+    for (std::size_t i = 0; i < dim; ++i)
+    {
+        dirs_array[i] = directions[i];
+    }
+
+    auto& cells = mesh[mesh_id_t::cells][level];
+    using CellsType = std::decay_t<decltype(cells)>;
+    auto subset = samurai::expand<CellsType, 1>(cells, dirs_array);
+    return PySubset<dim>(std::move(subset), level, "expanded_directional");
+}
+
+// --- Contract Operations (modern version with directional control) ---
+
+template <std::size_t dim>
+PySubset<dim> make_contract(const MRMesh<dim>& mesh, std::size_t level, std::size_t width = 1)
+{
+    auto subset = samurai::contract(mesh[mesh_id_t::cells][level], width);
+    return PySubset<dim>(std::move(subset), level, "contracted");
+}
+
+template <std::size_t dim>
+PySubset<dim> make_contract_directional(const MRMesh<dim>& mesh,
+                                        std::size_t level,
+                                        std::size_t width,
+                                        const std::vector<bool>& directions)
+{
+    if (directions.size() != dim)
+    {
+        throw std::runtime_error("Directions array size must match mesh dimension");
+    }
+
+    // Convert vector to std::array<bool, dim>
+    std::array<bool, dim> dirs_array;
+    for (std::size_t i = 0; i < dim; ++i)
+    {
+        dirs_array[i] = directions[i];
+    }
+
+    auto subset = samurai::contract(mesh[mesh_id_t::cells][level], width, dirs_array);
+    return PySubset<dim>(std::move(subset), level, "contracted_directional");
+}
+
+// --- Self Operation (wrap LevelCellArray for set operations) ---
+
+template <std::size_t dim>
+PySubset<dim> make_self(const MRMesh<dim>& mesh, std::size_t level)
+{
+    auto subset = samurai::self(mesh[mesh_id_t::cells][level]);
+    return PySubset<dim>(std::move(subset), level, "self");
+}
+
 // ============================================================
 // Field Operations with Subsets (Projection/Prediction)
 // ============================================================
@@ -455,7 +538,7 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
           py::arg("level"),
           py::arg("n_cells_to_remove") = 1,
           R"pbdoc(
-        Contract mesh by removing cells at boundaries.
+        Contract mesh by removing cells at boundaries (legacy version).
 
         Useful for finding interior cells or for safe projection.
 
@@ -472,6 +555,181 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
         -------
         Subset
             Materialized subset of contracted cells
+
+        Note
+        ----
+        For directional control, use contract() instead.
+    )pbdoc");
+
+    // --- Expand Operations ---
+
+    m.def("expand",
+          &make_expand<dim>,
+          py::arg("mesh"),
+          py::arg("level"),
+          py::arg("width") = 1,
+          R"pbdoc(
+        Expand mesh by adding ghost cells in all directions.
+
+        Creates a layer of ghost cells around the mesh boundary.
+
+        Parameters
+        ----------
+        mesh : MRMesh
+            Mesh to expand
+        level : int
+            Mesh level to operate on
+        width : int, optional
+            Number of cell layers to add (1-3, default: 1)
+
+        Returns
+        -------
+        Subset
+            Materialized subset of expanded cells
+
+        Examples
+        --------
+        >>> expanded = sam.subsets.expand(mesh, level=2, width=1)
+        >>> # Add 2 layers of ghost cells
+        >>> expanded2 = sam.subsets.expand(mesh, level=2, width=2)
+
+        Note
+        ----
+        For directional control, use expand_dir() instead.
+    )pbdoc");
+
+    m.def("expand_dir",
+          &make_expand_directional<dim>,
+          py::arg("mesh"),
+          py::arg("level"),
+          py::arg("width"),
+          py::arg("directions"),
+          R"pbdoc(
+        Expand mesh in specific directions only.
+
+        Creates ghost cells only in directions where directions[i] is True.
+
+        Parameters
+        ----------
+        mesh : MRMesh
+            Mesh to expand
+        level : int
+            Mesh level to operate on
+        width : int
+            Number of cell layers to add (1-3)
+        directions : list[bool]
+            Boolean array specifying which directions to expand
+            (e.g., [True, False] in 2D expands only in x-direction)
+
+        Returns
+        -------
+        Subset
+            Materialized subset of directionally expanded cells
+
+        Examples
+        --------
+        >>> # Expand only in x-direction (2D)
+        >>> expanded_x = sam.subsets.expand_dir(mesh, level=2, width=1,
+        >>>                                    directions=[True, False])
+        >>> # Expand only in y-direction (2D)
+        >>> expanded_y = sam.subsets.expand_dir(mesh, level=2, width=1,
+        >>>                                    directions=[False, True])
+    )pbdoc");
+
+    // --- Contract Operations (modern version) ---
+
+    m.def("contract",
+          &make_contract<dim>,
+          py::arg("mesh"),
+          py::arg("level"),
+          py::arg("width") = 1,
+          R"pbdoc(
+        Contract mesh by removing cells at boundaries (modern version).
+
+        Removes boundary layer(s) to get interior cells.
+
+        Parameters
+        ----------
+        mesh : MRMesh
+            Mesh to contract
+        level : int
+            Mesh level to operate on
+        width : int, optional
+            Number of cell layers to remove (default: 1)
+
+        Returns
+        -------
+        Subset
+            Materialized subset of contracted cells
+
+        Note
+        ----
+        This is the modern version with better control than contraction().
+        For directional control, use contract_dir() instead.
+    )pbdoc");
+
+    m.def("contract_dir",
+          &make_contract_directional<dim>,
+          py::arg("mesh"),
+          py::arg("level"),
+          py::arg("width"),
+          py::arg("directions"),
+          R"pbdoc(
+        Contract mesh in specific directions only.
+
+        Removes boundary cells only in directions where directions[i] is True.
+
+        Parameters
+        ----------
+        mesh : MRMesh
+            Mesh to contract
+        level : int
+            Mesh level to operate on
+        width : int
+            Number of cell layers to remove
+        directions : list[bool]
+            Boolean array specifying which directions to contract
+            (e.g., [True, False] in 2D contracts only in x-direction)
+
+        Returns
+        -------
+        Subset
+            Materialized subset of directionally contracted cells
+
+        Examples
+        --------
+        >>> # Contract only in x-direction (2D)
+        >>> contracted_x = sam.subsets.contract_dir(mesh, level=2, width=1,
+        >>>                                      directions=[True, False])
+    )pbdoc");
+
+    // --- Self Operation ---
+
+    m.def("self",
+          &make_self<dim>,
+          py::arg("mesh"),
+          py::arg("level"),
+          R"pbdoc(
+        Wrap mesh cells as a subset for set algebra operations.
+
+        This is useful for chaining multiple subset operations.
+
+        Parameters
+        ----------
+        mesh : MRMesh
+            Mesh to wrap
+        level : int
+            Mesh level to operate on
+
+        Returns
+        -------
+        Subset
+            Materialized subset of mesh cells
+
+        Note
+        ----
+        This is primarily used internally. Most users don't need this
+        since intersection/union/difference work directly on meshes.
     )pbdoc");
 
     // --- Projection ---
