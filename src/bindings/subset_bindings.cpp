@@ -15,6 +15,7 @@
 #include <samurai/numeric/projection.hpp>
 #include <samurai/numeric/prediction.hpp>
 #include <samurai/algorithm/update.hpp>
+#include <samurai/reconstruction.hpp>
 
 #include "common_types.hpp"
 
@@ -587,6 +588,95 @@ void copy_vector_3(VectorField<dim, 3, false>& dst,
                    const PySubset<dim>& src_subset)
 {
     copy_vector_subset(dst, dst_subset, src, src_subset);
+}
+
+// ============================================================
+// Reconstruction Operations (AMR to Uniform Mesh)
+// ============================================================
+
+// Reconstruction for scalar fields (MRMesh -> UniformMesh)
+template <std::size_t dim>
+void reconstruction_to_scalar(ScalarField<dim>& dest,
+                              ScalarField<dim>& src)
+{
+    using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+
+    // Check that source is MRMesh (AMR) and destination is suitable
+    const auto& src_mesh = src.mesh();
+    const auto& dest_mesh = dest.mesh();
+
+    // Update ghost cells on source if needed
+    samurai::update_ghost_mr_if_needed(src);
+
+    // Get reconstruction level (domain level)
+    std::size_t reconstruct_level = src_mesh.domain().level();
+
+    // Loop over all levels in the source AMR field
+    std::size_t min_level = src_mesh[mesh_id_t::cells].min_level();
+    std::size_t max_level = src_mesh[mesh_id_t::cells].max_level();
+
+    for (std::size_t level = min_level; level <= max_level; ++level)
+    {
+        // Create intersection between source level and destination level
+        auto set = samurai::intersection(src_mesh[mesh_id_t::cells][level],
+                                        dest_mesh[mesh_id_t::cells][reconstruct_level])
+                  .on(level);
+
+        // Apply reconstruction operator
+        set.apply_op(samurai::make_reconstruction(reconstruct_level, dest, src));
+    }
+}
+
+// Reconstruction for 2-component vector fields
+template <std::size_t dim>
+void reconstruction_to_vector_2(VectorField<dim, 2, false>& dest,
+                                 VectorField<dim, 2, false>& src)
+{
+    using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+
+    const auto& src_mesh = src.mesh();
+    const auto& dest_mesh = dest.mesh();
+
+    samurai::update_ghost_mr_if_needed(src);
+
+    std::size_t reconstruct_level = src_mesh.domain().level();
+    std::size_t min_level = src_mesh[mesh_id_t::cells].min_level();
+    std::size_t max_level = src_mesh[mesh_id_t::cells].max_level();
+
+    for (std::size_t level = min_level; level <= max_level; ++level)
+    {
+        auto set = samurai::intersection(src_mesh[mesh_id_t::cells][level],
+                                        dest_mesh[mesh_id_t::cells][reconstruct_level])
+                  .on(level);
+
+        set.apply_op(samurai::make_reconstruction(reconstruct_level, dest, src));
+    }
+}
+
+// Reconstruction for 3-component vector fields
+template <std::size_t dim>
+void reconstruction_to_vector_3(VectorField<dim, 3, false>& dest,
+                                 VectorField<dim, 3, false>& src)
+{
+    using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+
+    const auto& src_mesh = src.mesh();
+    const auto& dest_mesh = dest.mesh();
+
+    samurai::update_ghost_mr_if_needed(src);
+
+    std::size_t reconstruct_level = src_mesh.domain().level();
+    std::size_t min_level = src_mesh[mesh_id_t::cells].min_level();
+    std::size_t max_level = src_mesh[mesh_id_t::cells].max_level();
+
+    for (std::size_t level = min_level; level <= max_level; ++level)
+    {
+        auto set = samurai::intersection(src_mesh[mesh_id_t::cells][level],
+                                        dest_mesh[mesh_id_t::cells][reconstruct_level])
+                  .on(level);
+
+        set.apply_op(samurai::make_reconstruction(reconstruct_level, dest, src));
+    }
 }
 
 // Note: Previous scalar field support
@@ -1321,6 +1411,102 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
         >>> subset1 = sam.subsets.intersection(mesh, mesh, level=2)
         >>> subset2 = sam.subsets.translate(mesh, [1, 0], level=2)
         >>> sam.subsets.copy_vector(v3_dst, subset2, v3_src, subset1)
+    )pbdoc");
+
+    // --- Reconstruction (AMR to Uniform Mesh) ---
+
+    m.def("reconstruction_to",
+          &reconstruction_to_scalar<dim>,
+          py::arg("dest"),
+          py::arg("src"),
+          R"pbdoc(
+        Reconstruct an AMR scalar field onto a uniform mesh.
+
+        This operation takes a scalar field defined on an adaptive mesh (MRMesh)
+        and reconstructs it onto a uniform mesh (SingleLevelMesh) at the domain level.
+        This is useful for visualization or for operations that require uniform meshes.
+
+        The destination mesh MUST be a uniform mesh (min_level == max_level) at the
+        same level as the source mesh's domain level.
+
+        Note: The source field may have its ghost cells updated during this operation.
+
+        Parameters
+        ----------
+        dest : ScalarField1D, ScalarField2D, or ScalarField3D
+            Destination scalar field on a uniform mesh (modified in-place)
+        src : ScalarField1D, ScalarField2D, or ScalarField3D
+            Source scalar field on an adaptive mesh (AMR) (ghosts may be updated)
+
+        Requirements
+        ------------
+        - Source mesh must be an MRMesh (adaptive mesh with multiple levels)
+        - Destination mesh must be a uniform mesh at the domain level
+        - Both fields must have the same dimension
+        - Destination mesh must have max_stencil_radius >= 2
+
+        Examples
+        --------
+        >>> # Create AMR field
+        >>> amr_config = sam.config.MeshConfig2D(min_level=2, max_level=4)
+        >>> amr_mesh = sam.mesh.make(box, amr_config)
+        >>> amr_field = sam.field.scalar(amr_mesh, "amr_field")
+        >>>
+        >>> # Create uniform destination at domain level
+        >>> domain_level = amr_mesh.domain().level
+        >>> uniform_config = sam.config.MeshConfig2D(min_level=domain_level, max_level=domain_level)
+        >>> uniform_mesh = sam.mesh.make(box, uniform_config)
+        >>> uniform_field = sam.field.scalar(uniform_mesh, "uniform_field")
+        >>>
+        >>> # Reconstruct AMR field onto uniform mesh
+        >>> sam.subsets.reconstruction_to(uniform_field, amr_field)
+
+        See Also
+        --------
+        projection : Project field values between specific levels
+        prediction : Predict field values between levels
+    )pbdoc");
+
+    m.def("reconstruction_to",
+          &reconstruction_to_vector_2<dim>,
+          py::arg("dest"),
+          py::arg("src"),
+          R"pbdoc(
+        Reconstruct a 2-component AMR vector field onto a uniform mesh.
+
+        Parameters
+        ----------
+        dest : VectorField1D_2, VectorField2D_2, or VectorField3D_2
+            Destination vector field on a uniform mesh (modified in-place)
+        src : VectorField1D_2, VectorField2D_2, or VectorField3D_2
+            Source vector field on an adaptive mesh (AMR) (ghosts may be updated)
+
+        Examples
+        --------
+        >>> amr_field = sam.field.vector(amr_mesh, "amr_vel", n_components=2)
+        >>> uniform_field = sam.field.vector(uniform_mesh, "uniform_vel", n_components=2)
+        >>> sam.subsets.reconstruction_to(uniform_field, amr_field)
+    )pbdoc");
+
+    m.def("reconstruction_to",
+          &reconstruction_to_vector_3<dim>,
+          py::arg("dest"),
+          py::arg("src"),
+          R"pbdoc(
+        Reconstruct a 3-component AMR vector field onto a uniform mesh.
+
+        Parameters
+        ----------
+        dest : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+            Destination vector field on a uniform mesh (modified in-place)
+        src : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+            Source vector field on an adaptive mesh (AMR) (ghosts may be updated)
+
+        Examples
+        --------
+        >>> amr_field = sam.field.vector(amr_mesh, "amr_vel", n_components=3)
+        >>> uniform_field = sam.field.vector(uniform_mesh, "uniform_vel", n_components=3)
+        >>> sam.subsets.reconstruction_to(uniform_field, amr_field)
     )pbdoc");
 
     // --- Iteration ---
