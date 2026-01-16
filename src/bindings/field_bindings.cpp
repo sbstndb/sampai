@@ -16,11 +16,15 @@
 #include <samurai/mesh_config.hpp>
 #include <samurai/mr/mesh.hpp>
 #include "common_types.hpp"
+#include "field_arithmetic.hpp"
 
 namespace py = pybind11;
 
 // Use centralized type aliases from common_types.hpp
 using namespace samurai::python::bindings;
+
+// Use new arithmetic functions (NumPy-style, immediate evaluation)
+using namespace samurai::python::arithmetic;
 
 // ============================================================
 // Reduction helpers for ScalarField
@@ -215,98 +219,6 @@ py::array_t<double> vectorfield_magnitude(const VectorField<dim, n_comp, true>& 
     }
 
     return result;
-}
-
-// ============================================================
-// Field arithmetic operation helpers
-// ============================================================
-
-// Field - scalar operations (immediate evaluation, return new field)
-template <std::size_t dim>
-ScalarField<dim> field_sub_scalar(const ScalarField<dim>& field, double scalar)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>(field.name() + "_sub", mesh, 0.0);
-    result      = field - scalar;
-    return result;
-}
-
-template <std::size_t dim>
-ScalarField<dim> scalar_sub_field(double scalar, const ScalarField<dim>& field)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>("scalar_sub", mesh, 0.0);
-    result      = scalar - field;
-    return result;
-}
-
-template <std::size_t dim>
-ScalarField<dim> field_add_scalar(const ScalarField<dim>& field, double scalar)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>(field.name() + "_add", mesh, 0.0);
-    result      = field + scalar;
-    return result;
-}
-
-template <std::size_t dim>
-ScalarField<dim> field_mul_scalar(const ScalarField<dim>& field, double scalar)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>(field.name() + "_mul", mesh, 0.0);
-    result      = field * scalar;
-    return result;
-}
-
-template <std::size_t dim>
-ScalarField<dim> field_div_scalar(const ScalarField<dim>& field, double scalar)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>(field.name() + "_div", mesh, 0.0);
-    result      = field / scalar;
-    return result;
-}
-
-// Field - field operations
-template <std::size_t dim>
-ScalarField<dim> field_sub_field(const ScalarField<dim>& field1, const ScalarField<dim>& field2)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field1.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>(field1.name() + "_sub", mesh, 0.0);
-    result      = field1 - field2;
-    return result;
-}
-
-template <std::size_t dim>
-ScalarField<dim> field_add_field(const ScalarField<dim>& field1, const ScalarField<dim>& field2)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field1.mesh());
-    // Initialize with 0 to avoid garbage values in ghost cells
-    auto result = samurai::make_scalar_field<double>(field1.name() + "_add", mesh, 0.0);
-    result      = field1 + field2;
-    return result;
-}
-
-// Field utility operations
-template <std::size_t dim>
-ScalarField<dim> field_clone(const ScalarField<dim>& field)
-{
-    auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-    auto result = samurai::make_scalar_field<double>(field.name() + "_clone", mesh);
-    result      = field; // Deep copy via assignment operator
-    return result;
-}
-
-template <std::size_t dim>
-void field_copy_to(ScalarField<dim>& dest, const ScalarField<dim>& src)
-{
-    dest = src; // Uses copy assignment operator
 }
 
 // ============================================================
@@ -705,68 +617,57 @@ void bind_scalar_field(py::module_& m, const std::string& name)
         py::arg("value"),
         "Set field value by flat index");
 
-    // Arithmetic operators: field +/-/* scalar
-    cls.def("__sub__", &field_sub_scalar<dim>, py::arg("scalar"), "Subtract scalar from field (returns new field)");
-
-    // __rsub__ is called for expressions like "scalar - field"
-    // We need to wrap scalar_sub_field because the signature is (scalar, field) but pybind11 expects (field, scalar)
-    cls.def(
-        "__rsub__",
-        [](const ScalarField<dim>& field, double scalar)
-        {
-            return scalar_sub_field(scalar, field);
-        },
-        py::arg("scalar"),
-        "Subtract field from scalar (returns new field)");
-
-    cls.def("__add__", &field_add_scalar<dim>, py::arg("scalar"), "Add scalar to field (returns new field)");
-
-    cls.def("__radd__", &field_add_scalar<dim>, py::arg("scalar"), "Add scalar to field (right-hand version)");
-
-    cls.def("__mul__", &field_mul_scalar<dim>, py::arg("scalar"), "Multiply field by scalar (returns new field)");
-
-    cls.def("__rmul__", &field_mul_scalar<dim>, py::arg("scalar"), "Multiply field by scalar (right-hand version)");
-
-    cls.def("__truediv__", &field_div_scalar<dim>, py::arg("scalar"), "Divide field by scalar (returns new field)");
-
-    // In-place arithmetic operators: field +/-/*= scalar
-    // These modify the field in-place and return self (for chaining)
-    // They use the C++ assignment operator which reuses storage, avoiding
-    // stale mesh reference issues after mesh adaptation
+    // ============================================================
+    // NumPy-style arithmetic operators (new API)
+    // ============================================================
     //
-    // IMPORTANT: To ensure ghost cells are updated correctly, we:
-    // 1. Create a temporary field with the operation result
-    // 2. Copy it to self (reusing storage)
-    // 3. Return self
+    // Binary operators: field op scalar (return NEW field)
+    // These create new fields, use .add_() etc. for in-place operations
+
+    // field op scalar
+    cls.def("__sub__", [](const ScalarField<dim>& f, double s) { return sub(f, s); }, py::arg("scalar"), "Subtract scalar: returns new field = field - scalar");
+
+    cls.def("__rsub__", [](const ScalarField<dim>& f, double s) { return rsub(s, f); }, py::arg("scalar"), "Subtract field from scalar: returns new field = scalar - field");
+
+    cls.def("__add__", [](const ScalarField<dim>& f, double s) { return add(f, s); }, py::arg("scalar"), "Add scalar: returns new field = field + scalar");
+
+    cls.def("__radd__", [](const ScalarField<dim>& f, double s) { return add(f, s); }, py::arg("scalar"), "Add scalar (right-hand): returns new field = scalar + field");
+
+    cls.def("__mul__", [](const ScalarField<dim>& f, double s) { return mul(f, s); }, py::arg("scalar"), "Multiply: returns new field = field * scalar");
+
+    cls.def("__rmul__", [](const ScalarField<dim>& f, double s) { return mul(f, s); }, py::arg("scalar"), "Multiply (right-hand): returns new field = scalar * field");
+
+    cls.def("__truediv__", [](const ScalarField<dim>& f, double s) { return div(f, s); }, py::arg("scalar"), "Divide: returns new field = field / scalar");
+
+    // field op field
+    cls.def("__sub__", [](const ScalarField<dim>& a, const ScalarField<dim>& b) { return sub(a, b); }, py::arg("other"), "Subtract field: returns new field = field - other");
+
+    cls.def("__add__", [](const ScalarField<dim>& a, const ScalarField<dim>& b) { return add(a, b); }, py::arg("other"), "Add field: returns new field = field + other");
+
+    // ============================================================
+    // NumPy-style in-place operators (PyTorch-style with _ suffix)
+    // ============================================================
     //
-    // This ensures ghost cells get the correct values from the result field,
-    // not just the initial values from make_scalar_field.
+    // These methods are preferred over operators for in-place modifications
+    // Use: field.add_(scalar) instead of field += scalar
+
     cls.def(
-        "__iadd__",
+        "add_",
         [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
         {
-            auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-            // Create result with 0 init (ghost cells will be 0.0)
-            auto result = samurai::make_scalar_field<double>(field.name() + "_temp", mesh, 0.0);
-            result      = field + scalar;  // Compute result
-            field       = result;         // Copy to self (reuses storage)
-            field.name() = field.name().substr(0, field.name().size() - 5);  // Remove "_temp"
+            add_in_place(field, scalar);
             return field;
         },
         py::arg("scalar"),
         "In-place addition: field += scalar\n\n"
         "Modifies this field in-place and returns self.\n"
-        "This is the preferred way to update fields after mesh adaptation.");
+        "Preferred over += operator for clarity.");
 
     cls.def(
-        "__isub__",
+        "sub_",
         [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
         {
-            auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-            auto result = samurai::make_scalar_field<double>(field.name() + "_temp", mesh, 0.0);
-            result      = field - scalar;
-            field       = result;
-            field.name() = field.name().substr(0, field.name().size() - 5);
+            sub_in_place(field, scalar);
             return field;
         },
         py::arg("scalar"),
@@ -774,14 +675,10 @@ void bind_scalar_field(py::module_& m, const std::string& name)
         "Modifies this field in-place and returns self.");
 
     cls.def(
-        "__imul__",
+        "mul_",
         [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
         {
-            auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-            auto result = samurai::make_scalar_field<double>(field.name() + "_temp", mesh, 0.0);
-            result      = field * scalar;
-            field       = result;
-            field.name() = field.name().substr(0, field.name().size() - 5);
+            mul_in_place(field, scalar);
             return field;
         },
         py::arg("scalar"),
@@ -789,32 +686,22 @@ void bind_scalar_field(py::module_& m, const std::string& name)
         "Modifies this field in-place and returns self.");
 
     cls.def(
-        "__itruediv__",
+        "div_",
         [](ScalarField<dim>& field, double scalar) -> ScalarField<dim>&
         {
-            auto& mesh  = const_cast<typename ScalarField<dim>::mesh_t&>(field.mesh());
-            auto result = samurai::make_scalar_field<double>(field.name() + "_temp", mesh, 0.0);
-            result      = field / scalar;
-            field       = result;
-            field.name() = field.name().substr(0, field.name().size() - 5);
+            div_in_place(field, scalar);
             return field;
         },
         py::arg("scalar"),
         "In-place division: field /= scalar\n\n"
         "Modifies this field in-place and returns self.");
 
-    // Field-to-field operators
-    cls.def("__sub__", &field_sub_field<dim>, py::arg("other"), "Subtract another field (returns new field)");
-
-    cls.def("__add__", &field_add_field<dim>, py::arg("other"), "Add another field (returns new field)");
-
-    // In-place field-to-field operators: field +/-= other_field
-    // These modify the field in-place and return self (for chaining)
+    // In-place with field operand
     cls.def(
-        "__iadd__",
+        "add_",
         [](ScalarField<dim>& field, const ScalarField<dim>& other) -> ScalarField<dim>&
         {
-            field = field + other;
+            add_in_place(field, other);
             return field;
         },
         py::arg("other"),
@@ -822,20 +709,23 @@ void bind_scalar_field(py::module_& m, const std::string& name)
         "Modifies this field in-place and returns self.");
 
     cls.def(
-        "__isub__",
+        "sub_",
         [](ScalarField<dim>& field, const ScalarField<dim>& other) -> ScalarField<dim>&
         {
-            field = field - other;
+            sub_in_place(field, other);
             return field;
         },
         py::arg("other"),
         "In-place subtraction: field -= other_field\n\n"
         "Modifies this field in-place and returns self.");
 
+    // ============================================================
     // Utility methods
-    cls.def("clone", &field_clone<dim>, "Create a deep copy of this field");
+    // ============================================================
 
-    cls.def("copy_to", &field_copy_to<dim>, py::arg("dest"), "Copy this field's data to destination field");
+    cls.def("clone", &clone<dim>, "Create a deep copy of this field (returns new field)");
+
+    cls.def("copy_to", &copy_to<dim>, py::arg("dest"), "Copy this field's data to destination field");
 
     // ============================================================
     // I/O methods
@@ -1412,119 +1302,57 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
         py::arg("values"),
         "Set all components of a cell by flat index");
 
-    // Arithmetic operators: field +/-/* scalar
-    cls.def(
-        "__sub__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_sub", mesh, 0.0);
-            result      = f - scalar;
-            return result;
-        },
-        py::arg("scalar"),
-        "Subtract scalar from field (returns new field)");
+    // ============================================================
+    // NumPy-style arithmetic operators (new API)
+    // ============================================================
+    //
+    // Binary operators: field op scalar (return NEW field)
+    // These create new fields, use .add_() etc. for in-place operations
+
+    // field op scalar
+    cls.def("__sub__", [](const Field& f, double s) { return sub(f, s); }, py::arg("scalar"), "Subtract scalar: returns new field = field - scalar");
+
+    cls.def("__rsub__", [](const Field& f, double s) { return rsub(s, f); }, py::arg("scalar"), "Subtract field from scalar: returns new field = scalar - field");
+
+    cls.def("__add__", [](const Field& f, double s) { return add(f, s); }, py::arg("scalar"), "Add scalar: returns new field = field + scalar");
+
+    cls.def("__radd__", [](const Field& f, double s) { return add(f, s); }, py::arg("scalar"), "Add scalar (right-hand): returns new field = scalar + field");
+
+    cls.def("__mul__", [](const Field& f, double s) { return mul(f, s); }, py::arg("scalar"), "Multiply: returns new field = field * scalar");
+
+    cls.def("__rmul__", [](const Field& f, double s) { return mul(f, s); }, py::arg("scalar"), "Multiply (right-hand): returns new field = scalar * field");
+
+    cls.def("__truediv__", [](const Field& f, double s) { return div(f, s); }, py::arg("scalar"), "Divide: returns new field = field / scalar");
+
+    // field op field
+    cls.def("__add__", [](const Field& a, const Field& b) { return add(a, b); }, py::arg("other"), "Add field: returns new field = field + other");
+
+    cls.def("__sub__", [](const Field& a, const Field& b) { return sub(a, b); }, py::arg("other"), "Subtract field: returns new field = field - other");
+
+    // ============================================================
+    // NumPy-style in-place operators (PyTorch-style with _ suffix)
+    // ============================================================
+    //
+    // These methods are preferred over operators for in-place modifications
+    // Use: field.add_(scalar) instead of field += scalar
 
     cls.def(
-        "__rsub__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>("scalar_sub", mesh, 0.0);
-            result      = scalar - f;
-            return result;
-        },
-        py::arg("scalar"),
-        "Subtract field from scalar (returns new field)");
-
-    cls.def(
-        "__add__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_add", mesh, 0.0);
-            result      = f + scalar;
-            return result;
-        },
-        py::arg("scalar"),
-        "Add scalar to field (returns new field)");
-
-    cls.def(
-        "__radd__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_add", mesh, 0.0);
-            result      = f + scalar;
-            return result;
-        },
-        py::arg("scalar"),
-        "Add scalar to field (right-hand version)");
-
-    cls.def(
-        "__mul__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_mul", mesh, 0.0);
-            result      = f * scalar;
-            return result;
-        },
-        py::arg("scalar"),
-        "Multiply field by scalar (returns new field)");
-
-    cls.def(
-        "__rmul__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_mul", mesh, 0.0);
-            result      = f * scalar;
-            return result;
-        },
-        py::arg("scalar"),
-        "Multiply field by scalar (right-hand version)");
-
-    cls.def(
-        "__truediv__",
-        [](Field& f, double scalar)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            // Initialize with 0 to avoid garbage values in ghost cells
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_div", mesh, 0.0);
-            result      = f / scalar;
-            return result;
-        },
-        py::arg("scalar"),
-        "Divide field by scalar (returns new field)");
-
-    // In-place arithmetic operators: field +/-/*= scalar
-    // These modify the field in-place and return self (for chaining)
-    // They use the C++ assignment operator which reuses storage, avoiding
-    // stale mesh reference issues after mesh adaptation
-    cls.def(
-        "__iadd__",
+        "add_",
         [](Field& f, double scalar) -> Field&
         {
-            f = f + scalar;
+            add_in_place(f, scalar);
             return f;
         },
         py::arg("scalar"),
         "In-place addition: field += scalar\n\n"
         "Modifies this field in-place and returns self.\n"
-        "This is the preferred way to update fields after mesh adaptation.");
+        "Preferred over += operator for clarity.");
 
     cls.def(
-        "__isub__",
+        "sub_",
         [](Field& f, double scalar) -> Field&
         {
-            f = f - scalar;
+            sub_in_place(f, scalar);
             return f;
         },
         py::arg("scalar"),
@@ -1532,10 +1360,10 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
         "Modifies this field in-place and returns self.");
 
     cls.def(
-        "__imul__",
+        "mul_",
         [](Field& f, double scalar) -> Field&
         {
-            f = f * scalar;
+            mul_in_place(f, scalar);
             return f;
         },
         py::arg("scalar"),
@@ -1543,63 +1371,14 @@ void bind_vectorfield_methods(py::class_<Field, Options...>& cls)
         "Modifies this field in-place and returns self.");
 
     cls.def(
-        "__itruediv__",
+        "div_",
         [](Field& f, double scalar) -> Field&
         {
-            f = f / scalar;
+            div_in_place(f, scalar);
             return f;
         },
         py::arg("scalar"),
         "In-place division: field /= scalar\n\n"
-        "Modifies this field in-place and returns self.");
-
-    // Arithmetic operators: field +/- field
-    cls.def(
-        "__add__",
-        [](Field& f, const Field& other)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_add", mesh);
-            result      = f + other;
-            return result;
-        },
-        py::arg("other"),
-        "Add two fields (returns new field)");
-
-    cls.def(
-        "__sub__",
-        [](Field& f, const Field& other)
-        {
-            auto& mesh  = const_cast<Mesh&>(f.mesh());
-            auto result = samurai::make_vector_field<value_t, n_comp, Field::is_soa>(f.name() + "_sub", mesh);
-            result      = f - other;
-            return result;
-        },
-        py::arg("other"),
-        "Subtract two fields (returns new field)");
-
-    // In-place field-to-field operators: field +/-= other_field
-    // These modify the field in-place and return self (for chaining)
-    cls.def(
-        "__iadd__",
-        [](Field& f, const Field& other) -> Field&
-        {
-            f = f + other;
-            return f;
-        },
-        py::arg("other"),
-        "In-place addition: field += other_field\n\n"
-        "Modifies this field in-place and returns self.");
-
-    cls.def(
-        "__isub__",
-        [](Field& f, const Field& other) -> Field&
-        {
-            f = f - other;
-            return f;
-        },
-        py::arg("other"),
-        "In-place subtraction: field -= other_field\n\n"
         "Modifies this field in-place and returns self.");
 }
 
