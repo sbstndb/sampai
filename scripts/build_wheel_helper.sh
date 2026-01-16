@@ -35,7 +35,48 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         bzip2-devel \
         zlib-devel || true
 
-    # Note: xtensor is installed automatically via build-system.requires in pyproject.toml
+    # Install xtensor from source (header-only library)
+    echo "Installing xtensor (header-only)..."
+    XTENSOR_VER="0.25.0"
+    if [ ! -f "/usr/local/include/xtensor/xtensor.hpp" ]; then
+        curl -LO "https://github.com/xtensor-stack/xtensor/archive/refs/tags/${XTENSOR_VER}.tar.gz"
+        tar -xzf "${XTENSOR_VER}.tar.gz"
+        # Copy headers to /usr/local/include (header-only lib, no build needed)
+        cp -r "xtensor-${XTENSOR_VER}/include/xtensor" /usr/local/include/
+        rm -rf "xtensor-${XTENSOR_VER}" "${XTENSOR_VER}.tar.gz"
+        echo "xtensor installed"
+    else
+        echo "xtensor already installed"
+    fi
+
+    # Install xtl (xtensor dependency, header-only)
+    echo "Installing xtl (xtensor dependency, header-only)..."
+    XTL_VER="0.7.7"
+    if [ ! -f "/usr/local/include/xtl/xany.hpp" ]; then
+        curl -LO "https://github.com/xtensor-stack/xtl/archive/refs/tags/${XTL_VER}.tar.gz"
+        tar -xzf "${XTL_VER}.tar.gz"
+        # Copy headers to /usr/local/include (header-only lib, no build needed)
+        cp -r "xtl-${XTL_VER}/include/xtl" /usr/local/include/
+        rm -rf "xtl-${XTL_VER}" "${XTL_VER}.tar.gz"
+        echo "xtl installed"
+    else
+        echo "xtl already installed"
+    fi
+
+    # Create pkg-config file for xtensor (so Meson can find it)
+    echo "Creating pkg-config file for xtensor..."
+    mkdir -p /usr/local/lib/pkgconfig
+    cat > /usr/local/lib/pkgconfig/xtensor.pc << 'EOF'
+prefix=/usr/local
+includedir=${prefix}/include
+
+Name: xtensor
+Description: C++ tensors with broadcasting and lazy computing
+Version: 0.25.0
+Libs:
+Cflags: -I${includedir}
+EOF
+    echo "xtensor.pc created"
 
     # Install CLI11 from source
     echo "Installing CLI11..."
@@ -81,9 +122,11 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         echo "HighFive already installed"
     fi
 
-    # Update pkg-config path
+    # Update pkg-config path and add /usr/local/include for xtensor
     export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+    export CPATH="/usr/local/include:$CPATH"
     echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+    echo "CPATH=$CPATH"
 
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "Detected macOS system"
@@ -93,7 +136,54 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     brew update || true
     brew install meson ninja hdf5 pugixml fmt cmake
 
-    # Note: xtensor is installed automatically via build-system.requires in pyproject.toml
+    # Install xtensor from source (header-only library)
+    echo "Installing xtensor (header-only)..."
+    XTENSOR_VER="0.25.0"
+    XTENSOR_INCLUDE="/usr/local/include/xtensor/xtensor.hpp"
+    BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "/usr/local")
+    if [ ! -f "$XTENSOR_INCLUDE" ] && [ ! -f "$BREW_PREFIX/include/xtensor/xtensor.hpp" ]; then
+        curl -LO "https://github.com/xtensor-stack/xtensor/archive/refs/tags/${XTENSOR_VER}.tar.gz"
+        tar -xzf "${XTENSOR_VER}.tar.gz"
+        # Copy headers to /usr/local/include (header-only lib, no build needed)
+        mkdir -p "$BREW_PREFIX/include"
+        cp -r "xtensor-${XTENSOR_VER}/include/xtensor" "$BREW_PREFIX/include/"
+        rm -rf "xtensor-${XTENSOR_VER}" "${XTENSOR_VER}.tar.gz"
+        echo "xtensor installed"
+    else
+        echo "xtensor already installed"
+    fi
+
+    # Install xtl (xtensor dependency, header-only)
+    echo "Installing xtl (xtensor dependency, header-only)..."
+    XTL_VER="0.7.7"
+    XTL_INCLUDE="/usr/local/include/xtl/xany.hpp"
+    BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "/usr/local")
+    if [ ! -f "$XTL_INCLUDE" ] && [ ! -f "$BREW_PREFIX/include/xtl/xany.hpp" ]; then
+        curl -LO "https://github.com/xtensor-stack/xtl/archive/refs/tags/${XTL_VER}.tar.gz"
+        tar -xzf "${XTL_VER}.tar.gz"
+        # Copy headers to /usr/local/include (header-only lib, no build needed)
+        mkdir -p "$BREW_PREFIX/include"
+        cp -r "xtl-${XTL_VER}/include/xtl" "$BREW_PREFIX/include/"
+        rm -rf "xtl-${XTL_VER}" "${XTL_VER}.tar.gz"
+        echo "xtl installed"
+    else
+        echo "xtl already installed"
+    fi
+
+    # Create pkg-config file for xtensor (so Meson can find it)
+    echo "Creating pkg-config file for xtensor..."
+    mkdir -p "$BREW_PREFIX/lib/pkgconfig"
+    cat > "$BREW_PREFIX/lib/pkgconfig/xtensor.pc" << 'EOF'
+prefix=/usr/local
+includedir=${prefix}/include
+
+Name: xtensor
+Description: C++ tensors with broadcasting and lazy computing
+Version: 0.25.0
+Libs:
+Cflags: -I${includedir}
+EOF
+    echo "xtensor.pc created"
 
     # Install CLI11 via brew (or from source if not available)
     echo "Installing CLI11..."
@@ -142,9 +232,12 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
         echo "HighFive already installed"
     fi
 
-    # Update pkg-config path
-    export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+    # Update pkg-config path and add /usr/local/include for xtensor
+    BREW_PREFIX=$(brew --prefix 2>/dev/null || echo "/usr/local")
+    export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+    export CPATH="$BREW_PREFIX/include:$CPATH"
     echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+    echo "CPATH=$CPATH"
 fi
 
 echo "=== C++ dependencies setup complete ==="

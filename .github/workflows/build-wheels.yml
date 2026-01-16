@@ -58,15 +58,13 @@ jobs:
 
         # Linux (manylinux) configuration
         CIBW_BEFORE_ALL_LINUX: bash scripts/build_wheel_helper.sh
-        CIBW_BEFORE_BUILD_LINUX: pip install xtensor xsim
 
         # macOS configuration
         CIBW_BEFORE_ALL_MACOS: bash scripts/build_wheel_helper.sh
-        CIBW_BEFORE_BUILD_MACOS: pip install xtensor xsim
 
-        # Set environment variables for dependencies
-        CIBW_ENVIRONMENT_LINUX: PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH
-        CIBW_ENVIRONMENT_MACOS: PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH
+        # Set environment variables for dependencies (CPATH includes /usr/local/include for xtensor)
+        CIBW_ENVIRONMENT_LINUX: PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH CPATH=/usr/local/include:$CPATH
+        CIBW_ENVIRONMENT_MACOS: PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH CPATH=/opt/homebrew/include:$CPATH
 
         # Build verbosity for debugging
         CIBW_BUILD_VERBOSITY: 1
