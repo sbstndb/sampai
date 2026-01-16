@@ -44,16 +44,23 @@ public:
     // Default constructor
     PySubset() : m_cells(0), m_level(0), m_description("empty subset") {}
 
+    // Move constructor for LevelCellArray (direct construction for where operations)
+    PySubset(lca_t&& cells, std::size_t level, const std::string& desc = "subset")
+        : m_cells(std::move(cells)), m_level(level), m_description(desc)
+    {}
+
     // Materialize from a subset expression at a specific level
-    template <class SubsetExpr>
+    // SFINAE: Only enable for types that are NOT LevelCellArray
+    template <class SubsetExpr,
+              std::enable_if_t<!std::is_same_v<std::decay_t<SubsetExpr>, lca_t>, int> = 0>
     PySubset(SubsetExpr&& expr, std::size_t level, const std::string& desc = "subset")
         : m_cells(level), m_level(level), m_description(desc)
     {
-        // Force evaluation by iterating over the subset
-        auto subset_on_level = expr.on(level);
-
-        subset_on_level([&](const auto& interval, const auto& index)
-                        { m_cells.add_interval_back(interval, index); });
+        // Force evaluation by iterating over the subset expression
+        samurai::for_each_interval(expr, [&](auto lvl, const auto& interval, const auto& index)
+        {
+            m_cells.add_interval_back(interval, index);
+        });
     }
 
     // Accessors
@@ -278,7 +285,20 @@ PySubset<dim> make_contract_directional(const MRMesh<dim>& mesh,
 template <std::size_t dim>
 PySubset<dim> make_self(const MRMesh<dim>& mesh, std::size_t level)
 {
-    auto subset = samurai::self(mesh[mesh_id_t::cells][level]);
+    // Directly copy the LevelCellArray at the specified level
+    using interval_t = typename MRMesh<dim>::interval_t;
+    using lca_t = samurai::LevelCellArray<dim, interval_t>;
+
+    const auto& cells = mesh[mesh_id_t::cells];
+    if (level < cells.min_level() || level > cells.max_level())
+    {
+        // Return empty subset if level doesn't exist
+        return PySubset<dim>(lca_t(level), level, "self (empty)");
+    }
+
+    // Copy the LevelCellArray at this level
+    lca_t subset = cells[level];
+
     return PySubset<dim>(std::move(subset), level, "self");
 }
 
@@ -1507,6 +1527,438 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
         >>> amr_field = sam.field.vector(amr_mesh, "amr_vel", n_components=3)
         >>> uniform_field = sam.field.vector(uniform_mesh, "uniform_vel", n_components=3)
         >>> sam.subsets.reconstruction_to(uniform_field, amr_field)
+    )pbdoc");
+
+    // --- Where Operations (Field-based Filtering) ---
+
+    m.def("where",
+          [](const ScalarField<dim>& field, const py::function& py_condition, std::size_t level)
+          {
+              using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+              using interval_t = typename MRMesh<dim>::interval_t;
+              using lca_t = samurai::LevelCellArray<dim, interval_t>;
+
+              const auto& mesh = field.mesh();
+              lca_t result(level, mesh.origin_point(), mesh.scaling_factor());
+
+              auto& cells = mesh[mesh_id_t::cells];
+              if (level < cells.min_level() || level > cells.max_level())
+              {
+                  return PySubset<dim>(std::move(result), level, "where (empty)");
+              }
+
+              // Iterate over intervals at the specified level
+              samurai::for_each_interval(cells[level], [&](std::size_t lvl, const auto& interval, const auto& index)
+              {
+                  // Get field view for this interval
+                  auto view = field(lvl, interval, index);
+
+                  // Check each cell in the interval
+                  for (std::size_t ii = 0; ii < interval.size(); ++ii)
+                  {
+                      double value = view[ii];
+                      bool keep = py_condition(value).cast<bool>();
+
+                      if (keep)
+                      {
+                          // Add individual point
+                          result.add_point_back(interval.start + ii, index);
+                      }
+                  }
+              });
+
+              return PySubset<dim>(std::move(result), level, "where");
+          },
+          py::arg("field"),
+          py::arg("condition"),
+          py::arg("level"),
+          R"pbdoc(
+        Create a subset where a scalar field satisfies a condition.
+
+        Filters cells at a given level based on a condition applied to field values.
+        Only cells where the condition returns True are included in the subset.
+
+        Parameters
+        ----------
+        field : ScalarField1D, ScalarField2D, or ScalarField3D
+            Input scalar field to filter
+        condition : callable
+            Python function that takes a field value and returns bool
+            Example: lambda x: x > 0.0  (keep positive values)
+        level : int
+            Mesh level to filter
+
+        Returns
+        -------
+        Subset
+            Subset containing cells where the condition is True
+
+        Examples
+        --------
+        >>> field = sam.field.scalar(mesh, "u")
+        >>> # Keep cells where field > 0
+        >>> positive_subset = sam.subsets.where(field, lambda x: x > 0.0, level=3)
+        >>> # Keep cells where field != 0
+        >>> nonzero_subset = sam.subsets.where(field, lambda x: x != 0.0, level=3)
+        >>> # Keep cells within a range
+        >>> range_subset = sam.subsets.where(field, lambda x: 0.5 < x < 1.5, level=3)
+
+        Notes
+        -----
+        - The condition is evaluated for each cell individually
+        - The result is a single-level subset at the specified level
+        - For multi-level filtering, call where() for each level
+    )pbdoc");
+
+    // --- Clamp Operations ---
+
+    m.def("clamp",
+          [](ScalarField<dim>& field, double min_val, double max_val, std::size_t level)
+          {
+              using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+
+              const auto& mesh = field.mesh();
+              auto& cells = mesh[mesh_id_t::cells];
+
+              if (level < cells.min_level() || level > cells.max_level())
+              {
+                  return; // Level doesn't exist, nothing to do
+              }
+
+              // Apply clamping to all cells at the specified level
+              samurai::for_each_interval(cells[level], [&](auto lvl, const auto& interval, const auto& index)
+              {
+                  auto view = field(lvl, interval, index);
+                  for (std::size_t ii = 0; ii < interval.size(); ++ii)
+                  {
+                      view[ii] = std::clamp(view[ii], min_val, max_val);
+                  }
+              });
+          },
+          py::arg("field"),
+          py::arg("min_val"),
+          py::arg("max_val"),
+          py::arg("level"),
+          R"pbdoc(
+        Clamp scalar field values to a range [min_val, max_val] at a given level.
+
+        Modifies the field in-place, limiting all values to be within the specified range.
+
+        Parameters
+        ----------
+        field : ScalarField1D, ScalarField2D, or ScalarField3D
+            Input scalar field (modified in-place)
+        min_val : float
+            Minimum value (values below this are set to min_val)
+        max_val : float
+            Maximum value (values above this are set to max_val)
+        level : int
+            Mesh level to apply clamping
+
+        Examples
+        --------
+        >>> field = sam.field.scalar(mesh, "u")
+        >>> # Clamp values to [0, 1]
+        >>> sam.subsets.clamp(field, 0.0, 1.0, level=3)
+        >>> # Clamp negative values to 0
+        >>> sam.subsets.clamp(field, 0.0, float('inf'), level=3)
+        >>> # Clamp to a physical range
+        >>> sam.subsets.clamp(density, 0.0, max_density, level=2)
+
+        Notes
+        -----
+        - This operation modifies the field in-place
+        - Ghost cells are NOT automatically updated
+        - For multi-level fields, call clamp() for each level separately
+    )pbdoc");
+
+    // --- Where Operations for Vector Fields ---
+
+    m.def("where_vector",
+          [](const VectorField<dim, 2, false>& field,
+             const std::string& mode,
+             const py::function& py_condition,
+             std::size_t level)
+          {
+              using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+              using interval_t = typename MRMesh<dim>::interval_t;
+              using lca_t = samurai::LevelCellArray<dim, interval_t>;
+
+              const auto& mesh = field.mesh();
+              lca_t result(level, mesh.origin_point(), mesh.scaling_factor());
+
+              auto& cells = mesh[mesh_id_t::cells];
+              if (level < cells.min_level() || level > cells.max_level())
+              {
+                  return PySubset<dim>(std::move(result), level, "where_vector (empty)");
+              }
+
+              samurai::for_each_interval(cells[level], [&](std::size_t lvl, const auto& interval, const auto& index)
+              {
+                  // Get field views for each component - note order: (comp, level, interval, index)
+                  auto view0 = field(0, lvl, interval, index);
+                  auto view1 = field(1, lvl, interval, index);
+
+                  for (std::size_t ii = 0; ii < interval.size(); ++ii)
+                  {
+                      bool keep = false;
+
+                      if (mode == "magnitude")
+                      {
+                          // Compute magnitude: sqrt(v[0]^2 + v[1]^2)
+                          double v0 = view0[ii];
+                          double v1 = view1[ii];
+                          double magnitude = std::sqrt(v0 * v0 + v1 * v1);
+                          keep = py_condition(magnitude).cast<bool>();
+                      }
+                      else if (mode == "any")
+                      {
+                          // Keep if ANY component satisfies condition
+                          double v0 = view0[ii];
+                          double v1 = view1[ii];
+                          keep = py_condition(v0).cast<bool>() || py_condition(v1).cast<bool>();
+                      }
+                      else if (mode == "all")
+                      {
+                          // Keep if ALL components satisfy condition
+                          double v0 = view0[ii];
+                          double v1 = view1[ii];
+                          keep = py_condition(v0).cast<bool>() && py_condition(v1).cast<bool>();
+                      }
+                      else
+                      {
+                          throw std::runtime_error("Invalid mode. Use: 'magnitude', 'any', or 'all'");
+                      }
+
+                      if (keep)
+                      {
+                          result.add_point_back(interval.start + ii, index);
+                      }
+                  }
+              });
+
+              return PySubset<dim>(std::move(result), level, "where_vector");
+          },
+          py::arg("field"),
+          py::arg("mode") = "magnitude",
+          py::arg("condition"),
+          py::arg("level"),
+          R"pbdoc(
+        Create a subset where a 2-component vector field satisfies a condition.
+
+        Parameters
+        ----------
+        field : VectorField1D_2, VectorField2D_2, or VectorField3D_2
+            Input vector field (2 components)
+        mode : str
+            Comparison mode: 'magnitude', 'any', or 'all'
+            - 'magnitude': condition on vector magnitude ||v||
+            - 'any': condition on each component separately (true if any component matches)
+            - 'all': condition must be true for all components
+        condition : callable
+            Python function that takes a float and returns bool
+        level : int
+            Mesh level to filter
+
+        Examples
+        --------
+        >>> vel = sam.field.vector(mesh, "velocity", n_components=2)
+        >>> # Keep cells where velocity magnitude > 1.0
+        >>> fast_cells = sam.subsets.where_vector(vel, "magnitude", lambda x: x > 1.0, level=3)
+        >>> # Keep cells where ANY component > 0
+        >>> any_positive = sam.subsets.where_vector(vel, "any", lambda x: x > 0, level=3)
+        >>> # Keep cells where ALL components > 0
+        >>> all_positive = sam.subsets.where_vector(vel, "all", lambda x: x > 0, level=3)
+    )pbdoc");
+
+    m.def("where_vector",
+          [](const VectorField<dim, 3, false>& field,
+             const std::string& mode,
+             const py::function& py_condition,
+             std::size_t level)
+          {
+              using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+              using interval_t = typename MRMesh<dim>::interval_t;
+              using lca_t = samurai::LevelCellArray<dim, interval_t>;
+
+              const auto& mesh = field.mesh();
+              lca_t result(level, mesh.origin_point(), mesh.scaling_factor());
+
+              auto& cells = mesh[mesh_id_t::cells];
+              if (level < cells.min_level() || level > cells.max_level())
+              {
+                  return PySubset<dim>(std::move(result), level, "where_vector (empty)");
+              }
+
+              samurai::for_each_interval(cells[level], [&](std::size_t lvl, const auto& interval, const auto& index)
+              {
+                  // Get field views for each component - note order: (comp, level, interval, index)
+                  auto view0 = field(0, lvl, interval, index);
+                  auto view1 = field(1, lvl, interval, index);
+                  auto view2 = field(2, lvl, interval, index);
+
+                  for (std::size_t ii = 0; ii < interval.size(); ++ii)
+                  {
+                      bool keep = false;
+
+                      if (mode == "magnitude")
+                      {
+                          // Compute magnitude: sqrt(v[0]^2 + v[1]^2 + v[2]^2)
+                          double v0 = view0[ii];
+                          double v1 = view1[ii];
+                          double v2 = view2[ii];
+                          double magnitude = std::sqrt(v0 * v0 + v1 * v1 + v2 * v2);
+                          keep = py_condition(magnitude).cast<bool>();
+                      }
+                      else if (mode == "any")
+                      {
+                          double v0 = view0[ii];
+                          double v1 = view1[ii];
+                          double v2 = view2[ii];
+                          keep = py_condition(v0).cast<bool>() ||
+                                 py_condition(v1).cast<bool>() ||
+                                 py_condition(v2).cast<bool>();
+                      }
+                      else if (mode == "all")
+                      {
+                          double v0 = view0[ii];
+                          double v1 = view1[ii];
+                          double v2 = view2[ii];
+                          keep = py_condition(v0).cast<bool>() &&
+                                 py_condition(v1).cast<bool>() &&
+                                 py_condition(v2).cast<bool>();
+                      }
+                      else
+                      {
+                          throw std::runtime_error("Invalid mode. Use: 'magnitude', 'any', or 'all'");
+                      }
+
+                      if (keep)
+                      {
+                          result.add_point_back(interval.start + ii, index);
+                      }
+                  }
+              });
+
+              return PySubset<dim>(std::move(result), level, "where_vector");
+          },
+          py::arg("field"),
+          py::arg("mode") = "magnitude",
+          py::arg("condition"),
+          py::arg("level"),
+          R"pbdoc(
+        Create a subset where a 3-component vector field satisfies a condition.
+
+        Parameters
+        ----------
+        field : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+            Input vector field (3 components)
+        mode : str
+            Comparison mode: 'magnitude', 'any', or 'all'
+        condition : callable
+            Python function that takes a float and returns bool
+        level : int
+            Mesh level to filter
+
+        Examples
+        --------
+        >>> vel = sam.field.vector(mesh, "velocity", n_components=3)
+        >>> # Keep cells where velocity magnitude > 1.0
+        >>> fast_cells = sam.subsets.where_vector(vel, "magnitude", lambda x: x > 1.0, level=2)
+    )pbdoc");
+
+    // --- Clamp Operations for Vector Fields ---
+
+    m.def("clamp_vector",
+          [](VectorField<dim, 2, false>& field, double min_val, double max_val, std::size_t level)
+          {
+              using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+
+              const auto& mesh = field.mesh();
+              auto& cells = mesh[mesh_id_t::cells];
+
+              if (level < cells.min_level() || level > cells.max_level())
+              {
+                  return;
+              }
+
+              // Apply clamping to all cells at the specified level
+              samurai::for_each_interval(cells[level], [&](auto lvl, const auto& interval, const auto& index)
+              {
+                  // Get views for both components
+                  auto view0 = field(0, lvl, interval, index);
+                  auto view1 = field(1, lvl, interval, index);
+
+                  for (std::size_t ii = 0; ii < interval.size(); ++ii)
+                  {
+                      view0[ii] = std::clamp(view0[ii], min_val, max_val);
+                      view1[ii] = std::clamp(view1[ii], min_val, max_val);
+                  }
+              });
+          },
+          py::arg("field"),
+          py::arg("min_val"),
+          py::arg("max_val"),
+          py::arg("level"),
+          R"pbdoc(
+        Clamp 2-component vector field values to [min_val, max_val].
+
+        Each component is clamped independently.
+
+        Parameters
+        ----------
+        field : VectorField with 2 components
+            Input vector field (modified in-place)
+        min_val : float
+            Minimum value
+        max_val : float
+            Maximum value
+        level : int
+            Mesh level to apply clamping
+
+        Examples
+        --------
+        >>> vel = sam.field.vector(mesh, "velocity", n_components=2)
+        >>> sam.subsets.clamp_vector(vel, -10.0, 10.0, level=3)
+    )pbdoc");
+
+    m.def("clamp_vector",
+          [](VectorField<dim, 3, false>& field, double min_val, double max_val, std::size_t level)
+          {
+              using mesh_id_t = typename MRMesh<dim>::mesh_id_t;
+
+              const auto& mesh = field.mesh();
+              auto& cells = mesh[mesh_id_t::cells];
+
+              if (level < cells.min_level() || level > cells.max_level())
+              {
+                  return;
+              }
+
+              // Apply clamping to all cells at the specified level
+              samurai::for_each_interval(cells[level], [&](auto lvl, const auto& interval, const auto& index)
+              {
+                  // Get views for all three components
+                  auto view0 = field(0, lvl, interval, index);
+                  auto view1 = field(1, lvl, interval, index);
+                  auto view2 = field(2, lvl, interval, index);
+
+                  for (std::size_t ii = 0; ii < interval.size(); ++ii)
+                  {
+                      view0[ii] = std::clamp(view0[ii], min_val, max_val);
+                      view1[ii] = std::clamp(view1[ii], min_val, max_val);
+                      view2[ii] = std::clamp(view2[ii], min_val, max_val);
+                  }
+              });
+          },
+          py::arg("field"),
+          py::arg("min_val"),
+          py::arg("max_val"),
+          py::arg("level"),
+          R"pbdoc(
+        Clamp 3-component vector field values to [min_val, max_val].
+
+        Each component is clamped independently.
     )pbdoc");
 
     // --- Iteration ---
