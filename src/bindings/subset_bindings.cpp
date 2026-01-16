@@ -82,6 +82,27 @@ public:
             view.fill(value);
         });
     }
+
+    // Fill a vector field with constant values on this subset
+    template <std::size_t n_comp, bool SOA>
+    void fill_vector(VectorField<dim, n_comp, SOA>& field, const std::vector<double>& value) const
+    {
+        if (value.size() != n_comp)
+        {
+            throw std::runtime_error("Value size must match vector field components (expected " +
+                                    std::to_string(n_comp) + ", got " + std::to_string(value.size()) + ")");
+        }
+
+        samurai::for_each_interval(m_cells, [&](auto level, auto& interval, auto& index)
+        {
+            for (std::size_t comp = 0; comp < n_comp; ++comp)
+            {
+                // Access vector field component using field(comp, level, interval, index)
+                auto view = field(comp, level, interval, index);
+                view.fill(value[comp]);
+            }
+        });
+    }
 };
 
 // ============================================================
@@ -463,13 +484,112 @@ void apply_function_scalar(ScalarField<dim>& field,
                 result = func(i, index[0], index[1], level);
             }
             double value = result.cast<double>();
-            view[i - interval.start] = value;
+            view[static_cast<std::size_t>(i - interval.start)] = value;
         }
     });
 }
 
-// Note: Vector field support is more complex because VectorField<dim> requires
-// n_comp template parameter. Skipping for now - can be added later if needed.
+// Apply function to vector field (for n_comp components)
+template <std::size_t dim, std::size_t n_comp, bool SOA>
+void apply_function_vector_impl(VectorField<dim, n_comp, SOA>& field,
+                                  const PySubset<dim>& subset,
+                                  py::function func)
+{
+    auto& cells = subset.cells();
+
+    samurai::for_each_interval(cells, [&](auto level, auto& interval, auto& index)
+    {
+        // Iterate over each cell in the interval
+        for (auto i = interval.start; i < interval.end; ++i)
+        {
+            for (std::size_t comp = 0; comp < n_comp; ++comp)
+            {
+                py::object result;
+                if constexpr (dim == 1)
+                {
+                    result = func(comp, i, 0, 0, level);
+                }
+                else if constexpr (dim == 2)
+                {
+                    result = func(comp, i, index[0], 0, level);
+                }
+                else // dim == 3
+                {
+                    result = func(comp, i, index[0], index[1], level);
+                }
+                double value = result.cast<double>();
+                // Access vector field component using field(comp, level, interval, index)
+                auto view = field(comp, level, interval, index);
+                view[static_cast<std::size_t>(i - interval.start)] = value;
+            }
+        }
+    });
+}
+
+// Explicit instantiations for n_comp = 2 and 3, SOA = false
+template <std::size_t dim>
+void apply_function_vector_2(VectorField<dim, 2, false>& field,
+                              const PySubset<dim>& subset,
+                              py::function func)
+{
+    apply_function_vector_impl(field, subset, func);
+}
+
+template <std::size_t dim>
+void apply_function_vector_3(VectorField<dim, 3, false>& field,
+                              const PySubset<dim>& subset,
+                              py::function func)
+{
+    apply_function_vector_impl(field, subset, func);
+}
+
+// Copy for vector fields (n_comp components)
+template <std::size_t dim, std::size_t n_comp, bool SOA>
+void copy_vector_subset(VectorField<dim, n_comp, SOA>& dst,
+                       const PySubset<dim>& dst_subset,
+                       const VectorField<dim, n_comp, SOA>& src,
+                       const PySubset<dim>& src_subset)
+{
+    auto& dst_cells = dst_subset.cells();
+    auto dst_level = dst_subset.level();
+
+    if (dst_cells.empty() || src_subset.cells().empty())
+    {
+        return;
+    }
+
+    samurai::for_each_interval(dst_cells, [&](auto level, auto& interval, auto& index)
+    {
+        for (std::size_t comp = 0; comp < n_comp; ++comp)
+        {
+            // Access vector field component using field(comp, level, interval, index)
+            auto dst_view = dst(comp, level, interval, index);
+            auto src_view = src(comp, level, interval, index);
+            dst_view = src_view;
+        }
+    });
+}
+
+// Explicit instantiations for copy_vector
+template <std::size_t dim>
+void copy_vector_2(VectorField<dim, 2, false>& dst,
+                   const PySubset<dim>& dst_subset,
+                   const VectorField<dim, 2, false>& src,
+                   const PySubset<dim>& src_subset)
+{
+    copy_vector_subset(dst, dst_subset, src, src_subset);
+}
+
+template <std::size_t dim>
+void copy_vector_3(VectorField<dim, 3, false>& dst,
+                   const PySubset<dim>& dst_subset,
+                   const VectorField<dim, 3, false>& src,
+                   const PySubset<dim>& src_subset)
+{
+    copy_vector_subset(dst, dst_subset, src, src_subset);
+}
+
+// Note: Previous scalar field support
 
 // ============================================================
 // Subset Iteration (for each cell in subset)
@@ -575,6 +695,44 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
             --------
             >>> subset = sam.subsets.intersection(mesh, mesh, level=2)
             >>> subset.fill(field, 3.14)
+        )pbdoc")
+        // Fill vector field with 2 components
+        .def("fill_vector", &PySubset<dim>::template fill_vector<2, false>,
+             py::arg("field"),
+             py::arg("value"),
+             R"pbdoc(
+            Fill 2-component vector field with constant values on this subset.
+
+            Parameters
+            ----------
+            field : VectorField2D_2 or VectorField3D_2
+                Vector field to fill (modified in-place)
+            value : list[float]
+                List of 2 values (one per component)
+
+            Examples
+            --------
+            >>> subset = sam.subsets.intersection(mesh, mesh, level=2)
+            >>> subset.fill_vector(field2, [1.0, 2.0])
+        )pbdoc")
+        // Fill vector field with 3 components
+        .def("fill_vector", &PySubset<dim>::template fill_vector<3, false>,
+             py::arg("field"),
+             py::arg("value"),
+             R"pbdoc(
+            Fill 3-component vector field with constant values on this subset.
+
+            Parameters
+            ----------
+            field : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+                Vector field to fill (modified in-place)
+            value : list[float]
+                List of 3 values (one per component)
+
+            Examples
+            --------
+            >>> subset = sam.subsets.intersection(mesh, mesh, level=2)
+            >>> subset.fill_vector(field3, [1.0, 2.0, 3.0])
         )pbdoc");
 
     // --- Set Operations ---
@@ -1047,6 +1205,122 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
         >>> import math
         >>> sam.subsets.apply_function(field, subset,
         >>>     lambda i, j, k, level: math.sin(i * 0.1))
+    )pbdoc");
+
+    // --- Apply function on vector field subset ---
+
+    m.def("apply_function_vector",
+          &apply_function_vector_2<dim>,
+          py::arg("field"),
+          py::arg("subset"),
+          py::arg("func"),
+          R"pbdoc(
+        Apply a Python function to 2-component vector field values on a subset.
+
+        The function receives component index, cell indices and level as arguments
+        and should return a single float value.
+
+        Parameters
+        ----------
+        field : VectorField2D_2 or VectorField3D_2
+            Vector field to modify (modified in-place)
+        subset : Subset
+            Subset specifying where to apply the function
+        func : callable
+            Python function called as func(comp, i, j, k, level)
+            comp: component index (0 or 1)
+            Returns the field value for that component and cell
+
+        Examples
+        --------
+        >>> subset = sam.subsets.intersection(mesh, mesh, level=2)
+        >>> sam.subsets.apply_function_vector(field2, subset,
+        >>>     lambda comp, i, j, k, level: comp * i + j)
+    )pbdoc");
+
+    m.def("apply_function_vector",
+          &apply_function_vector_3<dim>,
+          py::arg("field"),
+          py::arg("subset"),
+          py::arg("func"),
+          R"pbdoc(
+        Apply a Python function to 3-component vector field values on a subset.
+
+        The function receives component index, cell indices and level as arguments
+        and should return a single float value.
+
+        Parameters
+        ----------
+        field : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+            Vector field to modify (modified in-place)
+        subset : Subset
+            Subset specifying where to apply the function
+        func : callable
+            Python function called as func(comp, i, j, k, level)
+            comp: component index (0, 1, or 2)
+            Returns the field value for that component and cell
+
+        Examples
+        --------
+        >>> subset = sam.subsets.intersection(mesh, mesh, level=2)
+        >>> sam.subsets.apply_function_vector(field3, subset,
+        >>>     lambda comp, i, j, k, level: comp * (i + 1) + j)
+    )pbdoc");
+
+    // --- Copy vector field between subsets ---
+
+    m.def("copy_vector",
+          &copy_vector_2<dim>,
+          py::arg("dst"),
+          py::arg("dst_subset"),
+          py::arg("src"),
+          py::arg("src_subset"),
+          R"pbdoc(
+        Copy 2-component vector field values between subsets.
+
+        Parameters
+        ----------
+        dst : VectorField2D_2 or VectorField3D_2
+            Destination vector field (modified in-place)
+        dst_subset : Subset
+            Destination subset specifying where to copy to
+        src : VectorField2D_2 or VectorField3D_2
+            Source vector field (read-only)
+        src_subset : Subset
+            Source subset specifying where to copy from
+
+        Examples
+        --------
+        >>> subset1 = sam.subsets.intersection(mesh, mesh, level=2)
+        >>> subset2 = sam.subsets.translate(mesh, [1, 0], level=2)
+        >>> sam.subsets.copy_vector(v2_dst, subset2, v2_src, subset1)
+    )pbdoc");
+
+    m.def("copy_vector",
+          &copy_vector_3<dim>,
+          py::arg("dst"),
+          py::arg("dst_subset"),
+          py::arg("src"),
+          py::arg("src_subset"),
+          R"pbdoc(
+        Copy 3-component vector field values between subsets.
+
+        Parameters
+        ----------
+        dst : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+            Destination vector field (modified in-place)
+        dst_subset : Subset
+            Destination subset specifying where to copy to
+        src : VectorField1D_3, VectorField2D_3, or VectorField3D_3
+            Source vector field (read-only)
+        src_subset : Subset
+            Source subset specifying where to copy from
+
+        Examples
+        --------
+        >>> subset1 = sam.subsets.intersection(mesh, mesh, level=2)
+        >>> subset2 = sam.subsets.translate(mesh, [1, 0], level=2)
+        >>> sam.subsets.copy_vector(v3_dst, subset2, v3_src, subset1)
     )pbdoc");
 
     // --- Iteration ---
