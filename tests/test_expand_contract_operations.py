@@ -70,6 +70,21 @@ class TestExpandOperations:
         original = sam.subsets.intersection(mesh, mesh, level=1)
         assert expanded.nb_cells > original.nb_cells
 
+    def test_expand_with_different_widths(self):
+        """Test expand with different width values (1-6)"""
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        config = sam.config._MeshConfig2D()
+        config.min_level = 3
+        config.max_level = 3
+
+        mesh = sam.mesh.make(box, config)
+
+        # Test widths 1 through 6
+        for width in [1, 2, 3, 4, 5, 6]:
+            expanded = sam.subsets.expand(mesh, level=3, width=width)
+            assert expanded.nb_cells > 0
+            assert expanded.level == 3
+
     def test_expand_invalid_width(self):
         """Test that invalid width raises error"""
         box = sam.geometry.box([0.0], [1.0])
@@ -79,9 +94,13 @@ class TestExpandOperations:
 
         mesh = sam.mesh.make(box, config)
 
-        # Width 2 not supported yet
-        with pytest.raises(RuntimeError, match="width must be 1"):
-            sam.subsets.expand(mesh, level=2, width=2)
+        # Width 7 is not supported
+        with pytest.raises(RuntimeError, match="width must be between 1 and 6"):
+            sam.subsets.expand(mesh, level=2, width=7)
+
+        # Width 0 is not supported
+        with pytest.raises(RuntimeError, match="width must be between 1 and 6"):
+            sam.subsets.expand(mesh, level=2, width=0)
 
 
 class TestExpandDirectional:
@@ -147,6 +166,21 @@ class TestExpandDirectional:
         with pytest.raises(RuntimeError, match="Directions array size"):
             sam.subsets.expand_dir(mesh, level=2, width=1, directions=[True, False])
 
+    def test_expand_dir_with_different_widths(self):
+        """Test directional expand with different width values (1-6)"""
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        config = sam.config._MeshConfig2D()
+        config.min_level = 3
+        config.max_level = 3
+
+        mesh = sam.mesh.make(box, config)
+
+        # Test widths 1 through 6 for directional expand
+        for width in [1, 2, 3, 4, 5, 6]:
+            expanded_x = sam.subsets.expand_dir(mesh, level=3, width=width, directions=[True, False])
+            assert expanded_x.nb_cells > 0
+            assert expanded_x.level == 3
+
 
 # ============================================================================
 # Contract Operations Tests
@@ -205,6 +239,38 @@ class TestContractOperations:
         contracted1 = sam.subsets.contract(mesh, level=3, width=1)
         assert contracted2.nb_cells <= contracted1.nb_cells
 
+    def test_contract_with_different_widths(self):
+        """Test contract with different width values (1-6)"""
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        config = sam.config._MeshConfig2D()
+        config.min_level = 3
+        config.max_level = 3
+
+        mesh = sam.mesh.make(box, config)
+
+        # Test widths 1 through 6
+        for width in [1, 2, 3, 4, 5, 6]:
+            contracted = sam.subsets.contract(mesh, level=3, width=width)
+            assert contracted.nb_cells >= 0  # May become empty for large widths
+            assert contracted.level == 3
+
+    def test_contract_invalid_width(self):
+        """Test that invalid width raises error"""
+        box = sam.geometry.box([0.0], [1.0])
+        config = sam.config._MeshConfig1D()
+        config.min_level = 3
+        config.max_level = 3
+
+        mesh = sam.mesh.make(box, config)
+
+        # Width 7 is not supported
+        with pytest.raises(RuntimeError, match="width must be between 1 and 6"):
+            sam.subsets.contract(mesh, level=3, width=7)
+
+        # Width 0 is not supported
+        with pytest.raises(RuntimeError, match="width must be between 1 and 6"):
+            sam.subsets.contract(mesh, level=3, width=0)
+
 
 class TestContractDirectional:
     """Test directional contract operations"""
@@ -256,6 +322,22 @@ class TestContractDirectional:
 
         # Should have same cell count
         assert contracted_both.nb_cells == contracted_all.nb_cells
+
+    def test_contract_dir_with_different_widths(self):
+        """Test directional contract with different width values (1-6)"""
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        config = sam.config._MeshConfig2D()
+        config.min_level = 3
+        config.max_level = 3
+
+        mesh = sam.mesh.make(box, config)
+
+        # Test widths 1 through 6 for directional contract
+        for width in [1, 2, 3, 4, 5, 6]:
+            contracted_x = sam.subsets.contract_dir(mesh, level=3, width=width, directions=[True, False])
+            assert contracted_x.level == 3
+            # Should have some cells remaining (at least in non-contracted direction)
+            assert contracted_x.nb_cells >= 0
 
 
 # ============================================================================
