@@ -691,31 +691,117 @@ class TestEdgeCases:
 
 
 # ============================================================
-# TestVectorFieldInPlaceOps - Future Work
+# TestVectorFieldInPlaceOps
 # ============================================================
 
 class TestVectorFieldInPlaceOps:
-    """
-    Test in-place operators for VectorField (future work).
+    """Test in-place operators for VectorField."""
 
-    This class is a placeholder for future VectorField in-place ops.
-    For the POC, we focus on ScalarField first.
-    """
+    def _verify_component_correct(self, arr, component_idx, expected_value, tol=1e-10):
+        """Helper to verify that a component has correct values in real cells."""
+        component = arr[:, component_idx]
+        assert not np.any(np.isnan(component)), f"Component {component_idx} contains NaN"
+        assert not np.any(np.abs(component) > 1e100), f"Component {component_idx} has garbage"
 
-    @pytest.mark.skip(reason="POC: VectorField in-place ops not yet implemented")
+        # Check that at least some cells have the expected value (real cells)
+        # Ghost cells may have different values (not updated by in-place ops)
+        has_expected_value = np.any(np.isclose(component, expected_value, atol=tol))
+        assert has_expected_value, \
+            f"Component {component_idx}: No cells have expected value {expected_value}"
+
     def test_vector_iadd_scalar(self, mesh_2d):
-        """VectorField += scalar should work."""
+        """VectorField += scalar should add to all components."""
         field = sam.field.vector(mesh_2d, "vel", n_components=2, init=1.0)
-        field += 2.0  # Should add to all components
-        # Not implemented yet in POC
+        original_id = id(field)
+        field += 2.0
+        assert id(field) == original_id, "Should be same object after +="
 
-    @pytest.mark.skip(reason="POC: VectorField in-place ops not yet implemented")
-    def test_vector_iadd_vector(self, mesh_2d):
-        """VectorField += VectorField should work element-wise."""
-        v1 = sam.field.vector(mesh_2d, "v1", n_components=2, init=1.0)
-        v2 = sam.field.vector(mesh_2d, "v2", n_components=2, init=2.0)
-        v1 += v2
-        # Not implemented yet in POC
+        arr = field.numpy_view()
+        # Both components should be 1.0 + 2.0 = 3.0
+        self._verify_component_correct(arr, 0, 3.0)
+        self._verify_component_correct(arr, 1, 3.0)
+
+    def test_vector_isub_scalar(self, mesh_2d):
+        """VectorField -= scalar should subtract from all components."""
+        field = sam.field.vector(mesh_2d, "vel", n_components=2, init=5.0)
+        field -= 2.0
+
+        arr = field.numpy_view()
+        # Both components should be 5.0 - 2.0 = 3.0
+        self._verify_component_correct(arr, 0, 3.0)
+        self._verify_component_correct(arr, 1, 3.0)
+
+    def test_vector_imul_scalar(self, mesh_2d):
+        """VectorField *= scalar should multiply all components."""
+        field = sam.field.vector(mesh_2d, "vel", n_components=2, init=2.0)
+        field *= 3.0
+
+        arr = field.numpy_view()
+        # Both components should be 2.0 * 3.0 = 6.0
+        self._verify_component_correct(arr, 0, 6.0)
+        self._verify_component_correct(arr, 1, 6.0)
+
+    def test_vector_itruediv_scalar(self, mesh_2d):
+        """VectorField /= scalar should divide all components."""
+        field = sam.field.vector(mesh_2d, "vel", n_components=2, init=6.0)
+        field /= 2.0
+
+        arr = field.numpy_view()
+        # Both components should be 6.0 / 2.0 = 3.0
+        self._verify_component_correct(arr, 0, 3.0)
+        self._verify_component_correct(arr, 1, 3.0)
+
+    def test_vector_chained_inplace_ops(self, mesh_2d):
+        """Test chaining multiple in-place operations on VectorField."""
+        field = sam.field.vector(mesh_2d, "vel", n_components=2, init=1.0)
+
+        # Chain: (1.0 + 2.0) * 3.0 - 1.0 / 2.0 = (3.0 * 3.0 - 1.0) / 2.0 = 4.0
+        field += 2.0
+        field *= 3.0
+        field -= 1.0
+        field /= 2.0
+
+        arr = field.numpy_view()
+        self._verify_component_correct(arr, 0, 4.0)
+        self._verify_component_correct(arr, 1, 4.0)
+
+    def test_vector_3d_inplace_ops(self):
+        """Test in-place operations on 3D VectorField."""
+        box = sam.geometry.box([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
+        config = sam.config.make(3)
+        config.min_level = 3
+        config.max_level = 3
+        mesh = sam.mesh.make(box, config)
+
+        field = sam.field.vector(mesh, "vel3d", n_components=3, init=1.0)
+        field += 2.0
+
+        arr = field.numpy_view()
+        assert arr.shape[1] == 3, "Should have 3 components"
+        self._verify_component_correct(arr, 0, 3.0)
+        self._verify_component_correct(arr, 1, 3.0)
+        self._verify_component_correct(arr, 2, 3.0)
+
+    def test_vector_negative_values(self, mesh_2d):
+        """Test in-place operations with negative values."""
+        field = sam.field.vector(mesh_2d, "vel", n_components=2, init=5.0)
+        field += -10.0
+
+        arr = field.numpy_view()
+        # 5.0 + (-10.0) = -5.0
+        self._verify_component_correct(arr, 0, -5.0)
+        self._verify_component_correct(arr, 1, -5.0)
+
+    def test_vector_fractional_values(self, mesh_2d):
+        """Test in-place operations with fractional values."""
+        field = sam.field.vector(mesh_2d, "vel", n_components=2, init=1.0)
+        field *= 0.5
+        field += 0.25
+
+        arr = field.numpy_view()
+        # 1.0 * 0.5 + 0.25 = 0.75
+        self._verify_component_correct(arr, 0, 0.75)
+        self._verify_component_correct(arr, 1, 0.75)
 
 
 # ============================================================

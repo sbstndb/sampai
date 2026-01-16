@@ -1523,6 +1523,58 @@ void bind_vector_field(py::module_& m, const std::string& name)
 
     // Bind vector-specific methods
     bind_vectorfield_methods<Field, Mesh>(cls);
+
+    // ============================================================
+    // Python in-place operators (+=, -=, *=, /=)
+    // ============================================================
+    //
+    // These bind Python's +=, -=, *=, /= operators to use the same
+    // in-place functions as the .add_(), .sub_() methods.
+    // They modify the field in-place and return self.
+
+    // field += scalar
+    cls.def(
+        "__iadd__",
+        [](Field& field, double scalar) -> Field&
+        {
+            add_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place addition operator: field += scalar");
+
+    // field -= scalar
+    cls.def(
+        "__isub__",
+        [](Field& field, double scalar) -> Field&
+        {
+            sub_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place subtraction operator: field -= scalar");
+
+    // field *= scalar
+    cls.def(
+        "__imul__",
+        [](Field& field, double scalar) -> Field&
+        {
+            mul_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place multiplication operator: field *= scalar");
+
+    // field /= scalar
+    cls.def(
+        "__itruediv__",
+        [](Field& field, double scalar) -> Field&
+        {
+            div_in_place(field, scalar);
+            return field;
+        },
+        py::arg("scalar"),
+        "In-place division operator: field /= scalar");
 }
 
 // Module initialization function for Field bindings
