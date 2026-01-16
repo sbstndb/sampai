@@ -65,11 +65,22 @@ if not pybind11_dep.found()
         pybind11_include = include_directories(conda_prefix / 'include')
         message('Using conda pybind11 from: @0@'.format(conda_prefix / 'include'))
     else
-        error('pybind11 not found. Install with: conda install -c conda-forge pybind11')
+        error('pybind11 not found. Install with: pip install pybind11 or conda install -c conda-forge pybind11')
     endif
 else
     message('pybind11 found: @0@'.format(pybind11_dep.version()))
-    pybind11_include = include_directories(pybind11_dep.get_variable('INCLUDEDIR', default_value: ''))
+    # When pybind11 is found via cmake/pkg-config, get the include dir correctly
+    # Try different variable names that pybind11-config might provide
+    pybind11_include_dirs = pybind11_dep.get_variable('pybind11_INCLUDE_DIRS', default_value: '')
+    if pybind11_include_dirs == ''
+        pybind11_include_dirs = pybind11_dep.get_variable('INCLUDEDIR', default_value: '')
+    endif
+    if pybind11_include_dirs != ''
+        pybind11_include = include_directories(pybind11_include_dirs)
+    else
+        # Fallback: let pybind11_dep handle includes via dependencies
+        pybind11_include = include_directories()
+    endif
 endif
 
 # ============================================================================
@@ -129,6 +140,43 @@ highfive_dep = dependency('highfive', version: '>=2.10', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 pugixml_dep = dependency('pugixml', required: false)
 
+# Find xtensor include dirs (if not found via pkg-config/cmake)
+xtensor_include_dirs = []
+if not xtensor_dep.found()
+    # xtensor might be installed via pip (in site-packages)
+    # Use Python to find xtensor include path directly
+    find_xtensor = run_command(py, '-c', '''
+import sysconfig
+import os
+
+# Check purelib (pip install location)
+purelib = sysconfig.get_path("purelib")
+xtensor_path = os.path.join(purelib, "xtensor", "include")
+if os.path.isdir(xtensor_path):
+    print(xtensor_path)
+else:
+    # Try platlib as well
+    platlib = sysconfig.get_path("platlib")
+    xtensor_path = os.path.join(platlib, "xtensor", "include")
+    if os.path.isdir(xtensor_path):
+        print(xtensor_path)
+    else:
+        print("")
+''', check: false)
+
+    if find_xtensor.returncode() == 0
+        xtensor_path = find_xtensor.stdout().strip()
+        if xtensor_path != ''
+            xtensor_include_dirs += include_directories(xtensor_path)
+            message('Using xtensor from pip: @0@'.format(xtensor_path))
+        else
+            warning('xtensor not found via pip. Ensure xtensor is installed.')
+        endif
+    else
+        warning('Failed to search for xtensor in site-packages')
+    endif
+endif
+
 message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
@@ -136,6 +184,8 @@ message('pybind11: found')
 message('samurai: from GitHub (auto-downloaded via subproject)')
 if xtensor_dep.found()
     message('xtensor: @0@'.format(xtensor_dep.version()))
+elif xtensor_include_dirs.length() > 0
+    message('xtensor: from pip (site-packages)')
 endif
 if hdf5_dep.found()
     message('hdf5: @0@'.format(hdf5_dep.version()))
@@ -177,10 +227,18 @@ py_debug = py.get_variable('Py_DEBUG', false)
 # Build the pybind11 extension module
 # Note: We use _sampai (private) so the Python package can import it
 # The extension module will be installed as _sampai.so alongside sampai/ package
+
+# Build include directories list
+module_includes = [include_directories('src')]
+if xtensor_include_dirs.length() > 0
+    module_includes += xtensor_include_dirs
+endif
+
 pybind11_module = py.extension_module(
     '_sampai',
     binding_sources,
     dependencies: [
+        pybind11_dep,  # pybind11 dependency (adds includes automatically)
         samurai_dep,
         fmt_dep,
         cli11_dep,
@@ -188,10 +246,7 @@ pybind11_module = py.extension_module(
         highfive_dep,
         pugixml_dep,
     ],
-    include_directories: [
-        pybind11_include,
-        include_directories('src'),
-    ],
+    include_directories: module_includes,
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance

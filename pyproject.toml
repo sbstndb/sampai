@@ -315,23 +315,33 @@ replace = "#define SAMURAI_PYTHON_VERSION \"{new_version}\""
 # ============================================================================
 
 [tool.cibuildwheel]
-# Skip 32-bit builds and PyPy
-skip = ["pp*", "*-win32", "*-manylinux_i686"]
+# Skip 32-bit builds, PyPy, and musllinux (harder to get C++ deps)
+skip = ["pp*", "*-win32", "*-manylinux_i686", "*-musllinux*"]
 # Test command to run after building
 test-command = "python -c 'import sampai; print(sampai.__version__)'"
 test-extras = ["test"]
+# Build verbosity for debugging
+build-verbosity = 1
 
-# Build options for different platforms
+# Linux (manylinux) configuration
 [tool.cibuildwheel.linux]
-# Use manylinux2014 for broad compatibility
+# Use manylinux2014 for broad compatibility with glibc 2.17+
+# Also build for aarch64 (ARM64)
 archs = ["x86_64", "aarch64"]
-before-all = "yum install -y meson ninja-build || apt-get update && apt-get install -y meson ninja-build"
+# manylinux version to use (overrides default manylinux_2_17)
+manylinux-x86_64-image = "manylinux2014"
+manylinux-aarch64-image = "manylinux2014"
+# Before-all is handled in the workflow YAML for more complex setup
 
+# macOS configuration
 [tool.cibuildwheel.macos]
-# Build for x86_64 and arm64 (Apple Silicon)
+# Build for x86_64 and arm64 (Apple Silicon) separately
+# Universal2 wheels are too large and problematic
 archs = ["x86_64", "arm64"]
-before-all = "brew install meson ninja"
+# Before-all is handled in the workflow YAML
 
+# Windows configuration (currently not supported, but config kept for future)
 [tool.cibuildwheel.windows]
 # Build for x86_64 only
 archs = ["AMD64"]
+skip = "*"  # Skip Windows for now

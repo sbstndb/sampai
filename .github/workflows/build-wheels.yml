@@ -1,0 +1,108 @@
+name: Build Wheels
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # cibuildwheel handles Python versions, we just specify platforms
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Download Samurai headers (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        echo "Downloading Samurai headers from GitHub..."
+        git clone --depth=1 --single-branch https://github.com/hpc-maths/samurai.git subprojects/samurai
+        echo "Samurai downloaded successfully to subprojects/samurai"
+
+    - name: Download Samurai headers (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        echo "Downloading Samurai headers from GitHub..."
+        git clone --depth=1 --single-branch https://github.com/hpc-maths/samurai.git subprojects/samurai
+        echo "Samurai downloaded successfully to subprojects/samurai"
+
+    - name: Set up QEMU (for cross-compilation aarch64)
+      if: runner.os == 'Linux'
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: all
+
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v2.21.3
+      env:
+        # Build for all supported Python versions
+        CIBW_BUILD: cp39-* cp310-* cp311-* cp312-*
+        # Skip 32-bit builds and PyPy
+        CIBW_SKIP: pp* *-win32 *-manylinux_i686 *-musllinux*
+
+        # Test command to verify wheels work
+        CIBW_TEST_COMMAND: python -c "import sampai; print(sampai.__version__)"
+        CIBW_TEST_EXTRAS: test
+
+        # Linux (manylinux) configuration
+        CIBW_BEFORE_ALL_LINUX: bash scripts/build_wheel_helper.sh
+
+        # macOS configuration
+        CIBW_BEFORE_ALL_MACOS: bash scripts/build_wheel_helper.sh
+
+        # Set environment variables for dependencies (CPATH includes /usr/local/include for xtensor)
+        CIBW_ENVIRONMENT_LINUX: PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig:$PKG_CONFIG_PATH CPATH=/usr/local/include:$CPATH
+        CIBW_ENVIRONMENT_MACOS: PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH CPATH=/opt/homebrew/include:$CPATH
+
+        # Build verbosity for debugging
+        CIBW_BUILD_VERBOSITY: 1
+
+    - name: Display built wheels
+      shell: bash
+      run: |
+        ls -lh wheelhouse/
+
+    - name: Upload wheels as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheels-${{ matrix.os }}
+        path: wheelhouse/*.whl
+        retention-days: 7
+
+  # Optional: Publish to PyPI on tagged releases
+  publish_pypi:
+    name: Publish to PyPI
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build_wheels]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/sampai
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+
+    steps:
+    - name: Download all wheels
+      uses: actions/download-artifact@v4
+      with:
+        pattern: wheels-*
+        path: dist/
+        merge-multiple: true
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        skip-existing: true
