@@ -314,6 +314,7 @@ binding_sources = files(
     'src/bindings/bc_bindings.cpp',
     'src/bindings/mra_config_bindings.cpp',
     'src/bindings/adapt_bindings.cpp',
+    'src/bindings/subset_bindings.cpp',
     'src/bindings/io_bindings.cpp',
     'src/bindings/mpi_bindings.cpp',
 )
