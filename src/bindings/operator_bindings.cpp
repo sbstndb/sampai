@@ -26,71 +26,104 @@ using namespace samurai::python::bindings;
 // This is intentional for algorithm-specific use cases
 using algorithm_interval = samurai::Interval<int, long long int>;
 
-// 1D upwind operator - immediate evaluation version
-py::object upwind_1d(ScalarField<1>& field, double velocity)
+// 1D upwind operator - with optional output field (no allocation when provided)
+py::object upwind_1d(ScalarField<1>& field, double velocity, py::object output_obj = py::none())
 {
     auto& mesh = field.mesh();
-
-    // Create output field with same mesh
-    auto result = samurai::make_scalar_field<double>(field.name() + "_upwind", mesh);
 
     // Get the upwind expression
     auto upwind_expr = samurai::upwind(velocity, field);
 
-    // Evaluate the expression immediately using for_each_interval
-    samurai::for_each_interval(mesh,
-                               [&result, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
-                               {
-                                   result(level, interval, index) = upwind_expr(level, interval, index);
-                               });
-
-    return py::cast(result);
+    if (!output_obj.is_none())
+    {
+        // No allocation: write directly to provided output field
+        auto& output = output_obj.cast<ScalarField<1>&>();
+        samurai::for_each_interval(mesh,
+                                   [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                                   {
+                                       output(level, interval, index) = upwind_expr(level, interval, index);
+                                   });
+        return output_obj;  // Return the output field for chaining
+    }
+    else
+    {
+        // Backward compatible: allocate and return new field
+        auto result = samurai::make_scalar_field<double>(field.name() + "_upwind", mesh);
+        samurai::for_each_interval(mesh,
+                                   [&result, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                                   {
+                                       result(level, interval, index) = upwind_expr(level, interval, index);
+                                   });
+        return py::cast(result);
+    }
 }
 
-// 2D upwind operator - immediate evaluation version
-py::object upwind_2d(ScalarField<2>& field, const std::array<double, 2>& velocity)
+// 2D upwind operator - with optional output field (no allocation when provided)
+py::object upwind_2d(ScalarField<2>& field, const std::array<double, 2>& velocity, py::object output_obj = py::none())
 {
     auto& mesh = field.mesh();
-
-    // Create output field with same mesh
-    auto result = samurai::make_scalar_field<double>(field.name() + "_upwind", mesh);
 
     // Get the upwind expression
     auto upwind_expr = samurai::upwind(velocity, field);
 
-    // Evaluate the expression immediately using for_each_interval
-    samurai::for_each_interval(mesh,
-                               [&result, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
-                               {
-                                   result(level, interval, index) = upwind_expr(level, interval, index);
-                               });
-
-    return py::cast(result);
+    if (!output_obj.is_none())
+    {
+        // No allocation: write directly to provided output field
+        auto& output = output_obj.cast<ScalarField<2>&>();
+        samurai::for_each_interval(mesh,
+                                   [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                                   {
+                                       output(level, interval, index) = upwind_expr(level, interval, index);
+                                   });
+        return output_obj;  // Return the output field for chaining
+    }
+    else
+    {
+        // Backward compatible: allocate and return new field
+        auto result = samurai::make_scalar_field<double>(field.name() + "_upwind", mesh);
+        samurai::for_each_interval(mesh,
+                                   [&result, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                                   {
+                                       result(level, interval, index) = upwind_expr(level, interval, index);
+                                   });
+        return py::cast(result);
+    }
 }
 
-// 3D upwind operator - immediate evaluation version
-py::object upwind_3d(ScalarField<3>& field, const std::array<double, 3>& velocity)
+// 3D upwind operator - with optional output field (no allocation when provided)
+py::object upwind_3d(ScalarField<3>& field, const std::array<double, 3>& velocity, py::object output_obj = py::none())
 {
     auto& mesh = field.mesh();
-
-    // Create output field with same mesh
-    auto result = samurai::make_scalar_field<double>(field.name() + "_upwind", mesh);
 
     // Get the upwind expression
     auto upwind_expr = samurai::upwind(velocity, field);
 
-    // Evaluate the expression immediately using for_each_interval
-    samurai::for_each_interval(mesh,
-                               [&result, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
-                               {
-                                   result(level, interval, index) = upwind_expr(level, interval, index);
-                               });
-
-    return py::cast(result);
+    if (!output_obj.is_none())
+    {
+        // No allocation: write directly to provided output field
+        auto& output = output_obj.cast<ScalarField<3>&>();
+        samurai::for_each_interval(mesh,
+                                   [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                                   {
+                                       output(level, interval, index) = upwind_expr(level, interval, index);
+                                   });
+        return output_obj;  // Return the output field for chaining
+    }
+    else
+    {
+        // Backward compatible: allocate and return new field
+        auto result = samurai::make_scalar_field<double>(field.name() + "_upwind", mesh);
+        samurai::for_each_interval(mesh,
+                                   [&result, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
+                                   {
+                                       result(level, interval, index) = upwind_expr(level, interval, index);
+                                   });
+        return py::cast(result);
+    }
 }
 
 // Convenience wrapper accepting Python list/tuple for velocity (2D)
-py::object upwind_2d_py(ScalarField<2>& field, py::sequence velocity_seq)
+py::object upwind_2d_py(ScalarField<2>& field, py::sequence velocity_seq, py::object output_obj = py::none())
 {
     if (len(velocity_seq) != 2)
     {
@@ -101,11 +134,11 @@ py::object upwind_2d_py(ScalarField<2>& field, py::sequence velocity_seq)
     velocity[0] = velocity_seq[0].cast<double>();
     velocity[1] = velocity_seq[1].cast<double>();
 
-    return upwind_2d(field, velocity);
+    return upwind_2d(field, velocity, output_obj);
 }
 
 // Convenience wrapper accepting Python list/tuple for velocity (3D)
-py::object upwind_3d_py(ScalarField<3>& field, py::sequence velocity_seq)
+py::object upwind_3d_py(ScalarField<3>& field, py::sequence velocity_seq, py::object output_obj = py::none())
 {
     if (len(velocity_seq) != 3)
     {
@@ -117,84 +150,7 @@ py::object upwind_3d_py(ScalarField<3>& field, py::sequence velocity_seq)
     velocity[1] = velocity_seq[1].cast<double>();
     velocity[2] = velocity_seq[2].cast<double>();
 
-    return upwind_3d(field, velocity);
-}
-
-// -------------------------------------------------------------------------
-// In-place upwind operators (no allocation, for efficient time stepping)
-// -------------------------------------------------------------------------
-
-// 1D upwind operator - in-place version (no allocation)
-void apply_upwind_1d(const ScalarField<1>& input, ScalarField<1>& output, double velocity)
-{
-    // Get the upwind expression (lazy)
-    auto upwind_expr = samurai::upwind(velocity, input);
-
-    // Evaluate directly into output field (single pass, no allocation)
-    samurai::for_each_interval(output.mesh(),
-                               [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
-                               {
-                                   output(level, interval, index) = upwind_expr(level, interval, index);
-                               });
-}
-
-// 2D upwind operator - in-place version (no allocation)
-void apply_upwind_2d(const ScalarField<2>& input, ScalarField<2>& output, const std::array<double, 2>& velocity)
-{
-    // Get the upwind expression (lazy)
-    auto upwind_expr = samurai::upwind(velocity, input);
-
-    // Evaluate directly into output field (single pass, no allocation)
-    samurai::for_each_interval(output.mesh(),
-                               [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
-                               {
-                                   output(level, interval, index) = upwind_expr(level, interval, index);
-                               });
-}
-
-// 3D upwind operator - in-place version (no allocation)
-void apply_upwind_3d(const ScalarField<3>& input, ScalarField<3>& output, const std::array<double, 3>& velocity)
-{
-    // Get the upwind expression (lazy)
-    auto upwind_expr = samurai::upwind(velocity, input);
-
-    // Evaluate directly into output field (single pass, no allocation)
-    samurai::for_each_interval(output.mesh(),
-                               [&output, &upwind_expr](std::size_t level, const algorithm_interval& interval, const auto& index)
-                               {
-                                   output(level, interval, index) = upwind_expr(level, interval, index);
-                               });
-}
-
-// Convenience wrapper accepting Python list/tuple for velocity (2D) - in-place version
-void apply_upwind_2d_py(const ScalarField<2>& input, ScalarField<2>& output, py::sequence velocity_seq)
-{
-    if (len(velocity_seq) != 2)
-    {
-        throw std::runtime_error("Velocity must have exactly 2 elements for 2D");
-    }
-
-    std::array<double, 2> velocity;
-    velocity[0] = velocity_seq[0].cast<double>();
-    velocity[1] = velocity_seq[1].cast<double>();
-
-    apply_upwind_2d(input, output, velocity);
-}
-
-// Convenience wrapper accepting Python list/tuple for velocity (3D) - in-place version
-void apply_upwind_3d_py(const ScalarField<3>& input, ScalarField<3>& output, py::sequence velocity_seq)
-{
-    if (len(velocity_seq) != 3)
-    {
-        throw std::runtime_error("Velocity must have exactly 3 elements for 3D");
-    }
-
-    std::array<double, 3> velocity;
-    velocity[0] = velocity_seq[0].cast<double>();
-    velocity[1] = velocity_seq[1].cast<double>();
-    velocity[2] = velocity_seq[2].cast<double>();
-
-    apply_upwind_3d(input, output, velocity);
+    return upwind_3d(field, velocity, output_obj);
 }
 
 // -------------------------------------------------------------------------
@@ -452,122 +408,7 @@ py::object convection_weno5_vectorfield_3d(ScalarField<3>& field, VectorField3D_
 void init_operator_bindings(py::module_& m)
 {
     // ============================================================
-    // In-place upwind operators (efficient, no allocation)
-    // ============================================================
-
-    // Bind 1D in-place upwind operator
-    m.def("apply_upwind_1d",
-          &apply_upwind_1d,
-          py::arg("input"),
-          py::arg("output"),
-          py::arg("velocity"),
-          R"pbdoc(
-        Apply upwind operator in-place (efficient, no allocation).
-
-        Computes upwind flux and stores directly in output field.
-
-        Parameters
-        ----------
-        input : ScalarField1D
-            Input scalar field
-        output : ScalarField1D
-            Output field (must be pre-allocated)
-        velocity : float
-            Advection velocity
-
-        Examples
-        --------
-        >>> import samurai as sam
-        >>> flux = sam.ScalarField1D("flux", mesh, 0.0)
-        >>> sam.apply_upwind_1d(u, flux, 1.0)
-        >>> # Use in time step
-        >>> sam.euler_update_1d(unp1, u, dt, flux)
-        )pbdoc");
-
-    // Bind 2D in-place upwind operator - std::array version
-    m.def("apply_upwind_2d",
-          &apply_upwind_2d,
-          py::arg("input"),
-          py::arg("output"),
-          py::arg("velocity"),
-          R"pbdoc(
-        Apply upwind operator in-place (2D, efficient, no allocation).
-
-        Parameters
-        ----------
-        input : ScalarField2D
-            Input scalar field
-        output : ScalarField2D
-            Output field (must be pre-allocated)
-        velocity : std::array<double, 2>
-            2D velocity vector [vx, vy]
-
-        Examples
-        --------
-        >>> flux = sam.ScalarField2D("flux", mesh, 0.0)
-        >>> sam.apply_upwind_2d(u, flux, [1.0, 1.0])
-        >>> sam.euler_update_2d(unp1, u, dt, flux)
-        )pbdoc");
-
-    // Bind 2D in-place upwind operator - Python sequence version
-    m.def("apply_upwind_2d",
-          &apply_upwind_2d_py,
-          py::arg("input"),
-          py::arg("output"),
-          py::arg("velocity"),
-          R"pbdoc(
-        Apply upwind operator in-place (2D, Python sequence version).
-
-        Parameters
-        ----------
-        input : ScalarField2D
-            Input scalar field
-        output : ScalarField2D
-            Output field (must be pre-allocated)
-        velocity : sequence of float
-            2D velocity vector [vx, vy] (list or tuple)
-        )pbdoc");
-
-    // Bind 3D in-place upwind operator - std::array version
-    m.def("apply_upwind_3d",
-          &apply_upwind_3d,
-          py::arg("input"),
-          py::arg("output"),
-          py::arg("velocity"),
-          R"pbdoc(
-        Apply upwind operator in-place (3D, efficient, no allocation).
-
-        Parameters
-        ----------
-        input : ScalarField3D
-            Input scalar field
-        output : ScalarField3D
-            Output field (must be pre-allocated)
-        velocity : std::array<double, 3>
-            3D velocity vector [vx, vy, vz]
-        )pbdoc");
-
-    // Bind 3D in-place upwind operator - Python sequence version
-    m.def("apply_upwind_3d",
-          &apply_upwind_3d_py,
-          py::arg("input"),
-          py::arg("output"),
-          py::arg("velocity"),
-          R"pbdoc(
-        Apply upwind operator in-place (3D, Python sequence version).
-
-        Parameters
-        ----------
-        input : ScalarField3D
-            Input scalar field
-        output : ScalarField3D
-            Output field (must be pre-allocated)
-        velocity : sequence of float
-            3D velocity vector [vx, vy, vz] (list or tuple)
-        )pbdoc");
-
-    // ============================================================
-    // Original upwind operators (return new fields)
+    // Upwind operators (with optional output field for no allocation)
     // ============================================================
 
     // Bind 1D upwind operator
@@ -575,6 +416,7 @@ void init_operator_bindings(py::module_& m)
           &upwind_1d,
           py::arg("field"),
           py::arg("velocity"),
+          py::arg("output") = py::none(),
           R"pbdoc(
         Upwind operator for 1D advection.
 
@@ -586,18 +428,26 @@ void init_operator_bindings(py::module_& m)
             Input scalar field
         velocity : float
             Advection velocity (scalar for 1D)
+        output : ScalarField1D, optional
+            Pre-allocated output field for no-allocation mode.
+            If provided, result is written directly to this field.
+            If not provided, a new field is allocated and returned.
 
         Returns
         -------
         ScalarField1D
-            New field containing upwind flux values
+            Field containing upwind flux values (either output or newly allocated)
 
         Examples
         --------
         >>> import samurai as sam
         >>> mesh = sam.MRMesh1D(box, config)
         >>> u = sam.ScalarField1D("u", mesh)
+        >>> # Allocating version (backward compatible):
         >>> flux = sam.upwind(u, 1.0)
+        >>> # No-allocation version (efficient):
+        >>> flux = sam.ScalarField1D("flux", mesh, 0.0)
+        >>> sam.upwind(u, 1.0, output=flux)
         >>> # Use in time step: unp1 = u - dt * flux
         )pbdoc");
 
@@ -606,6 +456,7 @@ void init_operator_bindings(py::module_& m)
           &upwind_2d,
           py::arg("field"),
           py::arg("velocity"),
+          py::arg("output") = py::none(),
           R"pbdoc(
         Upwind operator for 2D advection (std::array version).
 
@@ -615,11 +466,13 @@ void init_operator_bindings(py::module_& m)
             Input scalar field
         velocity : std::array<double, 2>
             2D velocity vector [vx, vy]
+        output : ScalarField2D, optional
+            Pre-allocated output field for no-allocation mode
 
         Returns
         -------
         ScalarField2D
-            New field containing upwind flux values
+            Field containing upwind flux values
         )pbdoc");
 
     // Bind 2D upwind operator - Python sequence version (more convenient)
@@ -627,6 +480,7 @@ void init_operator_bindings(py::module_& m)
           &upwind_2d_py,
           py::arg("field"),
           py::arg("velocity"),
+          py::arg("output") = py::none(),
           R"pbdoc(
         Upwind operator for 2D advection.
 
@@ -638,11 +492,13 @@ void init_operator_bindings(py::module_& m)
             Input scalar field
         velocity : sequence of float
             2D velocity vector [vx, vy] (list or tuple)
+        output : ScalarField2D, optional
+            Pre-allocated output field for no-allocation mode
 
         Returns
         -------
         ScalarField2D
-            New field containing upwind flux values
+            Field containing upwind flux values
 
         Examples
         --------
@@ -650,7 +506,11 @@ void init_operator_bindings(py::module_& m)
         >>> mesh = sam.MRMesh2D(box, config)
         >>> u = sam.ScalarField2D("u", mesh)
         >>> velocity = [1.0, 1.0]  # [vx, vy]
+        >>> # Allocating version:
         >>> flux = sam.upwind(u, velocity)
+        >>> # No-allocation version:
+        >>> flux = sam.ScalarField2D("flux", mesh, 0.0)
+        >>> sam.upwind(u, velocity, output=flux)
         >>> # Use in time step: unp1 = u - dt * flux
         )pbdoc");
 
@@ -659,6 +519,7 @@ void init_operator_bindings(py::module_& m)
           &upwind_3d,
           py::arg("field"),
           py::arg("velocity"),
+          py::arg("output") = py::none(),
           R"pbdoc(
         Upwind operator for 3D advection (std::array version).
 
@@ -668,11 +529,13 @@ void init_operator_bindings(py::module_& m)
             Input scalar field
         velocity : std::array<double, 3>
             3D velocity vector [vx, vy, vz]
+        output : ScalarField3D, optional
+            Pre-allocated output field for no-allocation mode
 
         Returns
         -------
         ScalarField3D
-            New field containing upwind flux values
+            Field containing upwind flux values
         )pbdoc");
 
     // Bind 3D upwind operator - Python sequence version (more convenient)
@@ -680,6 +543,7 @@ void init_operator_bindings(py::module_& m)
           &upwind_3d_py,
           py::arg("field"),
           py::arg("velocity"),
+          py::arg("output") = py::none(),
           R"pbdoc(
         Upwind operator for 3D advection.
 
@@ -691,11 +555,13 @@ void init_operator_bindings(py::module_& m)
             Input scalar field
         velocity : sequence of float
             3D velocity vector [vx, vy, vz] (list or tuple)
+        output : ScalarField3D, optional
+            Pre-allocated output field for no-allocation mode
 
         Returns
         -------
         ScalarField3D
-            New field containing upwind flux values
+            Field containing upwind flux values
 
         Examples
         --------
@@ -703,7 +569,11 @@ void init_operator_bindings(py::module_& m)
         >>> mesh = sam.MRMesh3D(box, config)
         >>> u = sam.ScalarField3D("u", mesh)
         >>> velocity = [1.0, 1.0, 0.0]  # [vx, vy, vz]
+        >>> # Allocating version:
         >>> flux = sam.upwind(u, velocity)
+        >>> # No-allocation version:
+        >>> flux = sam.ScalarField3D("flux", mesh, 0.0)
+        >>> sam.upwind(u, velocity, output=flux)
         >>> # Use in time step: unp1 = u - dt * flux
         )pbdoc");
 
@@ -1107,12 +977,7 @@ void init_operator_bindings(py::module_& m)
     // This maintains backward compatibility (operators still in main module)
     // while also providing them in the organized submodule
 
-    // In-place upwind operators
-    operators.attr("apply_upwind_1d") = m.attr("apply_upwind_1d");
-    operators.attr("apply_upwind_2d") = m.attr("apply_upwind_2d");
-    operators.attr("apply_upwind_3d") = m.attr("apply_upwind_3d");
-
-    // Upwind operators (return new fields)
+    // Upwind operators (with optional output parameter for no-allocation)
     operators.attr("upwind") = m.attr("upwind");
 
     // WENO5 convection operators
