@@ -20,6 +20,12 @@ namespace py = pybind11;
 using namespace samurai::python::bindings;
 
 // ============================================================
+// Constants for bulk field operations
+// ============================================================
+
+constexpr std::size_t MAX_BULK_FIELDS = 9;
+
+// ============================================================
 // Helper to convert Python path/string to fs::path
 // Supports pathlib.Path objects and PathLike protocol
 // ============================================================
@@ -333,6 +339,1574 @@ void field_method_load(ScalarField<dim>& field, const py::object& filepath_obj)
 }
 
 // ============================================================
+// Bulk save() - support arbitrary number of fields (up to 8)
+// Uses py::args to capture variable-length field lists
+// ============================================================
+
+// Helper to validate const fields and extract mesh (for save() and dump())
+// Returns dimension and mesh pointer
+template <std::size_t dim>
+const MRMesh<dim>* try_validate_and_get_mesh(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const ScalarField<dim>&>();
+        const auto& mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const ScalarField<dim>&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate non-const fields and extract mesh (for load())
+// Returns dimension and mesh pointer
+template <std::size_t dim>
+MRMesh<dim>* try_validate_and_get_mesh_nonconst(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        auto& first_field = fields[0].cast<ScalarField<dim>&>();
+        auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            auto& field = fields[i].cast<ScalarField<dim>&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Single bulk save function that handles all dimensions
+void save_bulk(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one field must be provided");
+    }
+
+    // Try to detect dimension by attempting to cast the first field
+    const MRMesh<1>* mesh_1d = nullptr;
+    const MRMesh<2>* mesh_2d = nullptr;
+    const MRMesh<3>* mesh_3d = nullptr;
+
+    size_t dummy_n;
+    mesh_1d = try_validate_and_get_mesh<1>(fields, dummy_n);
+    if (mesh_1d)
+    {
+        // 1D fields
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
+                const auto& f8 = fields[8].cast<const ScalarField<1>&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk save, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    mesh_2d = try_validate_and_get_mesh<2>(fields, dummy_n);
+    if (mesh_2d)
+    {
+        // 2D fields
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
+                const auto& f8 = fields[8].cast<const ScalarField<2>&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk save, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    mesh_3d = try_validate_and_get_mesh<3>(fields, dummy_n);
+    if (mesh_3d)
+    {
+        // 3D fields
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
+                const auto& f8 = fields[8].cast<const ScalarField<3>&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk save, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine field dimension or invalid field types");
+}
+
+// ============================================================
+// Bulk dump() - support arbitrary number of fields (up to 8)
+// Uses py::args to capture variable-length field lists
+// ============================================================
+
+void dump_bulk(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one field must be provided");
+    }
+
+    // Try to detect dimension by attempting to cast the first field
+    const MRMesh<1>* mesh_1d = nullptr;
+    const MRMesh<2>* mesh_2d = nullptr;
+    const MRMesh<3>* mesh_3d = nullptr;
+
+    size_t dummy_n;
+    mesh_1d = try_validate_and_get_mesh<1>(fields, dummy_n);
+    if (mesh_1d)
+    {
+        // 1D fields
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
+                const auto& f8 = fields[8].cast<const ScalarField<1>&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk dump, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    mesh_2d = try_validate_and_get_mesh<2>(fields, dummy_n);
+    if (mesh_2d)
+    {
+        // 2D fields
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
+                const auto& f8 = fields[8].cast<const ScalarField<2>&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk dump, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    mesh_3d = try_validate_and_get_mesh<3>(fields, dummy_n);
+    if (mesh_3d)
+    {
+        // 3D fields
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
+                const auto& f8 = fields[8].cast<const ScalarField<3>&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk dump, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine field dimension or invalid field types");
+}
+
+// ============================================================
+// Bulk load() - support arbitrary number of fields (up to 8)
+// Uses py::args to capture variable-length field lists
+// ============================================================
+
+void load_bulk(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one field must be provided");
+    }
+
+    // Try to detect dimension by attempting to cast the first field (non-const for load)
+    MRMesh<1>* mesh_1d = nullptr;
+    MRMesh<2>* mesh_2d = nullptr;
+    MRMesh<3>* mesh_3d = nullptr;
+
+    size_t dummy_n;
+    mesh_1d = try_validate_and_get_mesh_nonconst<1>(fields, dummy_n);
+    if (mesh_1d)
+    {
+        // 1D fields
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                auto& f3 = fields[3].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                auto& f3 = fields[3].cast<ScalarField<1>&>();
+                auto& f4 = fields[4].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                auto& f3 = fields[3].cast<ScalarField<1>&>();
+                auto& f4 = fields[4].cast<ScalarField<1>&>();
+                auto& f5 = fields[5].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                auto& f3 = fields[3].cast<ScalarField<1>&>();
+                auto& f4 = fields[4].cast<ScalarField<1>&>();
+                auto& f5 = fields[5].cast<ScalarField<1>&>();
+                auto& f6 = fields[6].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                auto& f3 = fields[3].cast<ScalarField<1>&>();
+                auto& f4 = fields[4].cast<ScalarField<1>&>();
+                auto& f5 = fields[5].cast<ScalarField<1>&>();
+                auto& f6 = fields[6].cast<ScalarField<1>&>();
+                auto& f7 = fields[7].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                auto& f0 = fields[0].cast<ScalarField<1>&>();
+                auto& f1 = fields[1].cast<ScalarField<1>&>();
+                auto& f2 = fields[2].cast<ScalarField<1>&>();
+                auto& f3 = fields[3].cast<ScalarField<1>&>();
+                auto& f4 = fields[4].cast<ScalarField<1>&>();
+                auto& f5 = fields[5].cast<ScalarField<1>&>();
+                auto& f6 = fields[6].cast<ScalarField<1>&>();
+                auto& f7 = fields[7].cast<ScalarField<1>&>();
+                auto& f8 = fields[8].cast<ScalarField<1>&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk load, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    mesh_2d = try_validate_and_get_mesh_nonconst<2>(fields, dummy_n);
+    if (mesh_2d)
+    {
+        // 2D fields
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                auto& f3 = fields[3].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                auto& f3 = fields[3].cast<ScalarField<2>&>();
+                auto& f4 = fields[4].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                auto& f3 = fields[3].cast<ScalarField<2>&>();
+                auto& f4 = fields[4].cast<ScalarField<2>&>();
+                auto& f5 = fields[5].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                auto& f3 = fields[3].cast<ScalarField<2>&>();
+                auto& f4 = fields[4].cast<ScalarField<2>&>();
+                auto& f5 = fields[5].cast<ScalarField<2>&>();
+                auto& f6 = fields[6].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                auto& f3 = fields[3].cast<ScalarField<2>&>();
+                auto& f4 = fields[4].cast<ScalarField<2>&>();
+                auto& f5 = fields[5].cast<ScalarField<2>&>();
+                auto& f6 = fields[6].cast<ScalarField<2>&>();
+                auto& f7 = fields[7].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                auto& f0 = fields[0].cast<ScalarField<2>&>();
+                auto& f1 = fields[1].cast<ScalarField<2>&>();
+                auto& f2 = fields[2].cast<ScalarField<2>&>();
+                auto& f3 = fields[3].cast<ScalarField<2>&>();
+                auto& f4 = fields[4].cast<ScalarField<2>&>();
+                auto& f5 = fields[5].cast<ScalarField<2>&>();
+                auto& f6 = fields[6].cast<ScalarField<2>&>();
+                auto& f7 = fields[7].cast<ScalarField<2>&>();
+                auto& f8 = fields[8].cast<ScalarField<2>&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk load, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    mesh_3d = try_validate_and_get_mesh_nonconst<3>(fields, dummy_n);
+    if (mesh_3d)
+    {
+        // 3D fields
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            case 4:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                auto& f3 = fields[3].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2, f3);
+                return;
+            }
+            case 5:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                auto& f3 = fields[3].cast<ScalarField<3>&>();
+                auto& f4 = fields[4].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2, f3, f4);
+                return;
+            }
+            case 6:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                auto& f3 = fields[3].cast<ScalarField<3>&>();
+                auto& f4 = fields[4].cast<ScalarField<3>&>();
+                auto& f5 = fields[5].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5);
+                return;
+            }
+            case 7:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                auto& f3 = fields[3].cast<ScalarField<3>&>();
+                auto& f4 = fields[4].cast<ScalarField<3>&>();
+                auto& f5 = fields[5].cast<ScalarField<3>&>();
+                auto& f6 = fields[6].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6);
+                return;
+            }
+            case 8:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                auto& f3 = fields[3].cast<ScalarField<3>&>();
+                auto& f4 = fields[4].cast<ScalarField<3>&>();
+                auto& f5 = fields[5].cast<ScalarField<3>&>();
+                auto& f6 = fields[6].cast<ScalarField<3>&>();
+                auto& f7 = fields[7].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7);
+                return;
+            }
+            case 9:
+            {
+                auto& f0 = fields[0].cast<ScalarField<3>&>();
+                auto& f1 = fields[1].cast<ScalarField<3>&>();
+                auto& f2 = fields[2].cast<ScalarField<3>&>();
+                auto& f3 = fields[3].cast<ScalarField<3>&>();
+                auto& f4 = fields[4].cast<ScalarField<3>&>();
+                auto& f5 = fields[5].cast<ScalarField<3>&>();
+                auto& f6 = fields[6].cast<ScalarField<3>&>();
+                auto& f7 = fields[7].cast<ScalarField<3>&>();
+                auto& f8 = fields[8].cast<ScalarField<3>&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk load, got {}", MAX_BULK_FIELDS, n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine field dimension or invalid field types");
+}
+
+// ============================================================
+// Bulk VectorField save() - support multiple vector fields
+// Uses py::args to capture variable-length field lists
+// ============================================================
+
+// Helper to validate VectorField (1D, n_comp=2) and extract mesh
+const MRMesh<1>* try_validate_and_get_mesh_vector_1d_2(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const VectorField1D_2&>();
+        const auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const VectorField1D_2&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate VectorField (1D, n_comp=2) and extract mesh (non-const for load)
+MRMesh<1>* try_validate_and_get_mesh_vector_1d_2_nonconst(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        auto& first_field = fields[0].cast<VectorField1D_2&>();
+        auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            auto& field = fields[i].cast<VectorField1D_2&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate VectorField (2D, n_comp=2) and extract mesh
+const MRMesh<2>* try_validate_and_get_mesh_vector_2d_2(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const VectorField2D_2&>();
+        const auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const VectorField2D_2&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Helper to validate VectorField (3D, n_comp=3) and extract mesh
+const MRMesh<3>* try_validate_and_get_mesh_vector_3d_3(py::args fields, size_t& out_n)
+{
+    out_n = len(fields);
+    if (out_n == 0)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        const auto& first_field = fields[0].cast<const VectorField3D_3&>();
+        const auto* mesh = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < out_n; ++i)
+        {
+            const auto& field = fields[i].cast<const VectorField3D_3&>();
+            if (&field.mesh() != mesh)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+
+        return mesh;
+    }
+    catch (const py::cast_error&)
+    {
+        return nullptr;
+    }
+}
+
+// Bulk save for VectorFields
+void save_bulk_vector(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one vector field must be provided");
+    }
+
+    if (n > 3)
+    {
+        throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+    }
+
+    // Try 1D VectorField (n_comp=2)
+    const MRMesh<1>* mesh_1d = try_validate_and_get_mesh_vector_1d_2(fields, n);
+    if (mesh_1d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                samurai::save(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField1D_2&>();
+                samurai::save(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 2D VectorField (n_comp=2)
+    const MRMesh<2>* mesh_2d = try_validate_and_get_mesh_vector_2d_2(fields, n);
+    if (mesh_2d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                samurai::save(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField2D_2&>();
+                samurai::save(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 3D VectorField (n_comp=3)
+    const MRMesh<3>* mesh_3d = try_validate_and_get_mesh_vector_3d_3(fields, n);
+    if (mesh_3d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                samurai::save(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto& f2 = fields[2].cast<const VectorField3D_3&>();
+                samurai::save(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+}
+
+// Bulk dump for VectorFields
+void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one vector field must be provided");
+    }
+
+    if (n > 3)
+    {
+        throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+    }
+
+    // Try 1D VectorField (n_comp=2)
+    const MRMesh<1>* mesh_1d = try_validate_and_get_mesh_vector_1d_2(fields, n);
+    if (mesh_1d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                samurai::dump(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField1D_2&>();
+                samurai::dump(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 2D VectorField (n_comp=2)
+    const MRMesh<2>* mesh_2d = try_validate_and_get_mesh_vector_2d_2(fields, n);
+    if (mesh_2d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                samurai::dump(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto& f2 = fields[2].cast<const VectorField2D_2&>();
+                samurai::dump(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 3D VectorField (n_comp=3)
+    const MRMesh<3>* mesh_3d = try_validate_and_get_mesh_vector_3d_3(fields, n);
+    if (mesh_3d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                samurai::dump(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto& f2 = fields[2].cast<const VectorField3D_3&>();
+                samurai::dump(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+}
+
+// Bulk load for VectorFields (non-const version)
+void load_bulk_vector(const py::object& filepath_obj, py::args fields)
+{
+    auto [directory, basename] = parse_unified_filepath(filepath_obj);
+    size_t n = len(fields);
+
+    if (n == 0)
+    {
+        throw std::runtime_error("At least one vector field must be provided");
+    }
+
+    if (n > 3)
+    {
+        throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+    }
+
+    // Try 1D VectorField (n_comp=2) - non-const
+    MRMesh<1>* mesh_1d = try_validate_and_get_mesh_vector_1d_2_nonconst(fields, n);
+    if (mesh_1d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<VectorField1D_2&>();
+                samurai::load(directory, basename, *mesh_1d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<VectorField1D_2&>();
+                auto& f1 = fields[1].cast<VectorField1D_2&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<VectorField1D_2&>();
+                auto& f1 = fields[1].cast<VectorField1D_2&>();
+                auto& f2 = fields[2].cast<VectorField1D_2&>();
+                samurai::load(directory, basename, *mesh_1d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 2D VectorField (n_comp=2) - non-const
+    MRMesh<2>* mesh_2d = nullptr;
+    try
+    {
+        auto& first_field = fields[0].cast<VectorField2D_2&>();
+        mesh_2d = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < n; ++i)
+        {
+            auto& field = fields[i].cast<VectorField2D_2&>();
+            if (&field.mesh() != mesh_2d)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+    }
+    catch (const py::cast_error&)
+    {
+        mesh_2d = nullptr;
+    }
+
+    if (mesh_2d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<VectorField2D_2&>();
+                samurai::load(directory, basename, *mesh_2d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<VectorField2D_2&>();
+                auto& f1 = fields[1].cast<VectorField2D_2&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<VectorField2D_2&>();
+                auto& f1 = fields[1].cast<VectorField2D_2&>();
+                auto& f2 = fields[2].cast<VectorField2D_2&>();
+                samurai::load(directory, basename, *mesh_2d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    // Try 3D VectorField (n_comp=3) - non-const
+    MRMesh<3>* mesh_3d = nullptr;
+    try
+    {
+        auto& first_field = fields[0].cast<VectorField3D_3&>();
+        mesh_3d = &first_field.mesh();
+
+        // Validate all other fields have the same mesh
+        for (size_t i = 1; i < n; ++i)
+        {
+            auto& field = fields[i].cast<VectorField3D_3&>();
+            if (&field.mesh() != mesh_3d)
+            {
+                throw std::runtime_error("All vector fields must share the same mesh");
+            }
+        }
+    }
+    catch (const py::cast_error&)
+    {
+        mesh_3d = nullptr;
+    }
+
+    if (mesh_3d)
+    {
+        switch (n)
+        {
+            case 1:
+            {
+                auto& f0 = fields[0].cast<VectorField3D_3&>();
+                samurai::load(directory, basename, *mesh_3d, f0);
+                return;
+            }
+            case 2:
+            {
+                auto& f0 = fields[0].cast<VectorField3D_3&>();
+                auto& f1 = fields[1].cast<VectorField3D_3&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1);
+                return;
+            }
+            case 3:
+            {
+                auto& f0 = fields[0].cast<VectorField3D_3&>();
+                auto& f1 = fields[1].cast<VectorField3D_3&>();
+                auto& f2 = fields[2].cast<VectorField3D_3&>();
+                samurai::load(directory, basename, *mesh_3d, f0, f1, f2);
+                return;
+            }
+            default:
+                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        }
+    }
+
+    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+}
+
+// ============================================================
 // Module initialization
 // ============================================================
 
@@ -340,145 +1914,75 @@ void init_io_bindings(py::module_& m)
 {
     // ============================================================
     // save() function bindings - unified filepath API
+    //
+    // Note: The old fixed-arity overloads (1, 2, 3 fields) have been replaced
+    // by a single bulk save function that supports an arbitrary number of fields:
+    // - 1D: 1-9 fields
+    // - 2D: 1-9 fields
+    // - 3D: 1-9 fields
+    //
+    // The function automatically detects the dimension from the fields.
+    // All fields must share the same mesh. Field names are taken from each
+    // field's name attribute.
     // ============================================================
 
-    // 1D save() - single field
     m.def("save",
-          &save_1d,
+          &save_bulk,
           py::arg("filepath"),
-          py::arg("field"),
           R"pbdoc(
-            Save 1D field mesh and data to HDF5 + XDMF for Paraview visualization.
+            Save mesh and multiple fields to HDF5 + XDMF.
+
+            Supports 1-9 fields for all dimensions (1D, 2D, 3D).
+            All fields must share the same mesh. Field names are taken from each
+            field's name attribute. The dimension is automatically detected from
+            the fields provided.
 
             Parameters
             ----------
             filepath : str or Path
                 Unified file path (e.g., "results/solution.h5")
-                The directory and filename are extracted from this path.
-            field : ScalarField1D
-                Field to save
-
-            Creates
-            -------
-            {directory}/{basename}.h5 - HDF5 data file
-            {directory}/{basename}.xdmf - XDMF metadata file for Paraview
+            *fields : ScalarField1D, ScalarField2D, or ScalarField3D
+                Variable number of scalar fields (1-9)
 
             Examples
             --------
-            >>> import sampai as sam
-            >>> samurai.save("results/solution.h5", field)
-            >>> samurai.save("solution.h5", field)  # Current directory
-            >>> samurai.save(Path("results/solution.h5"), field)
+            >>> samurai.save("results/solution.h5", field1)
+            >>> samurai.save("results/solution.h5", field1, field2, field3)
+            >>> samurai.save("results/solution.h5", rho, qx, qy, e, p, t, vel, mag)
+
+            Notes
+            -----
+            This is the recommended way to save multiple fields in simulations
+            with many variables (e.g., fluid dynamics with density, velocity,
+            energy, pressure, etc.).
+
+            Maximum field count: 9 fields for all dimensions (1D, 2D, 3D).
         )pbdoc");
-
-    // 1D save() - two fields
-    m.def("save",
-          &save_1d_2fields,
-          py::arg("filepath"),
-          py::arg("field1"),
-          py::arg("field2"),
-          "Save 1D mesh and two fields to HDF5 + XDMF. "
-          "Parameters: filepath (str/Path), field1 (ScalarField1D), field2 (ScalarField1D).");
-
-    // 1D save() - three fields
-    m.def("save",
-          &save_1d_3fields,
-          py::arg("filepath"),
-          py::arg("field1"),
-          py::arg("field2"),
-          py::arg("field3"),
-          "Save 1D mesh and three fields to HDF5 + XDMF. "
-          "Parameters: filepath (str/Path), field1, field2, field3 (ScalarField1D).");
-
-    // 2D save() - single field
-    m.def("save",
-          &save_2d,
-          py::arg("filepath"),
-          py::arg("field"),
-          R"pbdoc(
-            Save 2D field mesh and data to HDF5 + XDMF for Paraview visualization.
-
-            Parameters
-            ----------
-            filepath : str or Path
-                Unified file path (e.g., "results/solution.h5")
-            field : ScalarField2D
-                Field to save
-
-            Examples
-            --------
-            >>> samurai.save("results/solution.h5", field)
-        )pbdoc");
-
-    // 2D save() - two fields
-    m.def("save",
-          &save_2d_2fields,
-          py::arg("filepath"),
-          py::arg("field1"),
-          py::arg("field2"),
-          "Save 2D mesh and two fields to HDF5 + XDMF. "
-          "Parameters: filepath (str/Path), field1 (ScalarField2D), field2 (ScalarField2D).");
-
-    // 2D save() - three fields
-    m.def("save",
-          &save_2d_3fields,
-          py::arg("filepath"),
-          py::arg("field1"),
-          py::arg("field2"),
-          py::arg("field3"),
-          "Save 2D mesh and three fields to HDF5 + XDMF. "
-          "Parameters: filepath (str/Path), field1, field2, field3 (ScalarField2D).");
-
-    // 3D save() - single field
-    m.def("save",
-          &save_3d,
-          py::arg("filepath"),
-          py::arg("field"),
-          R"pbdoc(
-            Save 3D field mesh and data to HDF5 + XDMF for Paraview visualization.
-
-            Parameters
-            ----------
-            filepath : str or Path
-                Unified file path (e.g., "results/solution.h5")
-            field : ScalarField3D
-                Field to save
-
-            Examples
-            --------
-            >>> samurai.save("results/solution.h5", field)
-        )pbdoc");
-
-    // 3D save() - two fields
-    m.def("save",
-          &save_3d_2fields,
-          py::arg("filepath"),
-          py::arg("field1"),
-          py::arg("field2"),
-          "Save 3D mesh and two fields to HDF5 + XDMF. "
-          "Parameters: filepath (str/Path), field1 (ScalarField3D), field2 (ScalarField3D).");
-
-    // 3D save() - three fields
-    m.def("save",
-          &save_3d_3fields,
-          py::arg("filepath"),
-          py::arg("field1"),
-          py::arg("field2"),
-          py::arg("field3"),
-          "Save 3D mesh and three fields to HDF5 + XDMF. "
-          "Parameters: filepath (str/Path), field1, field2, field3 (ScalarField3D).");
 
     // ============================================================
     // dump() function bindings - unified filepath API
+    //
+    // Note: The old fixed-arity overloads have been replaced
+    // by a single bulk dump function that supports an arbitrary number of fields:
+    // - 1D: 1-9 fields
+    // - 2D: 1-9 fields
+    // - 3D: 1-9 fields
+    //
+    // The function automatically detects the dimension from the fields.
+    // All fields must share the same mesh. Field names are taken from each
+    // field's name attribute.
     // ============================================================
 
-    // 1D dump()
     m.def("dump",
-          &dump_1d,
+          &dump_bulk,
           py::arg("filepath"),
-          py::arg("field"),
           R"pbdoc(
-            Dump 1D field mesh and data to HDF5 for checkpoint/restart.
+            Dump mesh and multiple fields to HDF5 for checkpoint/restart.
+
+            Supports 1-9 fields for all dimensions (1D, 2D, 3D).
+            All fields must share the same mesh. Field names are taken from each
+            field's name attribute. The dimension is automatically detected from
+            the fields provided.
 
             Creates HDF5-only file (no XDMF metadata) for efficient
             checkpointing and restarting simulations.
@@ -487,8 +1991,8 @@ void init_io_bindings(py::module_& m)
             ----------
             filepath : str or Path
                 Unified file path (e.g., "checkpoints/solution.h5")
-            field : ScalarField1D
-                Field to save
+            *fields : ScalarField1D, ScalarField2D, or ScalarField3D
+                Variable number of scalar fields (1-9)
 
             Creates
             -------
@@ -497,24 +2001,15 @@ void init_io_bindings(py::module_& m)
             Examples
             --------
             >>> import sampai as sam
-            >>> samurai.dump("checkpoints/solution.h5", field)
+            >>> samurai.dump("checkpoints/solution.h5", field1)
+            >>> samurai.dump("checkpoints/solution.h5", field1, field2, field3)
+
+            Notes
+            -----
+            This is the recommended way to dump multiple fields for checkpointing.
+
+            Maximum field count: 9 fields for all dimensions (1D, 2D, 3D).
         )pbdoc");
-
-    // 2D dump()
-    m.def("dump",
-          &dump_2d,
-          py::arg("filepath"),
-          py::arg("field"),
-          "Dump 2D field mesh and data to HDF5 for checkpoint/restart. "
-          "Parameters: filepath (str/Path), field (ScalarField2D).");
-
-    // 3D dump()
-    m.def("dump",
-          &dump_3d,
-          py::arg("filepath"),
-          py::arg("field"),
-          "Dump 3D field mesh and data to HDF5 for checkpoint/restart. "
-          "Parameters: filepath (str/Path), field (ScalarField3D).");
 
     // ============================================================
     // VectorField save() bindings - unified filepath API
@@ -553,23 +2048,128 @@ void init_io_bindings(py::module_& m)
           "Parameters: filepath (str/Path), field (VectorField3D).");
 
     // ============================================================
-    // load() function bindings - unified filepath API
+    // VectorField bulk() bindings - support multiple vector fields
     // ============================================================
 
-    // 1D load()
-    m.def("load",
-          &load_1d,
+    m.def("save_vector",
+          &save_bulk_vector,
           py::arg("filepath"),
-          py::arg("field"),
           R"pbdoc(
-            Load 1D field mesh and data from HDF5 restart file.
+            Save mesh and multiple vector fields to HDF5 + XDMF.
+
+            Supports 1-3 vector fields for 1D (n_comp=2), 2D (n_comp=2), and 3D (n_comp=3).
+            All fields must share the same mesh and have the same n_comp.
+            The dimension is automatically detected from the fields provided.
+
+            Parameters
+            ----------
+            filepath : str or Path
+                Unified file path (e.g., "results/solution.h5")
+            *fields : VectorField
+                Variable number of vector fields (1-3)
+
+            Examples
+            --------
+            >>> import sampai as sam
+            >>> samurai.save_vector("results/velocities.h5", vel1, vel2)
+            >>> samurai.save_vector("results/fields.h5", vel, vorticity, mag)
+
+            Notes
+            -----
+            All vector fields must have the same dimension and n_comp.
+            Maximum 3 vector fields supported.
+        )pbdoc");
+
+    m.def("dump_vector",
+          &dump_bulk_vector,
+          py::arg("filepath"),
+          R"pbdoc(
+            Dump mesh and multiple vector fields to HDF5 for checkpoint/restart.
+
+            Supports 1-3 vector fields for 1D (n_comp=2), 2D (n_comp=2), and 3D (n_comp=3).
+            All fields must share the same mesh and have the same n_comp.
+            The dimension is automatically detected from the fields provided.
+
+            Creates HDF5-only file (no XDMF metadata) for efficient
+            checkpointing and restarting simulations.
 
             Parameters
             ----------
             filepath : str or Path
                 Unified file path (e.g., "checkpoints/solution.h5")
-            field : ScalarField1D
-                Field object to load data into (will be modified)
+            *fields : VectorField
+                Variable number of vector fields (1-3)
+
+            Examples
+            --------
+            >>> import sampai as sam
+            >>> samurai.dump_vector("checkpoints/velocities.h5", vel1, vel2)
+
+            Notes
+            -----
+            All vector fields must have the same dimension and n_comp.
+            Maximum 3 vector fields supported.
+        )pbdoc");
+
+    m.def("load_vector",
+          &load_bulk_vector,
+          py::arg("filepath"),
+          R"pbdoc(
+            Load mesh and multiple vector fields from HDF5 restart file.
+
+            Supports 1-3 vector fields for 1D (n_comp=2), 2D (n_comp=2), and 3D (n_comp=3).
+            All fields must share the same mesh and have the same n_comp.
+            The dimension is automatically detected from the fields provided.
+
+            Parameters
+            ----------
+            filepath : str or Path
+                Unified file path (e.g., "checkpoints/solution.h5")
+            *fields : VectorField
+                Variable number of vector fields to load data into (1-3)
+
+            Examples
+            --------
+            >>> import sampai as sam
+            >>> samurai.load_vector("checkpoints/velocities.h5", vel1, vel2)
+
+            Notes
+            -----
+            All vector fields must have the same dimension and n_comp.
+            Field names must match the names used when creating the restart file.
+            Maximum 3 vector fields supported.
+        )pbdoc");
+
+    // ============================================================
+    // load() function bindings - unified filepath API
+    //
+    // Note: The old fixed-arity overloads have been replaced
+    // by a single bulk load function that supports an arbitrary number of fields:
+    // - 1D: 1-9 fields
+    // - 2D: 1-9 fields
+    // - 3D: 1-9 fields
+    //
+    // The function automatically detects the dimension from the fields.
+    // All fields must share the same mesh. Field names must match the names
+    // used when creating the restart file.
+    // ============================================================
+
+    m.def("load",
+          &load_bulk,
+          py::arg("filepath"),
+          R"pbdoc(
+            Load mesh and multiple fields from HDF5 restart file.
+
+            Supports 1-9 fields for all dimensions (1D, 2D, 3D).
+            All fields must share the same mesh. The dimension is automatically
+            detected from the fields provided.
+
+            Parameters
+            ----------
+            filepath : str or Path
+                Unified file path (e.g., "checkpoints/solution.h5")
+            *fields : ScalarField1D, ScalarField2D, or ScalarField3D
+                Variable number of scalar fields to load data into (1-9)
 
             Reads
             ------
@@ -578,30 +2178,21 @@ void init_io_bindings(py::module_& m)
             Note
             ----
             The mesh and field objects will have their data replaced
-            with the contents of the restart file. The field name
-            must match the name used when creating the restart file.
+            with the contents of the restart file. The field names
+            must match the names used when creating the restart file.
 
             Examples
             --------
             >>> import sampai as sam
-            >>> samurai.load("checkpoints/solution.h5", field)
+            >>> samurai.load("checkpoints/solution.h5", field1)
+            >>> samurai.load("checkpoints/solution.h5", field1, field2, field3)
+
+            Notes
+            -----
+            This is the recommended way to load multiple fields for restarting.
+
+            Maximum field count: 9 fields for all dimensions (1D, 2D, 3D).
         )pbdoc");
-
-    // 2D load()
-    m.def("load",
-          &load_2d,
-          py::arg("filepath"),
-          py::arg("field"),
-          "Load 2D field mesh and data from HDF5 restart file. "
-          "Parameters: filepath (str/Path), field (ScalarField2D).");
-
-    // 3D load()
-    m.def("load",
-          &load_3d,
-          py::arg("filepath"),
-          py::arg("field"),
-          "Load 3D field mesh and data from HDF5 restart file. "
-          "Parameters: filepath (str/Path), field (ScalarField3D).");
 
     // ============================================================
     // open_h5py() function binding
