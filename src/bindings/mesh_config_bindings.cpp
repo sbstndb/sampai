@@ -6,6 +6,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <samurai/mesh_config.hpp>
+#include "exception_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -547,7 +548,7 @@ void init_mesh_config_bindings(py::module_& m)
             }
             else
             {
-                throw std::runtime_error("Unsupported dimension: " + std::to_string(dim) + " (must be 1, 2, or 3)");
+                throw make_config_error("Unsupported dimension: " + std::to_string(dim) + " (must be 1, 2, or 3)");
             }
         },
         py::arg("dim"),

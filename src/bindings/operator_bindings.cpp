@@ -229,7 +229,6 @@ void apply_upwind_3d_py(const ScalarField<3>& input, ScalarField<3>& output, py:
     velocity[2] = velocity_seq[2].cast<double>();
 
     apply_upwind_3d(input, output, velocity);
->>>>>>> 1b8d8d5 (feat(exceptions): replace std::runtime_error with custom exceptions in all bindings)
 }
 
 // -------------------------------------------------------------------------

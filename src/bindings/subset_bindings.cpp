@@ -18,6 +18,7 @@
 #include <samurai/reconstruction.hpp>
 
 #include "common_types.hpp"
+#include "exception_bindings.hpp"
 
 namespace py = pybind11;
 using namespace samurai::python::bindings;
@@ -97,7 +98,7 @@ public:
     {
         if (value.size() != n_comp)
         {
-            throw std::runtime_error("Value size must match vector field components (expected " +
+            throw make_field_error("Value size must match vector field components (expected " +
                                     std::to_string(n_comp) + ", got " + std::to_string(value.size()) + ")");
         }
 
@@ -147,7 +148,7 @@ PySubset<dim> make_translate(const MRMesh<dim>& mesh, const std::vector<int>& st
 {
     if (stencil.size() != dim)
     {
-        throw std::runtime_error("Stencil dimension must match mesh dimension");
+        throw make_field_error("Stencil dimension must match mesh dimension");
     }
 
     // Convert to xtensor_fixed
@@ -182,7 +183,7 @@ PySubset<dim> call_expand(F&& func, std::size_t width)
         case 4: return func(std::integral_constant<std::size_t, 4>{});
         case 5: return func(std::integral_constant<std::size_t, 5>{});
         case 6: return func(std::integral_constant<std::size_t, 6>{});
-        default: throw std::runtime_error("Expand width must be between 1 and 6");
+        default: throw make_field_error("Expand width must be between 1 and 6");
     }
 }
 
@@ -191,7 +192,7 @@ PySubset<dim> make_expand(const MRMesh<dim>& mesh, std::size_t level, std::size_
 {
     if (width < 1 || width > 6)
     {
-        throw std::runtime_error("Expand width must be between 1 and 6");
+        throw make_field_error("Expand width must be between 1 and 6");
     }
     auto& cells = mesh[mesh_id_t::cells][level];
     using CellsType = std::decay_t<decltype(cells)>;
@@ -214,11 +215,11 @@ PySubset<dim> make_expand_directional(const MRMesh<dim>& mesh,
 {
     if (width < 1 || width > 6)
     {
-        throw std::runtime_error("Expand width must be between 1 and 6");
+        throw make_field_error("Expand width must be between 1 and 6");
     }
     if (directions.size() != dim)
     {
-        throw std::runtime_error("Directions array size must match mesh dimension");
+        throw make_field_error("Directions array size must match mesh dimension");
     }
 
     // Convert vector to std::array<bool, dim>
@@ -248,7 +249,7 @@ PySubset<dim> make_contract(const MRMesh<dim>& mesh, std::size_t level, std::siz
 {
     if (width < 1 || width > 6)
     {
-        throw std::runtime_error("Contract width must be between 1 and 6");
+        throw make_field_error("Contract width must be between 1 and 6");
     }
     auto subset = samurai::contract(mesh[mesh_id_t::cells][level], width);
     return PySubset<dim>(std::move(subset), level, "contracted");
@@ -262,11 +263,11 @@ PySubset<dim> make_contract_directional(const MRMesh<dim>& mesh,
 {
     if (width < 1 || width > 6)
     {
-        throw std::runtime_error("Contract width must be between 1 and 6");
+        throw make_field_error("Contract width must be between 1 and 6");
     }
     if (directions.size() != dim)
     {
-        throw std::runtime_error("Directions array size must match mesh dimension");
+        throw make_field_error("Directions array size must match mesh dimension");
     }
 
     // Convert vector to std::array<bool, dim>
@@ -381,7 +382,7 @@ void apply_prediction_single(ScalarField<dim>& field, std::size_t coarse_level, 
             expr.apply_op(samurai::prediction<5, false>(field));
             break;
         default:
-            throw std::runtime_error("Prediction order must be between 0 and 5");
+            throw make_field_error("Prediction order must be between 0 and 5");
     }
 }
 
@@ -424,7 +425,7 @@ void apply_prediction_two_fields(ScalarField<dim>& dest,
             expr.apply_op(samurai::prediction<5, false>(dest, src));
             break;
         default:
-            throw std::runtime_error("Prediction order must be between 0 and 5");
+            throw make_field_error("Prediction order must be between 0 and 5");
     }
 }
 
@@ -741,7 +742,7 @@ void iterate_subset(const MRMesh<dim>& mesh1,
     }
     else
     {
-        throw std::runtime_error("Unknown subset operation: " + op);
+        throw make_field_error("Unknown subset operation: " + op);
     }
 }
 
@@ -1727,7 +1728,7 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
                       }
                       else
                       {
-                          throw std::runtime_error("Invalid mode. Use: 'magnitude', 'any', or 'all'");
+                          throw make_field_error("Invalid mode. Use: 'magnitude', 'any', or 'all'");
                       }
 
                       if (keep)
@@ -1830,7 +1831,7 @@ void bind_subset_operations(py::module_& m, const std::string& dim_suffix)
                       }
                       else
                       {
-                          throw std::runtime_error("Invalid mode. Use: 'magnitude', 'any', or 'all'");
+                          throw make_field_error("Invalid mode. Use: 'magnitude', 'any', or 'all'");
                       }
 
                       if (keep)

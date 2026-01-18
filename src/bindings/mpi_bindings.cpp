@@ -3,6 +3,7 @@
 // This file contains the implementation of MPI-related Python bindings.
 
 #include "mpi_bindings.hpp"
+#include "exception_bindings.hpp"
 
 // Include samurai headers BEFORE entering our namespace
 // to avoid namespace conflicts with boost::mpi
@@ -150,7 +151,7 @@ void init_mpi_bindings(py::module_& m) {
         []() { return false; });
 
     auto not_implemented = [](const char* name) {
-        throw std::runtime_error(
+        throw make_config_error(
             std::string("MPI support is not enabled. Rebuild with -Dmpi=true to use ") + name);
     };
 
