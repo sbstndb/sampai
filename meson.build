@@ -34,6 +34,7 @@ project('sampai', 'cpp', 'c',
 # ============================================================================
 
 build_python_tests = get_option('build_python_tests')
+enable_mpi = get_option('mpi')
 
 message('=== Sampai - Python Interface for Samurai AMR Library ===')
 message('')
@@ -129,6 +130,154 @@ highfive_dep = dependency('highfive', version: '>=2.10', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 pugixml_dep = dependency('pugixml', required: false)
 
+# ============================================================================
+# MPI DETECTION (optional)
+# ============================================================================
+# Get C++ compiler for finding libraries
+cpp = meson.get_compiler('cpp')
+
+# Try to find MPI via dependency() first (works with system MPI)
+mpi_dep = dependency('mpi', required: false)
+
+# If not found, try OpenMPI/MPICH pkg-config names explicitly (conda-forge)
+if not mpi_dep.found() and enable_mpi
+    ompi_cxx_dep = dependency('ompi-cxx', method: 'pkg-config', required: false)
+    ompi_c_dep = dependency('ompi-c', method: 'pkg-config', required: false)
+
+    if ompi_cxx_dep.found()
+        mpi_dep = ompi_cxx_dep
+        message('Found MPI via pkg-config: ompi-cxx')
+    elif ompi_c_dep.found()
+        mpi_dep = ompi_c_dep
+        message('Found MPI via pkg-config: ompi-c')
+    endif
+
+    if not mpi_dep.found()
+        mpich_cxx_dep = dependency('mpich-cxx', method: 'pkg-config', required: false)
+        mpich_c_dep = dependency('mpich', method: 'pkg-config', required: false)
+
+        if mpich_cxx_dep.found()
+            mpi_dep = mpich_cxx_dep
+            message('Found MPI via pkg-config: mpich-cxx')
+        elif mpich_c_dep.found()
+            mpi_dep = mpich_c_dep
+            message('Found MPI via pkg-config: mpich')
+        endif
+    endif
+endif
+
+# If not found, try finding MPI libraries explicitly (works with conda-forge)
+if not mpi_dep.found() and enable_mpi
+    # Get conda prefix if available
+    conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
+
+    if conda_prefix != ''
+        # Try to find MPI in conda environment
+        mpi_lib_dirs = [
+            join_paths(conda_prefix, 'lib'),
+            join_paths(conda_prefix, 'lib/openmpi'),
+            join_paths(conda_prefix, 'lib64'),
+            join_paths(conda_prefix, 'lib64/openmpi'),
+        ]
+
+        mpi_lib = cpp.find_library('mpi', dirs: mpi_lib_dirs, required: false)
+        mpi_cxx_lib = cpp.find_library('mpi_cxx', dirs: mpi_lib_dirs, required: false)
+
+        if mpi_lib.found()
+            mpi_libs = [mpi_lib]
+            mpi_include_dirs = []
+
+            mpi_include_path = join_paths(conda_prefix, 'include')
+            mpi_include_openmpi = join_paths(conda_prefix, 'include/openmpi')
+
+            if run_command('test', '-d', mpi_include_path, check: false).returncode() == 0
+                mpi_include_dirs += [include_directories(mpi_include_path)]
+            endif
+            if run_command('test', '-d', mpi_include_openmpi, check: false).returncode() == 0
+                mpi_include_dirs += [include_directories(mpi_include_openmpi)]
+            endif
+
+            if mpi_cxx_lib.found()
+                mpi_libs += [mpi_cxx_lib]
+                message('Found MPI C++ library in conda')
+            else
+                message('MPI C++ library not found (using C bindings only)')
+            endif
+
+            mpi_dep = declare_dependency(
+                include_directories: mpi_include_dirs,
+                dependencies: mpi_libs,
+            )
+            message('Found MPI libraries via conda environment')
+        endif
+    endif
+
+    # Fallback to system-wide search if conda detection failed
+    if not mpi_dep.found()
+        mpi_lib = cpp.find_library('mpi', required: false)
+        if mpi_lib.found()
+            mpi_dep = declare_dependency(dependencies: mpi_lib)
+            message('Found MPI libraries via system search')
+        endif
+    endif
+endif
+
+# Still not found and MPI is required?
+if enable_mpi and not mpi_dep.found()
+    error('MPI requested but not found. Install system MPI or conda-forge openmpi')
+endif
+
+# Find boost-mpi and boost-serialization libraries explicitly
+# Using find_library is more reliable than dependency() for MPI
+boost_search_dirs = []
+if conda_prefix != ''
+    boost_search_dirs += [
+        join_paths(conda_prefix, 'lib'),
+        join_paths(conda_prefix, 'lib64'),
+    ]
+endif
+
+boost_mpi_lib = cpp.find_library('boost_mpi', dirs: boost_search_dirs, required: false)
+boost_serialization_lib = cpp.find_library('boost_serialization', dirs: boost_search_dirs, required: false)
+
+has_boost_mpi = boost_mpi_lib.found() and boost_serialization_lib.found()
+
+# Combine into a dependency-like object
+if has_boost_mpi
+    boost_mpi_dep = declare_dependency(
+        dependencies: [boost_mpi_lib, boost_serialization_lib]
+    )
+    message('Found boost-mpi and boost-serialization libraries')
+else
+    boost_mpi_dep = declare_dependency()
+    if enable_mpi
+        warning('boost-mpi or boost-serialization not found - MPI support may be limited')
+    endif
+endif
+
+has_mpi = enable_mpi and mpi_dep.found()
+
+if enable_mpi and not has_boost_mpi
+    error('MPI support requires Boost.MPI and Boost.Serialization; install libboost-mpi and libboost-serialization')
+endif
+
+# Collect cpp_args for conditional compilation
+extra_cpp_args = []
+
+if has_mpi
+    message('')
+    message('=== MPI Support Enabled ===')
+    message('MPI library: @0@'.format(mpi_dep.name()))
+    if has_boost_mpi
+        message('Boost.MPI: found')
+    else
+        warning('Boost.MPI not found - MPI support may be limited')
+    endif
+
+    # Define SAMURAI_WITH_MPI for conditional compilation
+    extra_cpp_args += '-DSAMURAI_WITH_MPI'
+endif
+
 message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
@@ -140,12 +289,18 @@ endif
 if hdf5_dep.found()
     message('hdf5: @0@'.format(hdf5_dep.version()))
 endif
+if has_mpi
+    message('MPI: ENABLED (@0@)'.format(mpi_dep.name()))
+else
+    message('MPI: DISABLED (use -Dmpi=true to enable)')
+endif
 message('')
 
 # ============================================================================
 # COLLECT SOURCE FILES
 # ============================================================================
 
+# Core binding sources (always included)
 binding_sources = files(
     'src/bindings/main.cpp',
     'src/bindings/box_bindings.cpp',
@@ -159,8 +314,16 @@ binding_sources = files(
     'src/bindings/bc_bindings.cpp',
     'src/bindings/mra_config_bindings.cpp',
     'src/bindings/adapt_bindings.cpp',
+    'src/bindings/subset_bindings.cpp',
     'src/bindings/io_bindings.cpp',
+    'src/bindings/mpi_bindings.cpp',
 )
+
+if has_mpi
+    message('MPI bindings: ENABLED')
+else
+    message('MPI bindings: STUB (MPI disabled)')
+endif
 
 message('Binding source files: @0@'.format(binding_sources.length()))
 
@@ -177,17 +340,37 @@ py_debug = py.get_variable('Py_DEBUG', false)
 # Build the pybind11 extension module
 # Note: We use _sampai (private) so the Python package can import it
 # The extension module will be installed as _sampai.so alongside sampai/ package
+
+# Collect all dependencies
+all_dependencies = [
+    samurai_dep,
+    fmt_dep,
+    cli11_dep,
+    hdf5_dep,
+    highfive_dep,
+    pugixml_dep,
+]
+
+# Add MPI dependencies if enabled
+if has_mpi
+    all_dependencies += [mpi_dep]
+    all_dependencies += [boost_mpi_dep]
+endif
+
+# Collect all cpp_args
+all_cpp_args = [
+    '-DNDEBUG',
+]
+
+# Add MPI-specific cpp_args
+if has_mpi
+    all_cpp_args += extra_cpp_args
+endif
+
 pybind11_module = py.extension_module(
     '_sampai',
     binding_sources,
-    dependencies: [
-        samurai_dep,
-        fmt_dep,
-        cli11_dep,
-        hdf5_dep,
-        highfive_dep,
-        pugixml_dep,
-    ],
+    dependencies: all_dependencies,
     include_directories: [
         pybind11_include,
         include_directories('src'),
@@ -195,9 +378,7 @@ pybind11_module = py.extension_module(
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance
-    cpp_args: [
-        '-DNDEBUG',
-    ],
+    cpp_args: all_cpp_args,
     # Link with additional dependencies
     link_with: [],
 )
@@ -247,6 +428,15 @@ py.install_sources(
     'src/sampai/utils/progress/stats.py',
     subdir: 'sampai/utils/progress',
 )
+
+# Install MPI subpackage (if enabled)
+if has_mpi
+    py.install_sources(
+        'src/sampai/mpi/__init__.py',
+        'src/sampai/mpi/comm.py',
+        subdir: 'sampai/mpi',
+    )
+endif
 
 # ============================================================================
 # COPY PYTHON UTILITIES TO BUILD DIRECTORY (for development)

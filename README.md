@@ -97,6 +97,85 @@ print(sam.__version__)  # Should print version number
 
 ---
 
+## MPI Support
+
+Sampai supports **MPI for distributed memory parallelization**. When compiled with MPI, the library automatically distributes meshes and exchanges ghost cells across processes.
+
+### Installation with MPI
+
+```bash
+# Create environment with MPI dependencies
+conda create -n sampai-mpi -c conda-forge \
+  python=3.12 \
+  xtensor \
+  hdf5="1.14.6=mpi_openmpi*" \
+  highfive \
+  fmt \
+  cli11 \
+  meson-python \
+  meson \
+  ninja \
+  pybind11 \
+  openmpi \
+  mpi4py \
+  boost
+
+conda activate sampai-mpi
+
+# Build with MPI support
+pip install . --global-option="-Dmpi=true"
+```
+
+### Usage
+
+**Same Python code works for both MPI and non-MPI:**
+
+```python
+from mpi4py import MPI  # Import first for MPI
+import sampai as sam
+
+# Check if MPI is available
+try:
+    from sampai import mpi
+    print(f"MPI: {mpi.size()} processes")
+except ImportError:
+    print("MPI: not available")
+
+# Create mesh (auto-distributed if MPI)
+box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+mesh = sam.mesh.make(box, min_level=2, max_level=4)
+
+# Update ghosts (auto-exchange if MPI)
+u = sam.field.zeros(mesh, "u")
+sam.adaptation.update_ghost_mr(u)
+
+# Save (auto-parallel if MPI)
+sam.save("output.h5", u)
+```
+
+**Run with MPI:**
+```bash
+# 4 processes
+mpiexec -n 4 python simulation.py
+
+# Single process (still uses MPI)
+mpiexec -n 1 python simulation.py
+```
+
+**Run without MPI:**
+```bash
+python simulation.py
+```
+
+### Important Notes
+
+1. **Separate compilation** - You must compile separately with `-Dmpi=true` for MPI support
+2. **Automatic behavior** - When MPI is enabled, mesh distribution and ghost exchange happen automatically
+3. **Same API** - Your Python code is identical for both cases
+4. **MPI module** - `sampai.mpi` provides `rank()`, `size()`, `barrier()` for MPI queries
+
+---
+
 ## Quick Start
 
 Here's a minimal example to get you started:

@@ -85,6 +85,128 @@ jobs:
           sampai/builddir/meson-logs/testlog.txt
           sampai/.pytest_cache/
 
+  build-and-test-mpi:
+    # Test MPI support on Ubuntu only
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout sampai
+      uses: actions/checkout@v4
+      with:
+        path: sampai
+
+    - name: Install Miniforge
+      run: |
+        wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -p $HOME/miniforge3
+
+    - name: Create conda environment with MPI dependencies
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        conda create -n sampai-mpi -c conda-forge \
+          python=3.12 \
+          xtensor \
+          xtensor-blas \
+          "hdf5=1.14.6=mpi_mpich*" \
+          highfive \
+          pugixml \
+          fmt \
+          cli11 \
+          meson-python \
+          meson \
+          ninja \
+          numpy \
+          pytest \
+          h5py \
+          matplotlib \
+          pybind11 \
+          mpich \
+          mpi4py \
+          boost \
+          libfabric \
+          libboost-mpi \
+          libboost-devel \
+          libboost-headers
+
+    - name: Build sampai with MPI
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-mpi
+
+        # Set PKG_CONFIG_PATH to find MPI via pkg-config
+        export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+        export MPICC="$CONDA_PREFIX/bin/mpicc"
+        export MPICXX="$CONDA_PREFIX/bin/mpicxx"
+        # Ensure libfabric has an unversioned symlink for the linker
+        if [ ! -e "$CONDA_PREFIX/lib/libfabric.so" ]; then
+          libfabric_target="$(ls "$CONDA_PREFIX"/lib/libfabric.so.* 2>/dev/null | head -n 1)"
+          if [ -n "$libfabric_target" ]; then
+            ln -s "$libfabric_target" "$CONDA_PREFIX/lib/libfabric.so"
+          fi
+        fi
+
+        cd sampai
+        meson setup builddir -Dmpi=true
+        meson compile -C builddir
+
+    - name: Install sampai Python package (MPI)
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-mpi
+
+        cd sampai
+        pip install --no-build-isolation --no-deps -e . -Csetup-args=-Dmpi=true
+
+    - name: Run MPI tests
+      run: |
+        export PATH="$HOME/miniforge3/bin:$PATH"
+        source $HOME/miniforge3/etc/profile.d/conda.sh
+        conda activate sampai-mpi
+
+        cd sampai
+        # Run basic MPI test with 1 rank (verifies MPI compilation)
+        mpiexec -n 1 python -c "
+        from mpi4py import MPI
+        from sampai import mpi
+        import sampai as sam
+
+        print(f'Rank {mpi.rank()}/{mpi.size()}: MPI test started')
+
+        # Test mesh creation (auto-distributed)
+        box = sam.geometry.box([0.0, 0.0], [1.0, 1.0])
+        config = sam.config.make(2)
+        config.min_level = 2
+        config.max_level = 3
+        mesh = sam.mesh.make(box, config)
+
+        print(f'Rank {mpi.rank()}: {mesh.nb_cells} cells')
+
+        # Test field and ghost update
+        u = sam.field.zeros(mesh, 'u')
+        sam.adaptation.update_ghost_mr(u)
+
+        # Test save
+        sam.save('test_mpi.h5', u)
+
+        mpi.barrier()
+        if mpi.rank() == 0:
+            print('MPI test PASSED')
+        "
+
+        # Clean up test file
+        rm -f test_mpi*.h5 test_mpi*.xdmf
+
+    - name: Upload MPI test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-mpi-ubuntu-py312
+        path: |
+          sampai/builddir/meson-logs/testlog.txt
+          sampai/.pytest_cache/
+
   validation-vs-cpp:
     # Validate Python outputs against C++ reference files (Linux only)
     runs-on: ubuntu-22.04
@@ -138,7 +260,7 @@ jobs:
             echo "Samurai already present, skipping download"
         fi
 
-    - name: Build Samurai C++ demos (advection and burgers)
+    - name: Build Samurai C++ demos (advection only)
       run: |
         export PATH="$HOME/miniforge3/bin:$PATH"
         source $HOME/miniforge3/etc/profile.d/conda.sh
@@ -156,7 +278,7 @@ jobs:
           -DWITH_PETSC=OFF \
           -DWITH_OPENMP=OFF
 
-        # Build only the advection targets (burgers uses unavailable operators)
+        # Build only the advection targets
         cmake --build . --target finite-volume-advection-1d finite-volume-advection-2d -j4
 
     - name: Build sampai Python (uses existing samurai)
@@ -166,7 +288,6 @@ jobs:
         conda activate sampai-validation
 
         cd sampai
-        # samurai already exists from previous step, so meson setup won't re-download it
         meson setup builddir
         meson compile -C builddir
 
