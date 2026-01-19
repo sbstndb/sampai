@@ -13,9 +13,14 @@
 #include <samurai/field.hpp>
 #include <samurai/mesh_config.hpp>
 #include <samurai/mr/mesh.hpp>
+#include <samurai/schemes/fv/explicit_FV_scheme.hpp>
+#include <samurai/schemes/fv/flux_based/explicit_flux_based_scheme__lin_hom.hpp>
 #include <samurai/schemes/fv/flux_based/explicit_flux_based_scheme__nonlin.hpp>
 #include <samurai/schemes/fv/operators/convection_lin.hpp>
 #include <samurai/schemes/fv/operators/convection_nonlin.hpp>
+#include <samurai/schemes/fv/operators/diffusion.hpp>
+#include <samurai/schemes/fv/operators/divergence.hpp>
+#include <samurai/schemes/fv/operators/gradient.hpp>
 #include <samurai/stencil_field.hpp>
 #include "common_types.hpp"
 
@@ -403,6 +408,191 @@ py::object convection_weno5_vectorfield_3d(ScalarField<3>& field, VectorField3D_
     // Get the expression and evaluate it
     auto conv_expr = conv(field);
     result         = conv_expr;
+
+    return py::cast(result);
+}
+
+// ============================================================
+// Diffusion operators (order 2)
+// ============================================================
+// Diffusion operator: -coeff * Laplacian
+// Note: diffusion_order2 implements -K*Delta (negative Laplacian)
+
+py::object diffusion_order2_1d(ScalarField<1>& field, double coefficient = 1.0)
+{
+    auto& mesh = field.mesh();
+
+    // Create diffusion operator with coefficient
+    auto diff = samurai::make_diffusion_order2<ScalarField<1>>(coefficient);
+
+    // Create output field
+    auto result = samurai::make_scalar_field<double>(field.name() + "_diff", mesh);
+
+    // Apply operator
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+py::object diffusion_order2_2d(ScalarField<2>& field, double coefficient = 1.0)
+{
+    auto& mesh = field.mesh();
+
+    // Create diffusion operator with coefficient
+    auto diff = samurai::make_diffusion_order2<ScalarField<2>>(coefficient);
+
+    // Create output field
+    auto result = samurai::make_scalar_field<double>(field.name() + "_diff", mesh);
+
+    // Apply operator
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+py::object diffusion_order2_3d(ScalarField<3>& field, double coefficient = 1.0)
+{
+    auto& mesh = field.mesh();
+
+    // Create diffusion operator with coefficient
+    auto diff = samurai::make_diffusion_order2<ScalarField<3>>(coefficient);
+
+    // Create output field
+    auto result = samurai::make_scalar_field<double>(field.name() + "_diff", mesh);
+
+    // Apply operator
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+// ============================================================
+// Laplacian operators (order 2)
+// ============================================================
+// Laplacian operator: Delta (positive Laplacian)
+// Note: laplacian = -diffusion (with coefficient = 1)
+
+py::object laplacian_order2_1d(ScalarField<1>& field)
+{
+    auto& mesh = field.mesh();
+
+    // Laplacian = -Diffusion (with K=1). Use diffusion with coefficient -1 to get positive Laplacian
+    // Since diffusion computes -K*Laplacian, using K=-1 gives -(-1)*Laplacian = Laplacian
+    auto diff = samurai::make_diffusion_order2<ScalarField<1>>(-1.0);
+
+    // Create output field
+    auto result = samurai::make_scalar_field<double>(field.name() + "_laplacian", mesh);
+
+    // Apply operator
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+py::object laplacian_order2_2d(ScalarField<2>& field)
+{
+    auto& mesh = field.mesh();
+
+    // Laplacian = -Diffusion (with K=1). Use diffusion with coefficient -1 to get positive Laplacian
+    auto diff = samurai::make_diffusion_order2<ScalarField<2>>(-1.0);
+
+    // Create output field
+    auto result = samurai::make_scalar_field<double>(field.name() + "_laplacian", mesh);
+
+    // Apply operator
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+py::object laplacian_order2_3d(ScalarField<3>& field)
+{
+    auto& mesh = field.mesh();
+
+    // Laplacian = -Diffusion (with K=1). Use diffusion with coefficient -1 to get positive Laplacian
+    auto diff = samurai::make_diffusion_order2<ScalarField<3>>(-1.0);
+
+    // Create output field
+    auto result = samurai::make_scalar_field<double>(field.name() + "_laplacian", mesh);
+
+    // Apply operator
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+// ============================================================
+// Gradient operators (order 2)
+// ============================================================
+// Gradient operator: returns VectorField<dim, dim> from ScalarField<dim>
+// NOTE: 1D gradient is not supported due to VectorField1D_1 incompatibility with explicit scheme
+
+py::object gradient_order2_2d(ScalarField<2>& field)
+{
+    auto& mesh = field.mesh();
+
+    // Create gradient operator
+    auto grad = samurai::make_gradient_order2<ScalarField<2>>();
+
+    // Create output field (VectorField2D_2)
+    auto result = samurai::make_vector_field<double, 2, false>(field.name() + "_grad", mesh);
+
+    // Apply operator
+    result = grad(field);
+
+    return py::cast(result);
+}
+
+py::object gradient_order2_3d(ScalarField<3>& field)
+{
+    auto& mesh = field.mesh();
+
+    // Create gradient operator
+    auto grad = samurai::make_gradient_order2<ScalarField<3>>();
+
+    // Create output field (VectorField3D_3)
+    auto result = samurai::make_vector_field<double, 3, false>(field.name() + "_grad", mesh);
+
+    // Apply operator
+    result = grad(field);
+
+    return py::cast(result);
+}
+
+// ============================================================
+// Divergence operators (order 2)
+// ============================================================
+// Divergence operator: returns ScalarField<dim> from VectorField<dim, dim>
+// NOTE: 1D divergence is not supported due to VectorField1D_1 incompatibility with explicit scheme
+
+py::object divergence_order2_2d(VectorField2D_2& field)
+{
+    auto& mesh = field.mesh();
+
+    // Create divergence operator
+    auto div = samurai::make_divergence_order2<VectorField2D_2>();
+
+    // Create output field (ScalarField2D)
+    auto result = samurai::make_scalar_field<double>(field.name() + "_div", mesh);
+
+    // Apply operator
+    result = div(field);
+
+    return py::cast(result);
+}
+
+py::object divergence_order2_3d(VectorField3D_3& field)
+{
+    auto& mesh = field.mesh();
+
+    // Create divergence operator
+    auto div = samurai::make_divergence_order2<VectorField3D_3>();
+
+    // Create output field (ScalarField3D)
+    auto result = samurai::make_scalar_field<double>(field.name() + "_div", mesh);
+
+    // Apply operator
+    result = div(field);
 
     return py::cast(result);
 }
@@ -970,6 +1160,260 @@ void init_operator_bindings(py::module_& m)
         )pbdoc");
 
     // ============================================================
+    // Diffusion operators (order 2)
+    // ============================================================
+
+    // 1D diffusion
+    m.def("make_diffusion_order2",
+          &diffusion_order2_1d,
+          py::arg("field"),
+          py::arg("coefficient") = 1.0,
+          R"pbdoc(
+        Diffusion operator for 1D scalar fields.
+
+        Computes -coefficient * Laplacian(field), where Laplacian is the
+        positive (mathematical) Laplacian operator.
+
+        Parameters
+        ----------
+        field : ScalarField1D
+            Input scalar field
+        coefficient : float, optional
+            Diffusion coefficient (default: 1.0)
+
+        Returns
+        -------
+        ScalarField1D
+            New field containing -coefficient * Laplacian(field)
+
+        Examples
+        --------
+        >>> import sampai as sam
+        >>> mesh = sam.mesh.make(box, min_level=3, max_level=3)
+        >>> u = sam.field.scalar("u", mesh)
+        >>> diff_u = sam.make_diffusion_order2(u, 0.5)  # -0.5 * Laplacian(u)
+        >>> # Explicit time stepping: unp1 = u + dt * diff_u
+        )pbdoc");
+
+    // 2D diffusion
+    m.def("make_diffusion_order2",
+          &diffusion_order2_2d,
+          py::arg("field"),
+          py::arg("coefficient") = 1.0,
+          R"pbdoc(
+        Diffusion operator for 2D scalar fields.
+
+        Computes -coefficient * Laplacian(field).
+
+        Parameters
+        ----------
+        field : ScalarField2D
+            Input scalar field
+        coefficient : float, optional
+            Diffusion coefficient (default: 1.0)
+
+        Returns
+        -------
+        ScalarField2D
+            New field containing -coefficient * Laplacian(field)
+
+        Examples
+        --------
+        >>> mesh = sam.mesh.make(box, min_level=3, max_level=3)
+        >>> u = sam.field.scalar("u", mesh)
+        >>> diff_u = sam.make_diffusion_order2(u, 0.5)
+        )pbdoc");
+
+    // 3D diffusion
+    m.def("make_diffusion_order2",
+          &diffusion_order2_3d,
+          py::arg("field"),
+          py::arg("coefficient") = 1.0,
+          R"pbdoc(
+        Diffusion operator for 3D scalar fields.
+
+        Computes -coefficient * Laplacian(field).
+
+        Parameters
+        ----------
+        field : ScalarField3D
+            Input scalar field
+        coefficient : float, optional
+            Diffusion coefficient (default: 1.0)
+
+        Returns
+        -------
+        ScalarField3D
+            New field containing -coefficient * Laplacian(field)
+        )pbdoc");
+
+    // ============================================================
+    // Laplacian operators (order 2)
+    // ============================================================
+
+    // 1D Laplacian
+    m.def("make_laplacian_order2",
+          &laplacian_order2_1d,
+          py::arg("field"),
+          R"pbdoc(
+        Laplacian operator for 1D scalar fields.
+
+        Computes the positive (mathematical) Laplacian: Delta(field).
+        Equivalent to -make_diffusion_order2(field).
+
+        Parameters
+        ----------
+        field : ScalarField1D
+            Input scalar field
+
+        Returns
+        -------
+        ScalarField1D
+            New field containing Laplacian(field)
+
+        Examples
+        --------
+        >>> import sampai as sam
+        >>> mesh = sam.mesh.make(box, min_level=3, max_level=3)
+        >>> u = sam.field.scalar("u", mesh)
+        >>> lap_u = sam.make_laplacian_order2(u)  # Delta(u)
+        )pbdoc");
+
+    // 2D Laplacian
+    m.def("make_laplacian_order2",
+          &laplacian_order2_2d,
+          py::arg("field"),
+          R"pbdoc(
+        Laplacian operator for 2D scalar fields.
+
+        Computes Delta(field).
+
+        Parameters
+        ----------
+        field : ScalarField2D
+            Input scalar field
+
+        Returns
+        -------
+        ScalarField2D
+            New field containing Laplacian(field)
+        )pbdoc");
+
+    // 3D Laplacian
+    m.def("make_laplacian_order2",
+          &laplacian_order2_3d,
+          py::arg("field"),
+          R"pbdoc(
+        Laplacian operator for 3D scalar fields.
+
+        Computes Delta(field).
+
+        Parameters
+        ----------
+        field : ScalarField3D
+            Input scalar field
+
+        Returns
+        -------
+        ScalarField3D
+            New field containing Laplacian(field)
+        )pbdoc");
+
+    // ============================================================
+    // Gradient operators (order 2)
+    // ============================================================
+    // NOTE: 1D gradient is not supported due to VectorField1D_1 incompatibility with explicit scheme
+
+    // 2D Gradient
+    m.def("make_gradient_order2",
+          &gradient_order2_2d,
+          py::arg("field"),
+          R"pbdoc(
+        Gradient operator for 2D scalar fields.
+
+        Computes the gradient of a scalar field.
+        Returns a VectorField2D_2 (2 components in 2D space).
+
+        Parameters
+        ----------
+        field : ScalarField2D
+            Input scalar field
+
+        Returns
+        -------
+        VectorField2D_2
+            Vector field containing grad(field) = [du/dx, du/dy]
+        )pbdoc");
+
+    // 3D Gradient
+    m.def("make_gradient_order2",
+          &gradient_order2_3d,
+          py::arg("field"),
+          R"pbdoc(
+        Gradient operator for 3D scalar fields.
+
+        Computes the gradient of a scalar field.
+        Returns a VectorField3D_3 (3 components in 3D space).
+
+        Parameters
+        ----------
+        field : ScalarField3D
+            Input scalar field
+
+        Returns
+        -------
+        VectorField3D_3
+            Vector field containing grad(field) = [du/dx, du/dy, du/dz]
+        )pbdoc");
+
+    // ============================================================
+    // Divergence operators (order 2)
+    // ============================================================
+    // NOTE: 1D divergence is not supported due to VectorField1D_1 incompatibility with explicit scheme
+
+    // 2D Divergence
+    m.def("make_divergence_order2",
+          &divergence_order2_2d,
+          py::arg("field"),
+          R"pbdoc(
+        Divergence operator for 2D vector fields.
+
+        Computes the divergence of a vector field.
+        Input: VectorField2D_2, Output: ScalarField2D.
+
+        Parameters
+        ----------
+        field : VectorField2D_2
+            Input vector field (2 components in 2D space)
+
+        Returns
+        -------
+        ScalarField2D
+            Scalar field containing div(field) = dv_x/dx + dv_y/dy
+        )pbdoc");
+
+    // 3D Divergence
+    m.def("make_divergence_order2",
+          &divergence_order2_3d,
+          py::arg("field"),
+          R"pbdoc(
+        Divergence operator for 3D vector fields.
+
+        Computes the divergence of a vector field.
+        Input: VectorField3D_3, Output: ScalarField3D.
+
+        Parameters
+        ----------
+        field : VectorField3D_3
+            Input vector field (3 components in 3D space)
+
+        Returns
+        -------
+        ScalarField3D
+            Scalar field containing div(field) = dv_x/dx + dv_y/dy + dv_z/dz
+        )pbdoc");
+
+    // ============================================================
     // Create operators submodule for better organization
     // ============================================================
 
@@ -988,4 +1432,20 @@ void init_operator_bindings(py::module_& m)
 
     // Alias for shorter name (without 'make_' prefix, more Pythonic)
     operators.attr("convection_weno5") = m.attr("make_convection_weno5");
+
+    // Diffusion operators
+    operators.attr("make_diffusion_order2") = m.attr("make_diffusion_order2");
+    operators.attr("diffusion_order2") = m.attr("make_diffusion_order2");  // Alias
+
+    // Laplacian operators
+    operators.attr("make_laplacian_order2") = m.attr("make_laplacian_order2");
+    operators.attr("laplacian_order2") = m.attr("make_laplacian_order2");  // Alias
+
+    // Gradient operators
+    operators.attr("make_gradient_order2") = m.attr("make_gradient_order2");
+    operators.attr("gradient_order2") = m.attr("make_gradient_order2");  // Alias
+
+    // Divergence operators
+    operators.attr("make_divergence_order2") = m.attr("make_divergence_order2");
+    operators.attr("divergence_order2") = m.attr("make_divergence_order2");  // Alias
 }
