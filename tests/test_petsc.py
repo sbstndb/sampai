@@ -575,6 +575,103 @@ class TestPETScSolvers:
             assert abs(x.getValue(i) - 2.0/3.0) < 1e-8
 
 
+class TestPETScFieldSolver:
+    """End-to-end tests for solving PDEs with Sampai fields and PETSc."""
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_1d_diffusion_with_field(self):
+        """Test solving 1D diffusion equation with PETSc and Sampai fields.
+
+        This is a complete end-to-end test:
+        1. Create Sampai mesh and fields
+        2. Build PETSc matrix from 1D diffusion stencil
+        3. Convert RHS field to PETSc vector
+        4. Solve with PETSc CG
+        5. Copy solution back to field
+
+        The system is: du/dt = D * d^2u/dx^2 with D=1
+        Discretized: -u[i-1] + 3*u[i] - u[i+1] = rhs[i]
+        This is symmetric positive definite, suitable for CG.
+        """
+        from sampai.petsc.vector import HAS_PETSC4PY
+        from sampai.petsc import (
+            create_petsc_vec_from_field,
+            copy_vec_to_field,
+            field_to_array,
+            create_cg_solver,
+        )
+
+        if not HAS_PETSC4PY:
+            pytest.skip("petsc4py not installed")
+
+        # Initialize PETSc (required for MPI)
+        sampai.petsc.initialize()
+
+        from petsc4py import PETSc
+        import numpy as np
+
+        # Create 1D uniform mesh (small for faster testing)
+        cfg = sampai.config.make(dim=1, min_level=3, max_level=3)
+        box = sampai.geometry.box([0.0], [1.0])
+        mesh = sampai.mesh.make(box, cfg)
+        u = sampai.field.scalar(mesh, "u")  # Solution field
+        rhs = sampai.field.scalar(mesh, "rhs")  # RHS field
+
+        n = mesh.nb_cells
+
+        # Build a simple tridiagonal matrix: -u[i-1] + 3*u[i] - u[i+1] = rhs[i]
+        # This is symmetric positive definite (good for CG)
+        A = PETSc.Mat().createAIJ([n, n])
+        A.setUp()
+
+        for i in range(n):
+            # Diagonal
+            A.setValue(i, i, 3.0)
+
+            # Off-diagonals (interior only)
+            if i > 0:
+                A.setValue(i, i - 1, -1.0)
+            if i < n - 1:
+                A.setValue(i, i + 1, -1.0)
+
+        A.assemblyBegin()
+        A.assemblyEnd()
+
+        # Set RHS: rhs[i] = 1 for all i
+        rhs_array = field_to_array(rhs)
+        rhs_array[:] = 1.0
+
+        # Create PETSc vectors
+        b = create_petsc_vec_from_field(rhs)
+
+        # Solve with CG
+        ksp = create_cg_solver(pc_type="jacobi", rtol=1e-8, max_it=1000)
+        from sampai.petsc.solver import solve_with_ksp
+        x = solve_with_ksp(ksp, A, b)
+
+        # Check convergence
+        reason = ksp.getConvergedReason()
+        assert reason > 0, f"Solver should converge, got reason={reason}"
+
+        # Copy solution back to field
+        copy_vec_to_field(x, u)
+
+        # Verify solution was copied correctly
+        u_array = field_to_array(u)
+        x_array = x.getArray()
+
+        # Values should match
+        np.testing.assert_array_almost_equal(u_array, x_array, decimal=10)
+
+        # All values should be positive (for this system with positive RHS)
+        assert u_array.min() > 0, "All solution values should be positive"
+
+        # Maximum should be in the middle (symmetric problem)
+        max_idx = np.argmax(u_array)
+        assert n // 3 < max_idx < 2 * n // 3, "Maximum should be near middle"
+
+
 if __name__ == "__main__":
     # Run tests manually for quick verification
     pytest.main([__file__, "-v"])
