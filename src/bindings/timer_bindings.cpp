@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <mutex>
+#include <Python.h>
 
 namespace py = pybind11;
 
@@ -129,8 +130,9 @@ public:
             }
             catch (...)
             {
-                // Timer might exist but never stopped - skip it
-                // or set to 0 if preferred
+                // Timer might exist but never stopped - issue a warning
+                std::string warning_msg = "Timer '" + name + "' was started but never stopped, returning 0.0";
+                PyErr_WarnEx(PyExc_UserWarning, warning_msg.c_str(), 1);
                 result[name] = 0.0;
             }
         }
