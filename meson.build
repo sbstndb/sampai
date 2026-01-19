@@ -546,6 +546,8 @@ endif
 if has_petsc
     py.install_sources(
         'src/sampai/petsc/__init__.py',
+        'src/sampai/petsc/vector.py',
+        'src/sampai/petsc/solver.py',
         subdir: 'sampai/petsc',
     )
 endif

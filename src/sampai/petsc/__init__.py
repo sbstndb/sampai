@@ -84,6 +84,25 @@ PC_MG = _sampai.petsc.PC_MG
 PC_HYPRE = _sampai.petsc.PC_HYPRE
 PC_GAMG = _sampai.petsc.PC_GAMG
 
+# Import submodules
+from . import vector
+from . import solver
+
+# Re-export key utilities from submodules
+field_to_array = vector.field_to_array
+array_to_field = vector.array_to_field
+create_petsc_vec_from_field = vector.create_petsc_vec_from_field
+create_petsc_vec = vector.create_petsc_vec
+copy_vec_to_field = vector.copy_vec_to_field
+copy_field_to_vec = vector.copy_field_to_vec
+
+create_ksp_solver = solver.create_ksp_solver
+create_gmres_solver = solver.create_gmres_solver
+create_cg_solver = solver.create_cg_solver
+configure_monitor = solver.configure_monitor
+solve_with_ksp = solver.solve_with_ksp
+KSPSolver = solver.KSPSolver
+
 __all__ = [
     # Query functions
     'is_initialized',
@@ -122,6 +141,23 @@ __all__ = [
     'PC_MG',
     'PC_HYPRE',
     'PC_GAMG',
+    # Vector utilities
+    'field_to_array',
+    'array_to_field',
+    'create_petsc_vec_from_field',
+    'create_petsc_vec',
+    'copy_vec_to_field',
+    'copy_field_to_vec',
+    # Solver utilities
+    'create_ksp_solver',
+    'create_gmres_solver',
+    'create_cg_solver',
+    'configure_monitor',
+    'solve_with_ksp',
+    'KSPSolver',
+    # Submodules
+    'vector',
+    'solver',
 ]
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'
