@@ -214,6 +214,42 @@ void for_each_cell_3d(const Mesh3D& mesh, py::function func)
                            });
 }
 
+// ============================================================
+// for_each_level bindings
+// ============================================================
+
+// Wrapper functions for for_each_level for each dimension
+// Callback receives std::size_t level parameter
+void for_each_level_1d(const Mesh1D& mesh, py::function func, bool include_empty_levels = false)
+{
+    samurai::for_each_level(mesh,
+                           [&func](std::size_t level)
+                           {
+                               func(level);
+                           },
+                           include_empty_levels);
+}
+
+void for_each_level_2d(const Mesh2D& mesh, py::function func, bool include_empty_levels = false)
+{
+    samurai::for_each_level(mesh,
+                           [&func](std::size_t level)
+                           {
+                               func(level);
+                           },
+                           include_empty_levels);
+}
+
+void for_each_level_3d(const Mesh3D& mesh, py::function func, bool include_empty_levels = false)
+{
+    samurai::for_each_level(mesh,
+                           [&func](std::size_t level)
+                           {
+                               func(level);
+                           },
+                           include_empty_levels);
+}
+
 // Module initialization function for algorithm bindings
 void init_algorithm_bindings(py::module_& m)
 {
@@ -229,13 +265,15 @@ void init_algorithm_bindings(py::module_& m)
                                              "Algorithmic primitives for mesh traversal and field operations\n\n"
                                              "Factory Functions:\n"
                                              "  for_each_cell(mesh, function) - Iterate over all cells in mesh\n"
-                                             "  for_each_interval(mesh, function) - Iterate over all intervals in mesh\n\n"
+                                             "  for_each_interval(mesh, function) - Iterate over all intervals in mesh\n"
+                                             "  for_each_level(mesh, function, include_empty_levels=False) - Iterate over refinement levels\n\n"
                                              "Classes:\n"
                                              "  Cell1D, Cell2D, Cell3D - Cell wrapper objects for iteration\n\n"
                                              "Examples:\n"
                                              "    >>> import sampai as sam\n"
                                              "    >>> sam.algorithms.for_each_cell(mesh, lambda cell: print(cell.center()))\n"
-                                             "    >>> sam.algorithms.for_each_interval(mesh, lambda interval, index: ...)\n");
+                                             "    >>> sam.algorithms.for_each_interval(mesh, lambda level, interval, index: ...)\n"
+                                             "    >>> sam.algorithms.for_each_level(mesh, lambda level: print(f'Level {level}'))\n");
 
     // Bind CellWrapper classes ONLY to algorithms submodule (not to main module)
     bind_cell_wrapper<1>(algorithms, "Cell1D");
@@ -263,4 +301,36 @@ void init_algorithm_bindings(py::module_& m)
     algorithms.def("for_each_cell", &for_each_cell_1d, py::arg("mesh"), py::arg("function"), "Iterate over all cells in the 1D mesh.");
     algorithms.def("for_each_cell", &for_each_cell_2d, py::arg("mesh"), py::arg("function"), "Iterate over all cells in the 2D mesh.");
     algorithms.def("for_each_cell", &for_each_cell_3d, py::arg("mesh"), py::arg("function"), "Iterate over all cells in the 3D mesh.");
+
+    // Bind for_each_level functions ONLY to algorithms submodule (not to main module)
+    algorithms.def("for_each_level",
+                   &for_each_level_1d,
+                   py::arg("mesh"),
+                   py::arg("function"),
+                   py::arg("include_empty_levels") = false,
+                   "Iterate over all refinement levels in the 1D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to iterate over\n"
+                   "    function: Callback function(level) - called with level number (int)\n"
+                   "    include_empty_levels: If False (default), skip levels with no cells");
+    algorithms.def("for_each_level",
+                   &for_each_level_2d,
+                   py::arg("mesh"),
+                   py::arg("function"),
+                   py::arg("include_empty_levels") = false,
+                   "Iterate over all refinement levels in the 2D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to iterate over\n"
+                   "    function: Callback function(level) - called with level number (int)\n"
+                   "    include_empty_levels: If False (default), skip levels with no cells");
+    algorithms.def("for_each_level",
+                   &for_each_level_3d,
+                   py::arg("mesh"),
+                   py::arg("function"),
+                   py::arg("include_empty_levels") = false,
+                   "Iterate over all refinement levels in the 3D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to iterate over\n"
+                   "    function: Callback function(level) - called with level number (int)\n"
+                   "    include_empty_levels: If False (default), skip levels with no cells");
 }

@@ -24,7 +24,7 @@ project('sampai', 'cpp', 'c',
         'buildtype=release',
         'optimization=3',
         'b_ndebug=if-release',
-        'b_lto=true',
+        'b_lto=false',
     ],
     meson_version: '>=0.64.0'
 )
@@ -304,6 +304,7 @@ message('')
 binding_sources = files(
     'src/bindings/main.cpp',
     'src/bindings/box_bindings.cpp',
+    'src/bindings/cell_list_bindings.cpp',
     'src/bindings/domain_builder_bindings.cpp',
     'src/bindings/mesh_config_bindings.cpp',
     'src/bindings/mesh_bindings.cpp',

@@ -17,6 +17,7 @@
 #include "algorithm_bindings.hpp"
 #include "bc_bindings.hpp"
 #include "box_bindings.hpp"
+#include "cell_list_bindings.hpp"
 #include "domain_builder_bindings.hpp"
 #include "field_bindings.hpp"
 #include "interval_bindings.hpp"
@@ -113,6 +114,7 @@ PYBIND11_MODULE(_sampai, m)
     init_bc_bindings(m);
     init_mra_config_bindings(m);
     init_adapt_bindings(m);
+    init_cell_list_bindings(m);  // CellList for building AMR meshes
     init_subset_bindings(m);
     init_io_bindings(m);
     sampai::bindings::init_mpi_bindings(m);  // MPI support (conditional compilation)
