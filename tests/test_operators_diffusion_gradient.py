@@ -10,8 +10,12 @@ incompatibility with the explicit scheme implementation.
 """
 
 # IMPORTANT: Initialize MPI first before any sampai imports to avoid MPI errors
-# when using field arithmetic combined with operators
-from mpi4py import MPI  # noqa: F401
+# when using field arithmetic combined with operators.
+# mpi4py is optional - tests work without it when MPI is disabled.
+try:
+    from mpi4py import MPI  # noqa: F401
+except ModuleNotFoundError:
+    pass  # MPI is optional, tests work without it
 
 import pytest
 
