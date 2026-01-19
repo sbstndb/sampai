@@ -73,6 +73,12 @@ Each major component has a `.cpp`/`.hpp` pair. All bindings are initialized in `
 - `viz/samplotlib.py` - Real-time matplotlib visualization (`FieldPlotter`, `VectorPlotter`)
 - `progress/` - Progress bars for time loops (`TimeLoop`, `MeshStatistics`)
 
+### Build System Architecture (`meson.build`, `subprojects/`)
+
+- **`subprojects/samurai-headers/`** - Meson subproject that downloads Samurai from GitHub and exposes headers
+- **`meson.build`** - Main build configuration using meson-python
+- **`meson_options.txt`** - Build options (MPI, samurai_commit, samurai_depth, samurai_local_path)
+
 ### Module Organization (v0.30.0+)
 
 The API is organized into submodules:
@@ -106,6 +112,28 @@ Legacy module-level functions (e.g., `make_dirichlet_bc()`, `upwind()`) are reta
 4. **Dimension-Independent Design** - C++ templates for 1D/2D/3D, Python factories handle dispatch
 5. **Context Managers** - Progress bars use `with` statements for resource management
 
+## Build System
+
+**Samurai headers** are downloaded automatically via the `samurai-headers` Meson subproject (see `subprojects/samurai-headers/`). This provides flexibility to use any Samurai version.
+
+### Choosing a Specific Samurai Version
+
+```bash
+# Use latest main branch (default)
+meson setup builddir
+
+# Use specific release
+meson setup builddir -Dsamurai_commit=v0.27.1
+
+# Use specific commit
+meson setup builddir -Dsamurai_commit=b39857a2780426f96562cfd8d0a4e31c929fc681
+
+# Use local Samurai installation
+meson setup builddir -Dsamurai_local_path=/path/to/samurai
+```
+
+See `DEPENDENCIES.md` for complete dependency documentation.
+
 ## Dependencies
 
 **Build (from conda-forge):**
@@ -118,11 +146,13 @@ Legacy module-level functions (e.g., `make_dirichlet_bc()`, `upwind()`) are reta
 **Optional:**
 - h5py >=3.0 (HDF5 I/O), matplotlib >=3.0 (viz), tqdm >=4.60 (progress)
 
+> **Note:** See `DEPENDENCIES.md` for comprehensive dependency information with versions, sources, and purposes.
+
 ## Testing
 
 - **Framework:** pytest
 - **Markers:** `slow`, `integration`, `unit`, `viz`
-- **Validation:** `tests/test_validation.py` compares Python outputs against C++ reference files in `subprojects/samurai/tests/reference/finite_volume/`
+- **Validation:** `tests/test_validation.py` compares Python outputs against C++ reference files in `subprojects/samurai-headers/samurai/tests/reference/finite_volume/`
 - **Fixtures:** `tests/conftest.py` provides `val_tol`, `val_generate_ref`, `cpp_reference_dir`
 
 ## CI/CD
