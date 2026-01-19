@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+
+# Copyright 2026 Sebastien Dubois (sbstndbs)
+# SPDX-License-Identifier: Apache-2.0
+
 """Performance benchmark for in-place operators POC
 
 This script measures the performance improvement of in-place operators
