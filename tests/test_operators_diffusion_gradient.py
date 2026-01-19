@@ -9,6 +9,10 @@ Note: Gradient and divergence operators are NOT supported in 1D due to VectorFie
 incompatibility with the explicit scheme implementation.
 """
 
+# IMPORTANT: Initialize MPI first before any sampai imports to avoid MPI errors
+# when using field arithmetic combined with operators
+from mpi4py import MPI  # noqa: F401
+
 import pytest
 
 import sampai as sam
@@ -583,3 +587,237 @@ class TestNumericalAccuracy:
             "div(grad(u)) should be non-zero"
         assert np.any(np.abs(result_lap) > 1e-6), \
             "laplacian(u) should be non-zero"
+
+
+class TestOperatorLinearity:
+    """Test linearity properties of operators: L(a*u + b*v) = a*L(u) + b*L(v)."""
+
+    def test_diffusion_linearity_1d(self):
+        """Test diffusion(a*u + b*v) = a*diffusion(u) + b*diffusion(v) in 1D."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=4, max_level=4)
+
+        u = sam.field.scalar(mesh, "u", init=2.0)
+        v = sam.field.scalar(mesh, "v", init=3.0)
+
+        a, b = 2.0, 3.0
+
+        # Compute diffusion of linear combination
+        w = a * u + b * v
+        diff_w = sam.make_diffusion_order2(w, coefficient=1.0)
+
+        # Compute linear combination of diffusions
+        diff_u = sam.make_diffusion_order2(u, coefficient=a)
+        diff_v = sam.make_diffusion_order2(v, coefficient=b)
+        diff_combined = diff_u + diff_v
+
+        import numpy as np
+        result_diff_w = diff_w.numpy_view()
+        result_diff_combined = diff_combined.numpy_view()
+
+        # Results should be approximately equal
+        assert np.allclose(result_diff_w, result_diff_combined, rtol=1e-10, atol=1e-10), \
+            f"diffusion(a*u + b*v) should equal a*diffusion(u) + b*diffusion(v)"
+
+    def test_laplacian_linearity_2d(self):
+        """Test laplacian(a*u + b*v) = a*laplacian(u) + b*laplacian(v) in 2D."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u", init=1.5)
+        v = sam.field.scalar(mesh, "v", init=2.5)
+
+        a, b = 1.5, 2.5
+
+        # Compute laplacian of linear combination
+        w = a * u + b * v
+        lap_w = sam.make_laplacian_order2(w)
+
+        # Compute linear combination of laplacians
+        # Note: laplacian doesn't take a coefficient, so we scale after
+        lap_u = sam.make_laplacian_order2(u)
+        lap_v = sam.make_laplacian_order2(v)
+        lap_combined = a * lap_u + b * lap_v
+
+        import numpy as np
+        result_lap_w = lap_w.numpy_view()
+        result_lap_combined = lap_combined.numpy_view()
+
+        # Results should be approximately equal
+        assert np.allclose(result_lap_w, result_lap_combined, rtol=1e-10, atol=1e-10), \
+            f"laplacian(a*u + b*v) should equal a*laplacian(u) + b*laplacian(v)"
+
+    def test_gradient_linearity_2d(self):
+        """Test gradient(a*u + b*v) = a*gradient(u) + b*gradient(v) in 2D."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u", init=1.0)
+        v = sam.field.scalar(mesh, "v", init=2.0)
+
+        a, b = 2.0, 3.0
+
+        # Compute gradient of linear combination
+        w = a * u + b * v
+        grad_w = sam.make_gradient_order2(w)
+
+        # Compute linear combination of gradients
+        grad_u = sam.make_gradient_order2(u)
+        grad_v = sam.make_gradient_order2(v)
+        grad_combined = a * grad_u + b * grad_v
+
+        import numpy as np
+        # Compare each component
+        for i in range(2):
+            comp_grad_w = grad_w.get_component(i).numpy_view()
+            comp_grad_combined = grad_combined.get_component(i).numpy_view()
+            assert np.allclose(comp_grad_w, comp_grad_combined, rtol=1e-10, atol=1e-10), \
+                f"gradient(a*u + b*v)[{i}] should equal a*gradient(u)[{i}] + b*gradient(v)[{i}]"
+
+    def test_divergence_linearity_2d(self):
+        """Test divergence(a*u + b*v) = a*divergence(u) + b*divergence(v) in 2D."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.vector(mesh, "u", n_components=2, init=1.0)
+        v = sam.field.vector(mesh, "v", n_components=2, init=2.0)
+
+        a, b = 1.5, 2.5
+
+        # Compute divergence of linear combination
+        w = a * u + b * v
+        div_w = sam.make_divergence_order2(w)
+
+        # Compute linear combination of divergences
+        div_u = sam.make_divergence_order2(u)
+        div_v = sam.make_divergence_order2(v)
+        div_combined = a * div_u + b * div_v
+
+        import numpy as np
+        result_div_w = div_w.numpy_view()
+        result_div_combined = div_combined.numpy_view()
+
+        # Results should be approximately equal
+        assert np.allclose(result_div_w, result_div_combined, rtol=1e-10, atol=1e-10), \
+            f"divergence(a*u + b*v) should equal a*divergence(u) + b*divergence(v)"
+
+    def test_diffusion_of_field_difference_1d(self):
+        """Test diffusion(u - v) = diffusion(u) - diffusion(v) in 1D."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=4, max_level=4)
+
+        u = sam.field.scalar(mesh, "u", init=5.0)
+        v = sam.field.scalar(mesh, "v", init=3.0)
+
+        # Compute diffusion of difference
+        diff = u - v
+        diff_diff = sam.make_diffusion_order2(diff)
+
+        # Compute difference of diffusions
+        diff_u = sam.make_diffusion_order2(u)
+        diff_v = sam.make_diffusion_order2(v)
+        diff_combined = diff_u - diff_v
+
+        import numpy as np
+        result_diff_diff = diff_diff.numpy_view()
+        result_diff_combined = diff_combined.numpy_view()
+
+        assert np.allclose(result_diff_diff, result_diff_combined, rtol=1e-10, atol=1e-10), \
+            "diffusion(u - v) should equal diffusion(u) - diffusion(v)"
+
+    def test_chained_arithmetic_with_operator_1d(self):
+        """Test complex arithmetic expressions with operators in 1D."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u", init=1.0)
+        v = sam.field.scalar(mesh, "v", init=2.0)
+
+        # Test: diffusion(2*u + 3*v - u) = diffusion(u + 3*v)
+        w1 = 2 * u + 3 * v - u
+        diff_w1 = sam.make_diffusion_order2(w1)
+
+        w2 = u + 3 * v
+        diff_w2 = sam.make_diffusion_order2(w2)
+
+        import numpy as np
+        result_w1 = diff_w1.numpy_view()
+        result_w2 = diff_w2.numpy_view()
+
+        assert np.allclose(result_w1, result_w2, rtol=1e-10, atol=1e-10), \
+            "diffusion(2*u + 3*v - u) should equal diffusion(u + 3*v)"
+
+
+class TestOperatorConsistency:
+    """Test consistency of operators across different field expressions."""
+
+    def test_diffusion_scaled_field_vs_coefficient_1d(self):
+        """Test diffusion(2*u) should equal 2*diffusion(u) in 1D."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=4, max_level=4)
+
+        u = sam.field.scalar(mesh, "u", init=1.0)
+
+        # Method 1: Scale field first
+        scaled_u = 2.0 * u
+        diff_scaled = sam.make_diffusion_order2(scaled_u, coefficient=1.0)
+
+        # Method 2: Use coefficient
+        diff_with_coeff = sam.make_diffusion_order2(u, coefficient=2.0)
+
+        import numpy as np
+        result_scaled = diff_scaled.numpy_view()
+        result_with_coeff = diff_with_coeff.numpy_view()
+
+        assert np.allclose(result_scaled, result_with_coeff, rtol=1e-10, atol=1e-10), \
+            "diffusion(2*u) should equal diffusion(u, coefficient=2)"
+
+    def test_laplacian_vs_diffusion_consistency_2d(self):
+        """Test that laplacian(u) behaves consistently with diffusion(u)."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u", init=1.0)
+
+        # Laplacian is equivalent to -diffusion (in some contexts)
+        # This test verifies the operators work consistently
+        lap_u = sam.make_laplacian_order2(u)
+        diff_u = sam.make_diffusion_order2(u, coefficient=-1.0)
+
+        import numpy as np
+        result_lap = lap_u.numpy_view()
+        result_diff = diff_u.numpy_view()
+
+        # They should have the same structure and be proportional
+        assert result_lap.shape == result_diff.shape, \
+            "laplacian(u) and diffusion(u, coefficient=-1) should have same shape"
+
+        # Both should be non-zero for a non-trivial field
+        # (Note: exact equality depends on boundary conditions)
+        nonzero_lap = np.any(np.abs(result_lap) > 1e-10)
+        nonzero_diff = np.any(np.abs(result_diff) > 1e-10)
+        assert nonzero_lap == nonzero_diff, \
+            "laplacian and diffusion should have similar zero/non-zero patterns"
+
+    def test_expression_order_independence_1d(self):
+        """Test that (u+v)+w and u+(v+w) give same diffusion result."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u", init=1.0)
+        v = sam.field.scalar(mesh, "v", init=2.0)
+        w = sam.field.scalar(mesh, "w", init=3.0)
+
+        # Different grouping orders
+        expr1 = (u + v) + w
+        expr2 = u + (v + w)
+
+        diff1 = sam.make_diffusion_order2(expr1)
+        diff2 = sam.make_diffusion_order2(expr2)
+
+        import numpy as np
+        result1 = diff1.numpy_view()
+        result2 = diff2.numpy_view()
+
+        assert np.allclose(result1, result2, rtol=1e-10, atol=1e-10), \
+            "diffusion((u+v)+w) should equal diffusion(u+(v+w))"
