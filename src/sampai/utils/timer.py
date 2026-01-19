@@ -30,10 +30,7 @@ Example usage:
     >>> timer.Timers.print()
     >>>
     >>> # Helper for timing functions
-    >>> @timer.timeit
-    >>> def my_function():
-    ...     # Function code
-    ...     pass
+    >>> result, elapsed = timer.time_function(my_function, arg1, arg2)
 """
 
 import sys
@@ -271,29 +268,6 @@ class Timers:
             print("-" * 46, file=file)
             print(f"{'Total':<20} {total:>12.3f} {100.0:>11.1f}%", file=file)
 
-    @classmethod
-    def reset(cls, name: Optional[str] = None) -> None:
-        """Reset a timer or all timers.
-
-        Args:
-            name: Name of the timer to reset, or None to reset all timers
-
-        Example:
-            >>> Timers.reset("mesh_adaptation")  # Reset specific timer
-            >>> Timers.reset()  # Reset all timers
-        """
-        cls._init_cpp_timers()
-
-        if cls._use_cpp and cls._cpp_timers is not None:
-            if hasattr(cls._cpp_timers, 'reset'):
-                cls._cpp_timers.reset(name)
-        else:
-            # Python fallback
-            if name is None:
-                cls._python_timers.clear()
-            elif name in cls._python_timers:
-                cls._python_timers[name] = {'start': 0.0, 'elapsed': 0.0, 'running': False}
-
 
 class Timer:
     """Context manager for timing code blocks.
@@ -385,68 +359,6 @@ def timer_context(name: str, silent: bool = False):
     """
     with Timer(name, silent=silent) as t:
         yield t
-
-
-def timeit(func: Optional[Callable] = None, *, name: Optional[str] = None) -> Callable:
-    """Decorator to time function execution.
-
-    This decorator automatically times the decorated function and records
-    the elapsed time using the Timers class.
-
-    Args:
-        func: Function to decorate (used when called without arguments)
-        name: Custom name for the timer (default: function name)
-
-    Returns:
-        Decorated function
-
-    Example:
-        >>> @timeit
-        >>> def my_expensive_function():
-        ...     # Function code
-        ...     pass
-        >>>
-        >>> # With custom name
-        >>> @timeit(name="solver")
-        >>> def solve():
-        ...     # Solver code
-        ...     pass
-        >>>
-        >>> # After calling functions
-        >>> Timers.print()
-    """
-    def decorator(f: Callable) -> Callable:
-        """Inner decorator function.
-
-        Args:
-            f: Function to decorate
-
-        Returns:
-            Wrapped function with timing
-        """
-        timer_name = name or f.__name__
-
-        def wrapper(*args, **kwargs):
-            """Wrapper function that times execution.
-
-            Args:
-                *args: Positional arguments to pass to function
-                **kwargs: Keyword arguments to pass to function
-
-            Returns:
-                Result of the decorated function
-            """
-            with Timer(timer_name, silent=True):
-                return f(*args, **kwargs)
-
-        return wrapper
-
-    if func is not None:
-        # Called as @timeit
-        return decorator(func)
-    else:
-        # Called as @timeit(name="custom_name")
-        return decorator
 
 
 def time_function(func: Callable, *args, name: Optional[str] = None, **kwargs) -> tuple:

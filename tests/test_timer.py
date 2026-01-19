@@ -308,34 +308,6 @@ class TestTimerErrorHandling:
             # Exception for empty name is acceptable
             assert True
 
-
-# =============================================================================
-# Context Manager Tests (if implemented in Python utilities)
-# =============================================================================
-
-
-class TestTimerContextManager:
-    """Test suite for timer context manager functionality."""
-
-    def test_timer_context_manager_basic(self):
-        """Test using timer as context manager."""
-        # This is a planned feature - may not be implemented yet
-        timer_name = "context_timer"
-
-        # Try context manager if available
-        try:
-            # Usage might be: with Timers.timer(name): or similar
-            # For now, we'll skip if not implemented
-            pytest.skip("Context manager not yet implemented")
-        except AttributeError:
-            pytest.skip("Context manager not available")
-
-    def test_nested_timers(self):
-        """Test nested timer contexts."""
-        # Planned feature for hierarchical timing
-        pytest.skip("Nested timers not yet implemented")
-
-
 # =============================================================================
 # Integration Tests
 # =============================================================================
@@ -490,44 +462,6 @@ class TestTimerPerformance:
         # Timer should be able to measure sub-millisecond intervals
         # (or return 0 if below precision threshold)
         assert elapsed >= 0
-
-
-# =============================================================================
-# Utility Function Tests
-# =============================================================================
-
-
-class TestTimerUtilities:
-    """Test suite for timer utility functions."""
-
-    def test_reset_timer(self):
-        """Test resetting a timer (if implemented)."""
-        # This is a planned feature
-        pytest.skip("Timer reset not yet implemented")
-
-    def test_pause_resume_timer(self):
-        """Test pause/resume functionality (if implemented)."""
-        # This is a planned feature
-        pytest.skip("Pause/resume not yet implemented")
-
-    def test_timer_accumulation(self):
-        """Test that multiple start/stop cycles accumulate time."""
-        timer_name = "accumulation"
-
-        total_elapsed = 0
-        for i in range(3):
-            Timers.start(timer_name)
-            time.sleep(0.01)
-            Timers.stop(timer_name)
-            elapsed = Timers.get_elapsed(timer_name)
-
-            # Behavior depends on implementation:
-            # - May return only the last interval
-            # - May return accumulated time
-            # - May be configurable
-            if i > 0:
-                # Check that elapsed doesn't decrease
-                assert elapsed >= 0
 
 
 # =============================================================================
