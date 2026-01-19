@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Languages:** C++20 (bindings), Python 3.9+ (utilities/tests)
 - **Build System:** Meson with meson-python backend
-- **License:** BSD 3-Clause
+- **License:** Apache 2.0
 
 ## Build and Development Commands
 
