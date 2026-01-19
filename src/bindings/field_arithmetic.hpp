@@ -1,5 +1,5 @@
-// Copyright 2025 the sampai's authors
-// SPDX-License-Identifier: BSD-3-Clause
+// Copyright 2024-2025 Sebastien D. S.
+// SPDX-License-Identifier: Apache-2.0
 
 #pragma once
 
