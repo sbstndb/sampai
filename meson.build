@@ -153,14 +153,12 @@ pugixml_dep = dependency('pugixml', required: false)
 # ============================================================================
 # MPI DETECTION (optional)
 # ============================================================================
-# Get C++ compiler for finding libraries
-cpp = meson.get_compiler('cpp')
-
-# Try to find MPI via dependency() first (works with system MPI)
+# MPI detection via pkg-config (works with system MPI and conda-forge)
+# Note: Set PKG_CONFIG_PATH if MPI is in a non-standard location
 mpi_dep = dependency('mpi', required: false)
 
-# If not found, try OpenMPI/MPICH pkg-config names explicitly (conda-forge)
 if not mpi_dep.found() and enable_mpi
+    # Try OpenMPI/MPICH pkg-config names explicitly (conda-forge)
     ompi_cxx_dep = dependency('ompi-cxx', method: 'pkg-config', required: false)
     ompi_c_dep = dependency('ompi-c', method: 'pkg-config', required: false)
 
@@ -186,100 +184,48 @@ if not mpi_dep.found() and enable_mpi
     endif
 endif
 
-# If not found, try finding MPI libraries explicitly (works with conda-forge)
-if not mpi_dep.found() and enable_mpi
-    # Get conda prefix if available
+# If still not found, provide helpful error message
+if enable_mpi and not mpi_dep.found()
+    error('MPI requested but not found via pkg-config. Install one of:\n' +
+          '  - conda install -c conda-forge mpich\n' +
+          '  - conda install -c conda-forge openmpi\n' +
+          '  - Set PKG_CONFIG_PATH to your MPI installation')
+endif
+
+# Find Boost.MPI via pkg-config
+boost_mpi_dep = dependency('boost_mpi', required: false)
+
+# Fallback to find_library for Boost (some systems don't provide pkg-config)
+if not boost_mpi_dep.found() and enable_mpi
+    cpp = meson.get_compiler('cpp')
     conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
 
+    boost_search_dirs = []
     if conda_prefix != ''
-        # Try to find MPI in conda environment
-        mpi_lib_dirs = [
+        boost_search_dirs += [
             join_paths(conda_prefix, 'lib'),
-            join_paths(conda_prefix, 'lib/openmpi'),
             join_paths(conda_prefix, 'lib64'),
-            join_paths(conda_prefix, 'lib64/openmpi'),
         ]
-
-        mpi_lib = cpp.find_library('mpi', dirs: mpi_lib_dirs, required: false)
-        mpi_cxx_lib = cpp.find_library('mpi_cxx', dirs: mpi_lib_dirs, required: false)
-
-        if mpi_lib.found()
-            mpi_libs = [mpi_lib]
-            mpi_include_dirs = []
-
-            mpi_include_path = join_paths(conda_prefix, 'include')
-            mpi_include_openmpi = join_paths(conda_prefix, 'include/openmpi')
-
-            if run_command('test', '-d', mpi_include_path, check: false).returncode() == 0
-                mpi_include_dirs += [include_directories(mpi_include_path)]
-            endif
-            if run_command('test', '-d', mpi_include_openmpi, check: false).returncode() == 0
-                mpi_include_dirs += [include_directories(mpi_include_openmpi)]
-            endif
-
-            if mpi_cxx_lib.found()
-                mpi_libs += [mpi_cxx_lib]
-                message('Found MPI C++ library in conda')
-            else
-                message('MPI C++ library not found (using C bindings only)')
-            endif
-
-            mpi_dep = declare_dependency(
-                include_directories: mpi_include_dirs,
-                dependencies: mpi_libs,
-            )
-            message('Found MPI libraries via conda environment')
-        endif
     endif
 
-    # Fallback to system-wide search if conda detection failed
-    if not mpi_dep.found()
-        mpi_lib = cpp.find_library('mpi', required: false)
-        if mpi_lib.found()
-            mpi_dep = declare_dependency(dependencies: mpi_lib)
-            message('Found MPI libraries via system search')
-        endif
+    boost_mpi_lib = cpp.find_library('boost_mpi', dirs: boost_search_dirs, required: false)
+    boost_serialization_lib = cpp.find_library('boost_serialization', dirs: boost_search_dirs, required: false)
+
+    if boost_mpi_lib.found() and boost_serialization_lib.found()
+        boost_mpi_dep = declare_dependency(
+            dependencies: [boost_mpi_lib, boost_serialization_lib]
+        )
+        message('Found Boost.MPI via find_library')
     endif
 endif
 
-# Still not found and MPI is required?
-if enable_mpi and not mpi_dep.found()
-    error('MPI requested but not found. Install system MPI or conda-forge openmpi')
-endif
+has_boost_mpi = boost_mpi_dep.found()
 
-# Find boost-mpi and boost-serialization libraries explicitly
-# Using find_library is more reliable than dependency() for MPI
-boost_search_dirs = []
-if conda_prefix != ''
-    boost_search_dirs += [
-        join_paths(conda_prefix, 'lib'),
-        join_paths(conda_prefix, 'lib64'),
-    ]
-endif
-
-boost_mpi_lib = cpp.find_library('boost_mpi', dirs: boost_search_dirs, required: false)
-boost_serialization_lib = cpp.find_library('boost_serialization', dirs: boost_search_dirs, required: false)
-
-has_boost_mpi = boost_mpi_lib.found() and boost_serialization_lib.found()
-
-# Combine into a dependency-like object
-if has_boost_mpi
-    boost_mpi_dep = declare_dependency(
-        dependencies: [boost_mpi_lib, boost_serialization_lib]
-    )
-    message('Found boost-mpi and boost-serialization libraries')
-else
-    boost_mpi_dep = declare_dependency()
-    if enable_mpi
-        warning('boost-mpi or boost-serialization not found - MPI support may be limited')
-    endif
+if enable_mpi and not has_boost_mpi
+    error('MPI support requires Boost.MPI; install libboost-mpi or conda-forge boost')
 endif
 
 has_mpi = enable_mpi and mpi_dep.found()
-
-if enable_mpi and not has_boost_mpi
-    error('MPI support requires Boost.MPI and Boost.Serialization; install libboost-mpi and libboost-serialization')
-endif
 
 # Collect cpp_args for conditional compilation
 extra_cpp_args = []
