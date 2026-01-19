@@ -1,3 +1,6 @@
+# Copyright 2026 Sebastien Dubois (sbstndbs)
+# SPDX-License-Identifier: Apache-2.0
+
 #!/usr/bin/env python3
 """Burgers 2D equation - Simple version without mesh adaptation"""
 

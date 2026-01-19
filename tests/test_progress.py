@@ -1,3 +1,6 @@
+# Copyright 2026 Sebastien Dubois (sbstndbs)
+# SPDX-License-Identifier: Apache-2.0
+
 """
 Comprehensive test suite for Samurai progress bar API v0.30.0+
 
