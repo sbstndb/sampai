@@ -11,8 +11,19 @@
 #include <samurai/timers.hpp>
 #include <chrono>
 #include <map>
+#include <set>
+#include <mutex>
 
 namespace py = pybind11;
+
+// ============================================================
+// Global timer name tracking
+// ============================================================
+// Since Samurai C++ doesn't expose a way to get all timers,
+// we track timer names manually in the bindings.
+
+static std::set<std::string> g_timer_names;
+static std::mutex g_timer_names_mutex;
 
 // ============================================================
 // Helper functions to handle MPI/non-MPI return type differences
@@ -48,6 +59,11 @@ public:
     {
         try
         {
+            // Track timer name for get_all()
+            {
+                std::lock_guard<std::mutex> lock(g_timer_names_mutex);
+                g_timer_names.insert(name);
+            }
             samurai::times::timers.start(name);
         }
         catch (const std::exception& e)
@@ -98,11 +114,27 @@ public:
 
     static std::map<std::string, double> get_all()
     {
-        // Note: Samurai doesn't expose a way to get all timers directly
-        // This is a limitation of the C++ API
-        // For now, return an empty map with a warning
-        // In practice, users should use print() to see all timers
         std::map<std::string, double> result;
+
+        // Get all tracked timer names
+        std::lock_guard<std::mutex> lock(g_timer_names_mutex);
+
+        for (const auto& name : g_timer_names)
+        {
+            try
+            {
+                // Try to get elapsed time for each tracked timer
+                // Note: This may throw if timer was never stopped
+                result[name] = get_elapsed_seconds(name);
+            }
+            catch (...)
+            {
+                // Timer might exist but never stopped - skip it
+                // or set to 0 if preferred
+                result[name] = 0.0;
+            }
+        }
+
         return result;
     }
 };
@@ -259,7 +291,8 @@ void init_timer_bindings(py::module_& m)
             Get all timers and their elapsed times.
 
             Returns a dictionary mapping timer names to their accumulated
-            elapsed times in seconds.
+            elapsed times in seconds. Only includes timers that have been
+            started via this Python interface.
 
             Returns
             -------
@@ -269,13 +302,20 @@ void init_timer_bindings(py::module_& m)
             Examples
             --------
             >>> import sampai as sam
+            >>> sam.Timers.start('adaptation')
+            >>> # ... do work ...
+            >>> sam.Timers.stop('adaptation')
+            >>> sam.Timers.start('prediction')
+            >>> # ... do work ...
+            >>> sam.Timers.stop('prediction')
             >>> timers = sam.Timers.get_all()
             >>> for name, elapsed in sorted(timers.items()):
             ...     print(f"{name}: {elapsed:.3f}s")
 
             Notes
             -----
-            Note: This method returns an empty dictionary due to limitations
-            in the Samurai C++ API. Use print() to see all timers.
+            - Only includes timers started through this Python interface
+            - Timers that were started but not stopped will show as 0.0
+            - For a formatted table output, use print() instead
         )pbdoc");
 }

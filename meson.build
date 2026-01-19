@@ -403,7 +403,6 @@ py.install_sources(
 # Install utils package
 py.install_sources(
     'src/sampai/utils/__init__.py',
-    'src/sampai/utils/timer.py',
     subdir: 'sampai/utils',
 )
 
