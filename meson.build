@@ -74,49 +74,69 @@ else
 endif
 
 # ============================================================================
-# FIND SAMURAI C++ LIBRARY (auto-downloaded from GitHub)
+# FIND SAMURAI C++ LIBRARY (via subproject)
 # ============================================================================
-# IMPORTANT: We use samurai from source (auto-downloaded) because conda version is outdated.
-# Samurai is a header-only library, so no compiled library is needed.
-# The conda package is only used for dependencies (xtensor, fmt, CLI, hdf5, etc.).
-# Samurai is automatically cloned from GitHub into subprojects/samurai
+# Samurai is a header-only library downloaded via the samurai-headers subproject.
+# The subproject handles fetching Samurai from GitHub and exposing the headers.
+#
+# You can control which Samurai version is used with Meson options:
+#
+#   meson setup builddir                                    # Uses main (default)
+#   meson setup builddir -Dsamurai_commit=v0.27.1            # Uses release tag
+#   meson setup builddir -Dsamurai_commit=b39857a278...      # Uses specific commit
+#   meson setup builddir -Dsamurai_local_path=/path/to/samurai  # Uses local copy
+# ============================================================================
 
-# Define samurai download location (relative path for Meson)
-samurai_subproj_dir = 'subprojects/samurai'
-samurai_headers_check = run_command('test', '-d', samurai_subproj_dir / 'include/samurai', check: false)
+# Forward Samurai options to the subproject
+samurai_commit = get_option('samurai_commit')
+samurai_depth = get_option('samurai_depth')
+samurai_local_path = get_option('samurai_local_path')
 
-# Check if samurai is already downloaded, if not clone it
-if samurai_headers_check.returncode() != 0
-    message('Samurai not found locally, downloading from GitHub...')
-    # Clone samurai repository (shallow clone for speed)
-    samurai_clone = run_command('git', 'clone', '--depth=1', '--single-branch',
-                               'https://github.com/hpc-maths/samurai.git', samurai_subproj_dir,
-                               check: true)
-    message('Samurai downloaded successfully!')
+# Use the samurai-headers subproject to fetch Samurai
+samurai_subproj = subproject('samurai-headers',
+                             required: true)
+
+# Get the samurai dependency from the subproject
+samurai_base_dep = samurai_subproj.get_variable('samurai_dep')
+
+# Store conda prefix for dependency includes (but NOT for samurai headers)
+# We'll add these separately to avoid conda's samurai headers taking precedence
+conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
+conda_dep_include_dirs = []
+
+if conda_prefix != ''
+    message('  Conda prefix: ' + conda_prefix + ' (for dependencies)')
+    # Extract only the dependency subdirectories, NOT the entire include dir
+    # This avoids picking up conda's samurai headers
+    conda_include_root = conda_prefix / 'include'
+
+    # Check for specific dependency subdirectories
+    dep_subdirs = ['xtensor', 'xtl', 'nlohmann', 'fmt', 'CLI', 'highfive', 'hdf5', 'pugixml']
+
+    foreach subdir : dep_subdirs
+        subdir_path = conda_include_root / subdir
+        if run_command('test', '-d', subdir_path, check: false).returncode() == 0
+            conda_dep_include_dirs += include_directories(subdir_path)
+        endif
+    endforeach
+
+    # Also add the root include for dependencies that don't have subdirs
+    # but mark it as NON-system to avoid overriding our samurai headers
+    # The key is that samurai headers from subproject will be searched FIRST
+    conda_dep_include_dirs += include_directories(conda_include_root)
 endif
 
-# Samurai is header-only - just need headers (use relative path)
-samurai_include = include_directories(samurai_subproj_dir / 'include')
+# Use samurai from subproject WITHOUT conda include
+# This ensures our downloaded samurai headers are found first
+samurai_dep = samurai_base_dep
 
-message('=== Using Samurai (header-only) from GitHub ===')
-message('  Source: https://github.com/hpc-maths/samurai.git (main branch)')
-message('  Location: subprojects/samurai')
-
-# Add conda include for dependencies (xtensor, fmt, CLI, hdf5, etc.)
-# These are needed by samurai headers but we don't want conda samurai headers
-conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
-if conda_prefix != ''
-    # Add conda include for dependencies
-    conda_include = include_directories(conda_prefix / 'include')
-    message('  Conda prefix: ' + conda_prefix + ' (for dependencies)')
-    # Combine samurai headers with conda dependency headers
-    samurai_dep = declare_dependency(
-        include_directories: [samurai_include, conda_include],
-    )
+# Add samurai include directories explicitly FIRST
+# This ensures our downloaded samurai headers override conda's samurai headers
+samurai_local_path = get_option('samurai_local_path')
+if samurai_local_path != ''
+    samurai_include_dirs = include_directories(samurai_local_path / 'include')
 else
-    samurai_dep = declare_dependency(
-        include_directories: samurai_include,
-    )
+    samurai_include_dirs = include_directories('subprojects/samurai-headers/samurai/include')
 endif
 
 message('')
@@ -372,9 +392,10 @@ pybind11_module = py.extension_module(
     binding_sources,
     dependencies: all_dependencies,
     include_directories: [
+        samurai_include_dirs,  # CRITICAL: Add samurai headers FIRST to override conda's samurai
         pybind11_include,
         include_directories('src'),
-    ],
+    ] + conda_dep_include_dirs,  # Add conda dependency includes (but NOT samurai headers from conda)
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance
