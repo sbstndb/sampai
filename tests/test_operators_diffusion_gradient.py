@@ -168,6 +168,174 @@ class TestDivergenceOperator:
         assert div_v.name == "Divergence(v)"
 
 
+class TestMultiDiffusionOperator:
+    """Tests for make_multi_diffusion_order2 operator (multi-component diffusion)."""
+
+    def test_multi_diffusion_1d_2_components(self):
+        """Test 1D multi-diffusion with 2 components and different coefficients."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        # Each component diffuses with its own coefficient
+        diff_u = sam.make_multi_diffusion_order2(u, [0.5, 1.0])
+
+        assert diff_u.mesh is mesh
+        # Note: The operator uses Samurai's default naming "diffusion(field)"
+
+    def test_multi_diffusion_1d_3_components(self):
+        """Test 1D multi-diffusion with 3 components."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.vector(mesh, "u", n_components=3)
+
+        # Three different coefficients for three components
+        diff_u = sam.make_multi_diffusion_order2(u, [0.1, 0.5, 1.5])
+
+        assert diff_u.mesh is mesh
+
+    def test_multi_diffusion_2d_2_components(self):
+        """Test 2D multi-diffusion with 2 components."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        diff_u = sam.make_multi_diffusion_order2(u, [0.3, 0.7])
+
+        assert diff_u.mesh is mesh
+
+    def test_multi_diffusion_2d_3_components(self):
+        """Test 2D multi-diffusion with 3 components."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=2, max_level=2)
+
+        u = sam.field.vector(mesh, "u", n_components=3)
+
+        diff_u = sam.make_multi_diffusion_order2(u, [1.0, 2.0, 3.0])
+
+        assert diff_u.mesh is mesh
+
+    def test_multi_diffusion_3d_2_components(self):
+        """Test 3D multi-diffusion with 2 components."""
+        box = sam.geometry.box([0., 0., 0.], [1., 1., 1.])
+        mesh = sam.mesh.make(box, min_level=2, max_level=2)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        diff_u = sam.make_multi_diffusion_order2(u, [0.5, 1.5])
+
+        assert diff_u.mesh is mesh
+
+    def test_multi_diffusion_3d_3_components(self):
+        """Test 3D multi-diffusion with 3 components."""
+        box = sam.geometry.box([0., 0., 0.], [1., 1., 1.])
+        mesh = sam.mesh.make(box, min_level=2, max_level=2)
+
+        u = sam.field.vector(mesh, "u", n_components=3)
+
+        diff_u = sam.make_multi_diffusion_order2(u, [0.1, 0.2, 0.3])
+
+        assert diff_u.mesh is mesh
+
+    def test_multi_diffusion_in_submodule(self):
+        """Test multi-diffusion operator is accessible via sam.operators."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        # Should work via submodule
+        diff_u = sam.operators.make_multi_diffusion_order2(u, [0.5, 1.0])
+        assert diff_u.mesh is mesh
+
+        # Alias should also work
+        diff_u2 = sam.operators.multi_diffusion_order2(u, [0.5, 1.0])
+        assert diff_u2.mesh is mesh
+
+    def test_multi_diffusion_of_constant_is_zero_1d(self):
+        """Test multi-diffusion of constant vector field should be zero."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=4, max_level=4)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+        u.fill(5.0)  # Constant field for both components
+
+        diff_u = sam.make_multi_diffusion_order2(u, [1.0, 2.0])
+
+        import numpy as np
+        # Check each component
+        comp0 = diff_u.get_component(0).numpy_view()
+        comp1 = diff_u.get_component(1).numpy_view()
+
+        tol = 1e-10
+        max_val_0 = np.max(np.abs(comp0))
+        max_val_1 = np.max(np.abs(comp1))
+
+        assert max_val_0 < tol, f"Diffusion of constant (comp 0) should be ~0, got max={max_val_0}"
+        assert max_val_1 < tol, f"Diffusion of constant (comp 1) should be ~0, got max={max_val_1}"
+
+    def test_multi_diffusion_coefficient_affects_output(self):
+        """Test that multi-diffusion coefficient affects each component independently."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=4, max_level=4)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        # Set a non-constant field (quadratic in both components)
+        subset = sam.subsets.intersection(mesh, mesh, level=4)
+        sam.subsets.apply_function_vector(u, subset,
+                                          lambda comp, i, j, k, level: (i / (2 ** level)) ** 2)
+
+        # Compute with same coefficients for both components
+        diff_u_same = sam.make_multi_diffusion_order2(u, [1.0, 1.0])
+
+        # Compute with different coefficients
+        diff_u_diff = sam.make_multi_diffusion_order2(u, [1.0, 2.0])
+
+        import numpy as np
+        comp0_same = diff_u_same.get_component(0).numpy_view()
+        comp1_same = diff_u_same.get_component(1).numpy_view()
+        comp0_diff = diff_u_diff.get_component(0).numpy_view()
+        comp1_diff = diff_u_diff.get_component(1).numpy_view()
+
+        # Component 0 should be the same (same coefficient)
+        assert np.allclose(comp0_same, comp0_diff, rtol=1e-10, atol=1e-10), \
+            "Component 0 should be same with same coefficient"
+
+        # Component 1 should be ~2x with coefficient 2.0 vs 1.0
+        mask = np.abs(comp1_same) > 1e-8
+        if np.any(mask):
+            ratio = np.mean(np.abs(comp1_diff[mask]) / np.abs(comp1_same[mask]))
+            assert 1.5 < ratio < 2.5, \
+                f"Component 1 with coeff 2 should give ~2x output, got ratio={ratio}"
+
+    def test_multi_diffusion_zero_coefficient(self):
+        """Test multi-diffusion with zero coefficient for one component."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        # First component has zero diffusion, second has non-zero
+        diff_u = sam.make_multi_diffusion_order2(u, [0.0, 1.0])
+
+        assert diff_u.mesh is mesh
+
+    def test_multi_diffusion_negative_coefficient(self):
+        """Test multi-diffusion with negative coefficients."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.vector(mesh, "u", n_components=2)
+
+        # Negative coefficients should work
+        diff_u = sam.make_multi_diffusion_order2(u, [-0.5, -1.5])
+
+        assert diff_u.mesh is mesh
+
+
 class TestOperatorsSubmodule:
     """Test that operators are accessible via sam.operators submodule."""
 

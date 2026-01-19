@@ -597,6 +597,102 @@ py::object divergence_order2_3d(VectorField3D_3& field)
     return py::cast(result);
 }
 
+// ============================================================
+// Multi-diffusion operators (order 2)
+// ============================================================
+
+// Helper to convert Python sequence to DiffCoeff (xtensor_fixed)
+template <std::size_t N>
+samurai::DiffCoeff<N> py_sequence_to_diff_coeff(py::sequence seq)
+{
+    if (len(seq) != N)
+    {
+        throw py::value_error("Coefficient sequence must have exactly " + std::to_string(N) + " elements");
+    }
+    samurai::DiffCoeff<N> K;
+    for (std::size_t i = 0; i < N; ++i)
+    {
+        K(i) = seq[i].cast<double>();
+    }
+    return K;
+}
+
+// 1D multi-diffusion (for VectorField1D_n)
+template <std::size_t n_comp>
+py::object multi_diffusion_order2_1d(VectorField<1, n_comp, false>& field, py::sequence coefficients)
+{
+    auto& mesh = field.mesh();
+    auto K = py_sequence_to_diff_coeff<n_comp>(coefficients);
+
+    auto diff = samurai::make_multi_diffusion_order2<VectorField<1, n_comp, false>>(K);
+
+    auto result = samurai::make_vector_field<double, n_comp, false>(field.name() + "_diff", mesh);
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+// 2D multi-diffusion (for VectorField2D_n)
+template <std::size_t n_comp>
+py::object multi_diffusion_order2_2d(VectorField<2, n_comp, false>& field, py::sequence coefficients)
+{
+    auto& mesh = field.mesh();
+    auto K = py_sequence_to_diff_coeff<n_comp>(coefficients);
+
+    auto diff = samurai::make_multi_diffusion_order2<VectorField<2, n_comp, false>>(K);
+
+    auto result = samurai::make_vector_field<double, n_comp, false>(field.name() + "_diff", mesh);
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+// 3D multi-diffusion (for VectorField3D_n)
+template <std::size_t n_comp>
+py::object multi_diffusion_order2_3d(VectorField<3, n_comp, false>& field, py::sequence coefficients)
+{
+    auto& mesh = field.mesh();
+    auto K = py_sequence_to_diff_coeff<n_comp>(coefficients);
+
+    auto diff = samurai::make_multi_diffusion_order2<VectorField<3, n_comp, false>>(K);
+
+    auto result = samurai::make_vector_field<double, n_comp, false>(field.name() + "_diff", mesh);
+    result = diff(field);
+
+    return py::cast(result);
+}
+
+// Wrapper functions for specific VectorField types
+py::object multi_diffusion_order2_1d_2(VectorField1D_2& field, py::sequence coefficients)
+{
+    return multi_diffusion_order2_1d<2>(field, coefficients);
+}
+
+py::object multi_diffusion_order2_1d_3(VectorField1D_3& field, py::sequence coefficients)
+{
+    return multi_diffusion_order2_1d<3>(field, coefficients);
+}
+
+py::object multi_diffusion_order2_2d_2(VectorField2D_2& field, py::sequence coefficients)
+{
+    return multi_diffusion_order2_2d<2>(field, coefficients);
+}
+
+py::object multi_diffusion_order2_2d_3(VectorField2D_3& field, py::sequence coefficients)
+{
+    return multi_diffusion_order2_2d<3>(field, coefficients);
+}
+
+py::object multi_diffusion_order2_3d_2(VectorField3D_2& field, py::sequence coefficients)
+{
+    return multi_diffusion_order2_3d<2>(field, coefficients);
+}
+
+py::object multi_diffusion_order2_3d_3(VectorField3D_3& field, py::sequence coefficients)
+{
+    return multi_diffusion_order2_3d<3>(field, coefficients);
+}
+
 // Module initialization function for operator bindings
 void init_operator_bindings(py::module_& m)
 {
@@ -1414,6 +1510,153 @@ void init_operator_bindings(py::module_& m)
         )pbdoc");
 
     // ============================================================
+    // Multi-diffusion operators (order 2)
+    // ============================================================
+
+    // 1D multi-diffusion - 2 components
+    m.def("make_multi_diffusion_order2",
+          &multi_diffusion_order2_1d_2,
+          py::arg("field"),
+          py::arg("coefficients"),
+          R"pbdoc(
+        Multi-component diffusion operator for 1D vector fields with 2 components.
+
+        Each component diffuses with its own coefficient. Useful for multi-species
+        reaction-diffusion systems where each species has a different diffusion rate.
+
+        Parameters
+        ----------
+        field : VectorField1D_2
+            Input vector field with 2 components
+        coefficients : sequence of float
+            Diffusion coefficients [K0, K1] for each component
+
+        Returns
+        -------
+        VectorField1D_2
+            New field containing diffusion results for each component
+
+        Examples
+        --------
+        >>> import sampai as sam
+        >>> mesh = sam.mesh.make(box, min_level=3, max_level=3)
+        >>> # 2 species with different diffusion rates
+        >>> u = sam.field.vector(mesh, "u", n_components=2)
+        >>> diff_u = sam.make_multi_diffusion_order2(u, [0.5, 1.0])
+        )pbdoc");
+
+    // 1D multi-diffusion - 3 components
+    m.def("make_multi_diffusion_order2",
+          &multi_diffusion_order2_1d_3,
+          py::arg("field"),
+          py::arg("coefficients"),
+          R"pbdoc(
+        Multi-component diffusion operator for 1D vector fields with 3 components.
+
+        Parameters
+        ----------
+        field : VectorField1D_3
+            Input vector field with 3 components
+        coefficients : sequence of float
+            Diffusion coefficients [K0, K1, K2] for each component
+
+        Returns
+        -------
+        VectorField1D_3
+            New field containing diffusion results
+        )pbdoc");
+
+    // 2D multi-diffusion - 2 components
+    m.def("make_multi_diffusion_order2",
+          &multi_diffusion_order2_2d_2,
+          py::arg("field"),
+          py::arg("coefficients"),
+          R"pbdoc(
+        Multi-component diffusion operator for 2D vector fields with 2 components.
+
+        Parameters
+        ----------
+        field : VectorField2D_2
+            Input vector field with 2 components
+        coefficients : sequence of float
+            Diffusion coefficients [K0, K1] for each component
+
+        Returns
+        -------
+        VectorField2D_2
+            New field containing diffusion results
+
+        Examples
+        --------
+        >>> mesh = sam.mesh.make(box, min_level=3, max_level=3)
+        >>> u = sam.field.vector(mesh, "u", n_components=2)
+        >>> diff_u = sam.make_multi_diffusion_order2(u, [0.5, 1.0])
+        )pbdoc");
+
+    // 2D multi-diffusion - 3 components
+    m.def("make_multi_diffusion_order2",
+          &multi_diffusion_order2_2d_3,
+          py::arg("field"),
+          py::arg("coefficients"),
+          R"pbdoc(
+        Multi-component diffusion operator for 2D vector fields with 3 components.
+
+        Parameters
+        ----------
+        field : VectorField2D_3
+            Input vector field with 3 components
+        coefficients : sequence of float
+            Diffusion coefficients [K0, K1, K2] for each component
+
+        Returns
+        -------
+        VectorField2D_3
+            New field containing diffusion results
+        )pbdoc");
+
+    // 3D multi-diffusion - 2 components
+    m.def("make_multi_diffusion_order2",
+          &multi_diffusion_order2_3d_2,
+          py::arg("field"),
+          py::arg("coefficients"),
+          R"pbdoc(
+        Multi-component diffusion operator for 3D vector fields with 2 components.
+
+        Parameters
+        ----------
+        field : VectorField3D_2
+            Input vector field with 2 components
+        coefficients : sequence of float
+            Diffusion coefficients [K0, K1] for each component
+
+        Returns
+        -------
+        VectorField3D_2
+            New field containing diffusion results
+        )pbdoc");
+
+    // 3D multi-diffusion - 3 components
+    m.def("make_multi_diffusion_order2",
+          &multi_diffusion_order2_3d_3,
+          py::arg("field"),
+          py::arg("coefficients"),
+          R"pbdoc(
+        Multi-component diffusion operator for 3D vector fields with 3 components.
+
+        Parameters
+        ----------
+        field : VectorField3D_3
+            Input vector field with 3 components
+        coefficients : sequence of float
+            Diffusion coefficients [K0, K1, K2] for each component
+
+        Returns
+        -------
+        VectorField3D_3
+            New field containing diffusion results
+        )pbdoc");
+
+    // ============================================================
     // Create operators submodule for better organization
     // ============================================================
 
@@ -1448,4 +1691,8 @@ void init_operator_bindings(py::module_& m)
     // Divergence operators
     operators.attr("make_divergence_order2") = m.attr("make_divergence_order2");
     operators.attr("divergence_order2") = m.attr("make_divergence_order2");  // Alias
+
+    // Multi-diffusion operators
+    operators.attr("make_multi_diffusion_order2") = m.attr("make_multi_diffusion_order2");
+    operators.attr("multi_diffusion_order2") = m.attr("make_multi_diffusion_order2");  // Alias
 }
