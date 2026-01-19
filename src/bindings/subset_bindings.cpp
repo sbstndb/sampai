@@ -451,6 +451,14 @@ void copy_subset(ScalarField<dim>& dst,
     auto dst_level = dst_subset.level();
     auto src_level = src_subset.level();
 
+    // Validate levels match - direct copy between different refinement levels is unsafe
+    if (dst_level != src_level)
+    {
+        throw std::runtime_error("Cannot copy between subsets at different refinement levels: dst_level="
+                                + std::to_string(dst_level) + ", src_level=" + std::to_string(src_level)
+                                + ". Use sam.subsets.projection() (fine→coarse) or sam.subsets.prediction() (coarse→fine) for inter-level data transfer.");
+    }
+
     if (dst_cells.empty() || src_cells.empty())
     {
         return; // Nothing to copy
@@ -458,9 +466,6 @@ void copy_subset(ScalarField<dim>& dst,
 
     // Simple copy: iterate over both subsets and copy values
     // Note: This assumes the subsets have compatible geometries
-    std::size_t copied = 0;
-    std::size_t max_copy = std::min(dst_cells.nb_cells(), src_cells.nb_cells());
-
     samurai::for_each_interval(dst_cells, [&](auto level, auto& interval, auto& index)
     {
         auto dst_view = dst(level, interval, index);
@@ -468,7 +473,6 @@ void copy_subset(ScalarField<dim>& dst,
         // A more sophisticated version would do proper coordinate mapping
         auto src_view = src(level, interval, index);
         dst_view = src_view;
-        copied += interval.size();
     });
 }
 
@@ -572,9 +576,19 @@ void copy_vector_subset(VectorField<dim, n_comp, SOA>& dst,
                        const PySubset<dim>& src_subset)
 {
     auto& dst_cells = dst_subset.cells();
+    auto& src_cells = src_subset.cells();
     auto dst_level = dst_subset.level();
+    auto src_level = src_subset.level();
 
-    if (dst_cells.empty() || src_subset.cells().empty())
+    // Validate levels match - direct copy between different refinement levels is unsafe
+    if (dst_level != src_level)
+    {
+        throw std::runtime_error("Cannot copy between vector field subsets at different refinement levels: dst_level="
+                                + std::to_string(dst_level) + ", src_level=" + std::to_string(src_level)
+                                + ". Use sam.subsets.projection() (fine→coarse) or sam.subsets.prediction() (coarse→fine) for inter-level data transfer.");
+    }
+
+    if (dst_cells.empty() || src_cells.empty())
     {
         return;
     }
