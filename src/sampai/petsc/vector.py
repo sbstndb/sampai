@@ -39,19 +39,18 @@ def field_to_array(field) -> "npt.NDArray[np.float64]":
     Example:
         >>> from sampai import field, mesh
         >>> from sampai.petsc.vector import field_to_array
-        >>> m = mesh.make(MeshConfig(), box([0, 0], [1, 1]), level=4)
+        >>> cfg = config.make(dim=1)
+        >>> m = mesh.make(box([0.0], [1.0]), cfg, level=4)
         >>> f = field.scalar(m, "u")
         >>> arr = field_to_array(f)
         >>> # Now arr can be used to create a PETSc Vec
     """
-    # The field should have an array() method that returns the underlying data
-    # This is exposed via the C++ bindings
-    if hasattr(field, 'array'):
-        # Get the numpy array from the field
-        return np.asarray(field.array())
+    # Sampai fields use numpy_view() to access underlying data
+    if hasattr(field, 'numpy_view'):
+        return field.numpy_view()
     else:
         raise TypeError(
-            f"Expected a Sampai field with array() method, got {type(field)}"
+            f"Expected a Sampai field with numpy_view() method, got {type(field)}"
         )
 
 
@@ -69,24 +68,20 @@ def array_to_field(array: "npt.NDArray[np.float64]", field) -> None:
         >>> from sampai import field, mesh
         >>> from sampai.petsc.vector import array_to_field
         >>> from petsc4py import PETSc
-        >>> m = mesh.make(MeshConfig(), box([0, 0], [1, 1]), level=4)
+        >>> cfg = config.make(dim=1)
+        >>> m = mesh.make(box([0.0], [1.0]), cfg, level=4)
         >>> f = field.scalar(m, "u")
         >>> # After solving with PETSc, copy result back to field
         >>> # x is a PETSc Vec from the solver
         >>> array_to_field(x.getArray(), f)
     """
-    if hasattr(field, 'array'):
-        field_array = field.array()
-        if hasattr(field_array, '__setitem__'):
-            # Field array supports item assignment
-            field_array[:] = array
-        else:
-            raise TypeError(
-                f"Field array does not support item assignment"
-            )
+    if hasattr(field, 'numpy_view'):
+        field_array = field.numpy_view()
+        # Direct assignment to the numpy view
+        field_array[:] = array
     else:
         raise TypeError(
-            f"Expected a Sampai field with array() method, got {type(field)}"
+            f"Expected a Sampai field with numpy_view() method, got {type(field)}"
         )
 
 

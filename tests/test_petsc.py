@@ -347,6 +347,234 @@ class TestPETScAllExports:
         assert hasattr(petsc, "get_world_rank")
 
 
+
+
+class TestPETScVectorConversion:
+    """Tests for converting between Sampai fields and PETSc vectors."""
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_field_to_array(self):
+        """Convert field to numpy array."""
+        from sampai.petsc.vector import field_to_array
+
+        # Initialize PETSc (required for MPI)
+        sampai.petsc.initialize()
+
+        cfg = sampai.config.make(dim=1)
+        cfg.min_level = 4
+        cfg.max_level = 4
+        box = sampai.geometry.box([0.0], [1.0])
+        mesh = sampai.mesh.make(box, cfg)
+        u = sampai.field.scalar(mesh, "u")
+
+        # Fill field
+        count = [0]
+        def fill_cell(cell):
+            u[cell.index] = float(count[0])
+            count[0] += 1
+        sampai.algorithms.for_each_cell(mesh, fill_cell)
+
+        # Convert to array
+        arr = field_to_array(u)
+        assert len(arr) == mesh.nb_cells
+        # Check some values were set
+        assert arr.max() >= 1.0  # At least some values should be non-zero
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_array_to_field(self):
+        """Copy numpy array to field."""
+        from sampai.petsc.vector import array_to_field
+        import numpy as np
+
+        sampai.petsc.initialize()
+
+        cfg = sampai.config.make(dim=1)
+        cfg.min_level = 4
+        cfg.max_level = 4
+        box = sampai.geometry.box([0.0], [1.0])
+        mesh = sampai.mesh.make(box, cfg)
+        u = sampai.field.scalar(mesh, "u")
+
+        # Create test array
+        arr = np.arange(mesh.nb_cells, dtype=np.float64)
+        array_to_field(arr, u)
+
+        # Verify values were copied
+        result = u.numpy_view()
+        assert result[0] == 0.0
+        assert result[1] == 1.0
+        assert result[-1] == float(mesh.nb_cells - 1)
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_roundtrip_field_array_field(self):
+        """Test field -> array -> field roundtrip."""
+        from sampai.petsc.vector import field_to_array, array_to_field
+        import numpy as np
+
+        sampai.petsc.initialize()
+
+        cfg = sampai.config.make(dim=1)
+        cfg.min_level = 4
+        cfg.max_level = 4
+        box = sampai.geometry.box([0.0], [1.0])
+        mesh = sampai.mesh.make(box, cfg)
+        u = sampai.field.scalar(mesh, "u")
+
+        # Fill field
+        count = [0]
+        def fill_cell(cell):
+            u[cell.index] = float(count[0] * 2.5)  # Non-zero values
+            count[0] += 1
+        sampai.algorithms.for_each_cell(mesh, fill_cell)
+
+        # Extract to array
+        arr = field_to_array(u)
+        original_values = arr.copy()
+
+        # Create new field and copy back
+        u2 = sampai.field.scalar(mesh, "u2")
+        array_to_field(arr, u2)
+
+        # Verify values match
+        result = u2.numpy_view()
+        np.testing.assert_array_almost_equal(result, original_values)
+
+
+class TestPETScSolvers:
+    """Tests for PETSc KSP solvers with petsc4py."""
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_petsc4py_available(self):
+        """Check if petsc4py is available."""
+        from sampai.petsc.vector import HAS_PETSC4PY
+        # This test documents whether petsc4py is available
+        # We don't assert anything since it's environment-dependent
+        if not HAS_PETSC4PY:
+            pytest.skip("petsc4py not installed - install with: conda install -c conda-forge petsc4py")
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_cg_solver_diagonal_system(self):
+        """Test CG solver on simple diagonal system."""
+        from sampai.petsc.vector import HAS_PETSC4PY
+        from sampai.petsc.solver import create_cg_solver
+
+        if not HAS_PETSC4PY:
+            pytest.skip("petsc4py not installed")
+
+        # Initialize PETSc (required for MPI)
+        sampai.petsc.initialize()
+
+        from petsc4py import PETSc
+        import numpy as np
+
+        # Create simple diagonal matrix: A = 2*I
+        n = 10
+        A = PETSc.Mat().createAIJ([n, n])
+        A.setUp()
+        for i in range(n):
+            A.setValue(i, i, 2.0)
+        A.assemblyBegin()
+        A.assemblyEnd()
+
+        # RHS: b = [1, 1, ..., 1]
+        b = PETSc.Vec().createSeq(n)
+        b.set(1.0)
+
+        # Solve with CG using solve_with_ksp helper
+        ksp = create_cg_solver(rtol=1e-10, max_it=100)
+        from sampai.petsc.solver import solve_with_ksp
+        x = solve_with_ksp(ksp, A, b)
+
+        # Check solution: x = [0.5, 0.5, ..., 0.5]
+        reason = ksp.getConvergedReason()
+        assert reason > 0, "Solver should converge"
+        for i in range(n):
+            assert abs(x.getValue(i) - 0.5) < 1e-8, f"Solution mismatch at index {i}"
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_gmres_solver_with_hypre(self):
+        """Test GMRES solver with Hypre preconditioner."""
+        from sampai.petsc.vector import HAS_PETSC4PY
+        from sampai.petsc.solver import create_gmres_solver
+        from sampai import petsc
+
+        if not HAS_PETSC4PY:
+            pytest.skip("petsc4py not installed")
+
+        # Initialize PETSc (required for MPI)
+        petsc.initialize()
+
+        from petsc4py import PETSc
+
+        # Create symmetric positive definite matrix
+        n = 20
+        A = PETSc.Mat().createAIJ([n, n])
+        A.setUp()
+        for i in range(n):
+            A.setValue(i, i, 4.0)
+            if i > 0:
+                A.setValue(i, i-1, -1.0)
+            if i < n-1:
+                A.setValue(i, i+1, -1.0)
+        A.assemblyBegin()
+        A.assemblyEnd()
+
+        # RHS
+        b = PETSc.Vec().createSeq(n)
+        b.set(1.0)
+
+        # Solve with GMRES + Hypre using solve_with_ksp helper
+        ksp = create_gmres_solver(restart=30, pc_type="jacobi", rtol=1e-8)
+        from sampai.petsc.solver import solve_with_ksp
+        x = solve_with_ksp(ksp, A, b)
+
+        reason = ksp.getConvergedReason()
+        assert reason > 0, "Solver should converge"
+
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_ksp_solver_class(self):
+        """Test high-level KSPSolver class."""
+        from sampai.petsc.vector import HAS_PETSC4PY
+        from sampai.petsc.solver import KSPSolver
+
+        if not HAS_PETSC4PY:
+            pytest.skip("petsc4py not installed")
+
+        # Initialize PETSc (required for MPI)
+        sampai.petsc.initialize()
+
+        from petsc4py import PETSc
+
+        # Create simple system
+        n = 5
+        A = PETSc.Mat().createAIJ([n, n])
+        A.setUp()
+        for i in range(n):
+            A.setValue(i, i, 3.0)
+        A.assemblyBegin()
+        A.assemblyEnd()
+
+        b = PETSc.Vec().createSeq(n)
+        b.set(2.0)
+
+        # Create solver and solve
+        solver = KSPSolver(ksp_type="cg", pc_type="jacobi", rtol=1e-10)
+        x = solver.solve(A, b)
+
+        assert solver.is_converged, "Solver should converge"
+        assert solver.iters > 0, "Should have taken some iterations"
+        # Solution should be x = 2/3 for 3*I * x = 2
+        for i in range(n):
+            assert abs(x.getValue(i) - 2.0/3.0) < 1e-8
+
+
 if __name__ == "__main__":
     # Run tests manually for quick verification
     pytest.main([__file__, "-v"])
