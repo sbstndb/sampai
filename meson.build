@@ -258,7 +258,9 @@ endif
 
 has_mpi = enable_mpi and mpi_dep.found()
 
-if enable_mpi and not has_boost_mpi
+# Boost.MPI is required for Samurai's MPI features, but NOT for PETSc
+# PETSc has its own MPI implementation and doesn't need Boost.MPI
+if enable_mpi and not has_boost_mpi and not enable_petsc
     error('MPI support requires Boost.MPI and Boost.Serialization; install libboost-mpi and libboost-serialization')
 endif
 
@@ -429,7 +431,24 @@ all_dependencies = [
 # Add MPI dependencies if enabled
 if has_mpi
     all_dependencies += [mpi_dep]
-    all_dependencies += [boost_mpi_dep]
+    # Always link boost_serialization with MPI if found (Samurai needs it)
+    if boost_serialization_lib.found()
+        all_dependencies += [boost_serialization_lib]
+    endif
+    # Always link boost_mpi if found (needed by mpi_bindings.cpp)
+    if has_boost_mpi
+        all_dependencies += [boost_mpi_dep]
+    endif
+endif
+
+# Add boost_serialization if found (required by Samurai for Interval types)
+# even without MPI
+if not has_mpi and boost_serialization_lib.found()
+    boost_serialization_dep = declare_dependency(
+        dependencies: [boost_serialization_lib],
+        link_args: ['-lboost_serialization']
+    )
+    all_dependencies += [boost_serialization_dep]
 endif
 
 # Add PETSc dependencies if enabled

@@ -9,15 +9,18 @@
 
 #include "petsc_bindings.hpp"
 
-// Include PETSc headers if enabled
-// Note: PETSc headers MUST be included before Samurai headers due to macro conflicts
+// IMPORTANT: Include PETSc headers BEFORE Samurai to avoid macro conflicts
+// and multiple definition issues with Samurai's PETSc wrapper functions
 #ifdef SAMURAI_WITH_PETSC
+#define PETSC_SKIP_CXXCPP_OVERRIDE  // Skip C++ standard library overrides
 #include <petscksp.h>  // KSP (Krylov Subspace) solvers
 #include <petscmat.h>  // Matrix operations
 #include <petscvec.h>  // Vector operations
 #endif
 
-#include "samurai/samurai.hpp"
+// Note: We do NOT include samurai headers here to avoid multiple definition
+// issues with Samurai's PETSc wrapper functions. The PETSc bindings
+// are independent and only need PETSc headers.
 
 namespace py = pybind11;
 
@@ -69,38 +72,40 @@ void init_petsc_bindings(py::module_& m) {
     // PETSc Version Info
     //======================================================================
 
-    petsc_module.def_property_readonly_static("version",
-        [](py::object&) -> std::string {
-            PetscInt major, minor, subminor;
-            PetscGetVersion(&major, &minor, &subminor);
-            return std::to_string(major) + "." +
-                   std::to_string(minor) + "." +
-                   std::to_string(subminor);
+    petsc_module.def("get_version",
+        []() -> std::string {
+            char version[256];
+            PetscGetVersion(version, sizeof(version));
+            return std::string(version);
         },
-        "PETSc version string");
-
-    petsc_module.def_property_readonly_static("release_date",
-        [](py::object&) -> std::string {
-            const char* date;
-            PetscGetVersionDate(&date);
-            return std::string(date);
-        },
-        "PETSc release date");
+        "Get PETSc version string");
 
     //======================================================================
     // PETSc World Communicator Info
     //======================================================================
 
-    petsc_module.def_property_readonly_static("world_size",
-        [](py::object&) -> int {
+    petsc_module.def("get_world_size",
+        []() -> int {
+            // Ensure PETSc is initialized before calling MPI functions
+            PetscBool initialized = PETSC_FALSE;
+            PetscInitialized(&initialized);
+            if (initialized == PETSC_FALSE) {
+                PetscInitializeNoArguments();
+            }
             PetscInt size;
             MPI_Comm_size(PETSC_COMM_WORLD, &size);
             return static_cast<int>(size);
         },
         "Number of processes in PETSc communicator");
 
-    petsc_module.def_property_readonly_static("world_rank",
-        [](py::object&) -> int {
+    petsc_module.def("get_world_rank",
+        []() -> int {
+            // Ensure PETSc is initialized before calling MPI functions
+            PetscBool initialized = PETSC_FALSE;
+            PetscInitialized(&initialized);
+            if (initialized == PETSC_FALSE) {
+                PetscInitializeNoArguments();
+            }
             PetscInt rank;
             MPI_Comm_rank(PETSC_COMM_WORLD, &rank);
             return static_cast<int>(rank);
@@ -112,8 +117,8 @@ void init_petsc_bindings(py::module_& m) {
     //======================================================================
 
     petsc_module.def("set_option",
-        [](const std::string& name, bool value) {
-            PetscOptionsSetValue(NULL, name.c_str(), value ? "true" : "false");
+        [](const std::string& name, const std::string& value) {
+            PetscOptionsSetValue(NULL, name.c_str(), value.c_str());
         },
         py::arg("name"),
         py::arg("value"),
@@ -121,14 +126,14 @@ void init_petsc_bindings(py::module_& m) {
 
     petsc_module.def("set_options_prefix",
         [](const std::string& prefix) {
-            PetscOptionsPrefixPush(PETSC_COMM_WORLD, prefix.c_str());
+            PetscOptionsPrefixPush(NULL, prefix.c_str());
         },
         py::arg("prefix"),
         "Set a prefix for PETSc options (useful for multiple solvers)");
 
     petsc_module.def("clear_options_prefix",
         []() {
-            PetscOptionsPrefixPop(PETSC_COMM_WORLD);
+            PetscOptionsPrefixPop(NULL);
         },
         "Clear the current PETSc options prefix");
 
@@ -136,46 +141,35 @@ void init_petsc_bindings(py::module_& m) {
     // PETSc Solver Types (KSP - Krylov Subspace Methods)
     //======================================================================
 
-    // Enum-like class for KSP solver types
-    py::enum_<KSPType>(petsc_module, "KSPOption", "Available Krylov solver types")
-        .value("RICHARDSON", KSPRICHARDSON)
-        .value("CHEBYSHEV", KSPCHEBYSHEV)
-        .value("CG", KSPCG)               // Conjugate Gradient (symmetric positive definite)
-        .value("GMRES", KSPGMRES)         // Generalized Minimal Residual
-        .value("TCQMR", KSPTCQMR)
-        .value("TFQMR", KSPTFQMR)
-        .value("BCGS", KSPBCGS)           // Bi-Conjugate Gradient Squared
-        .value("BCGSL", KSPBCGSL)
-        .value("CGNE", KSPCGNE)
-        .value("CGS", KSPCGS)             // Conjugate Gradient Squared
-        .value("TFQMR", KSPTFQMR)
-        .value("CR", KSPCR)
-        .value("PIPECG", KSPPIPECG)
-        .value("PIPECGRR", KSPPIPECGRR)
-        .value("PIPEPRCG", KSPPIPEPRCG)
-        .value("PIPECG2", KSPPIPECG2)
-        .value("LSQR", KSPLSQR)
-        .value("PREONLY", KSPPREONLY)     // Preconditioner only
-        .export_values();
+    // String constants for KSP solver types (safer than enums)
+    petsc_module.attr("KSP_RICHARDSON") = "richardson";
+    petsc_module.attr("KSP_CHEBYSHEV") = "chebyshev";
+    petsc_module.attr("KSP_CG") = "cg";               // Conjugate Gradient
+    petsc_module.attr("KSP_GMRES") = "gmres";         // Generalized Minimal Residual
+    petsc_module.attr("KSP_TCQMR") = "tcqmr";
+    petsc_module.attr("KSP_TFQMR") = "tfqmr";
+    petsc_module.attr("KSP_BCGS") = "bcgs";           // Bi-Conjugate Gradient Squared
+    petsc_module.attr("KSP_CGS") = "cgs";             // Conjugate Gradient Squared
+    petsc_module.attr("KSP_BICG") = "bicg";           // Bi-Conjugate Gradient
+    petsc_module.attr("KSP_PREONLY") = "preonly";     // Preconditioner only
 
     //======================================================================
     // PC (Preconditioner) Types
     //======================================================================
 
-    py::enum_<PCType>(petsc_module, "PCOption", "Available preconditioner types")
-        .value("NONE", PCNONE)
-        .value("JACOBI", PCJACOBI)        // Jacobi (diagonal) preconditioner
-        .value("SOR", PCSOR)              // SOR (Successive Over-Relaxation)
-        .value("LU", PCLU)                // Direct LU factorization
-        .value("ILU", PCILU)              // Incomplete LU factorization
-        .value("ICC", PCICC)              // Incomplete Cholesky factorization
-        .value("ASM", PCASM)              // Additive Schwarz
-        .value("GASM", PCGASM)            // Generalized ASM
-        .value("BJACOBI", PCBJACOBI)      // Block Jacobi
-        .value("MG", PCMG)                // Multigrid
-        .value("HYPRE", PCHYPRE)          // Hypre preconditioners
-        .value("GAMG", PCGAMG)            // Geometric algebraic multigrid
-        .export_values();
+    // String constants for PC types
+    petsc_module.attr("PC_NONE") = "none";
+    petsc_module.attr("PC_JACOBI") = "jacobi";        // Jacobi (diagonal)
+    petsc_module.attr("PC_SOR") = "sor";              // SOR
+    petsc_module.attr("PC_LU") = "lu";                // Direct LU
+    petsc_module.attr("PC_ILU") = "ilu";              // Incomplete LU
+    petsc_module.attr("PC_ICC") = "icc";              // Incomplete Cholesky
+    petsc_module.attr("PC_ASM") = "asm";              // Additive Schwarz
+    petsc_module.attr("PC_GASM") = "gasm";            // Generalized ASM
+    petsc_module.attr("PC_BJACOBI") = "bjacobi";      // Block Jacobi
+    petsc_module.attr("PC_MG") = "mg";                // Multigrid
+    petsc_module.attr("PC_HYPRE") = "hypre";          // Hypre
+    petsc_module.attr("PC_GAMG") = "gamg";            // Geometric algebraic multigrid
 
     //======================================================================
     // Note: Full Matrix/Vector/Solver bindings
@@ -194,9 +188,7 @@ void init_petsc_bindings(py::module_& m) {
     // The current bindings provide:
     // 1. Basic PETSc initialization/query
     // 2. Access to PETSc options
-    // 3. Solver/preconditioner type enums for configuration
-
-    message("PETSc bindings: ENABLED (full functionality)");
+    // 3. Solver/preconditioner type constants for configuration
 
 #else // !SAMURAI_WITH_PETSC
 
@@ -211,13 +203,17 @@ void init_petsc_bindings(py::module_& m) {
         []() { return false; },
         "PETSc is not enabled");
 
-    petsc_module.def_property_readonly_static("version",
-        [](py::object&) -> std::string { return "NOT_ENABLED"; },
+    petsc_module.def("get_version",
+        []() -> std::string { return "NOT_ENABLED"; },
         "PETSc version (not enabled)");
 
-    petsc_module.def_property_readonly_static("enabled",
-        [](py::object&) -> bool { return false; },
-        "Whether PETSc is enabled");
+    petsc_module.def("get_world_size",
+        []() -> int { return 1; },
+        "Number of processes (not enabled)");
+
+    petsc_module.def("get_world_rank",
+        []() -> int { return 0; },
+        "Rank of this process (not enabled)");
 
     // Stub functions that raise errors
     auto not_implemented = [](const char* name) {
@@ -232,12 +228,13 @@ void init_petsc_bindings(py::module_& m) {
         [not_implemented]() { not_implemented("PETSc"); });
 
     petsc_module.def("set_option",
-        [not_implemented](const std::string&, bool) { not_implemented("PETSc options"); });
+        [not_implemented](const std::string&, const std::string&) { not_implemented("PETSc options"); });
 
     petsc_module.def("set_options_prefix",
         [not_implemented](const std::string&) { not_implemented("PETSc options"); });
 
-    message("PETSc bindings: STUB (PETSc disabled)");
+    petsc_module.def("clear_options_prefix",
+        [not_implemented]() { not_implemented("PETSc options"); });
 
 #endif // SAMURAI_WITH_PETSC
 }
