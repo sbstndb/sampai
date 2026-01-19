@@ -356,13 +356,13 @@ const MRMesh<dim>* try_validate_and_get_mesh(py::args fields, size_t& out_n)
 
     try
     {
-        const auto& first_field = fields[0].cast<const ScalarField<dim>&>();
-        const auto& mesh = &first_field.mesh();
+        const auto first_field = fields[0].cast<const ScalarField<dim>&>();
+        const auto* mesh = &first_field.mesh();
 
         // Validate all other fields have the same mesh
         for (size_t i = 1; i < out_n; ++i)
         {
-            const auto& field = fields[i].cast<const ScalarField<dim>&>();
+            const auto field = fields[i].cast<const ScalarField<dim>&>();
             if (&field.mesh() != mesh)
             {
                 throw std::runtime_error("All fields must share the same mesh");
@@ -436,91 +436,91 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2);
                 return;
             }
             case 4:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3);
                 return;
             }
             case 5:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4);
                 return;
             }
             case 6:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5);
                 return;
             }
             case 7:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f6 = fields[6].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6);
                 return;
             }
             case 8:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto f7 = fields[7].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7);
                 return;
             }
             case 9:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
-                const auto& f8 = fields[8].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto f7 = fields[7].cast<const ScalarField<1>&>();
+                const auto f8 = fields[8].cast<const ScalarField<1>&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
                 return;
             }
@@ -537,91 +537,91 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2);
                 return;
             }
             case 4:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3);
                 return;
             }
             case 5:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4);
                 return;
             }
             case 6:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5);
                 return;
             }
             case 7:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f6 = fields[6].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6);
                 return;
             }
             case 8:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto f7 = fields[7].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7);
                 return;
             }
             case 9:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
-                const auto& f8 = fields[8].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto f7 = fields[7].cast<const ScalarField<2>&>();
+                const auto f8 = fields[8].cast<const ScalarField<2>&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
                 return;
             }
@@ -638,91 +638,91 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2);
                 return;
             }
             case 4:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3);
                 return;
             }
             case 5:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4);
                 return;
             }
             case 6:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5);
                 return;
             }
             case 7:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f6 = fields[6].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6);
                 return;
             }
             case 8:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto f7 = fields[7].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7);
                 return;
             }
             case 9:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
-                const auto& f8 = fields[8].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto f7 = fields[7].cast<const ScalarField<3>&>();
+                const auto f8 = fields[8].cast<const ScalarField<3>&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
                 return;
             }
@@ -763,91 +763,91 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2);
                 return;
             }
             case 4:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3);
                 return;
             }
             case 5:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4);
                 return;
             }
             case 6:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5);
                 return;
             }
             case 7:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f6 = fields[6].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6);
                 return;
             }
             case 8:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto f7 = fields[7].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7);
                 return;
             }
             case 9:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<1>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<1>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<1>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<1>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<1>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<1>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<1>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<1>&>();
-                const auto& f8 = fields[8].cast<const ScalarField<1>&>();
+                const auto f0 = fields[0].cast<const ScalarField<1>&>();
+                const auto f1 = fields[1].cast<const ScalarField<1>&>();
+                const auto f2 = fields[2].cast<const ScalarField<1>&>();
+                const auto f3 = fields[3].cast<const ScalarField<1>&>();
+                const auto f4 = fields[4].cast<const ScalarField<1>&>();
+                const auto f5 = fields[5].cast<const ScalarField<1>&>();
+                const auto f6 = fields[6].cast<const ScalarField<1>&>();
+                const auto f7 = fields[7].cast<const ScalarField<1>&>();
+                const auto f8 = fields[8].cast<const ScalarField<1>&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
                 return;
             }
@@ -864,91 +864,91 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2);
                 return;
             }
             case 4:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3);
                 return;
             }
             case 5:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4);
                 return;
             }
             case 6:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5);
                 return;
             }
             case 7:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f6 = fields[6].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6);
                 return;
             }
             case 8:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto f7 = fields[7].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7);
                 return;
             }
             case 9:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<2>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<2>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<2>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<2>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<2>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<2>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<2>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<2>&>();
-                const auto& f8 = fields[8].cast<const ScalarField<2>&>();
+                const auto f0 = fields[0].cast<const ScalarField<2>&>();
+                const auto f1 = fields[1].cast<const ScalarField<2>&>();
+                const auto f2 = fields[2].cast<const ScalarField<2>&>();
+                const auto f3 = fields[3].cast<const ScalarField<2>&>();
+                const auto f4 = fields[4].cast<const ScalarField<2>&>();
+                const auto f5 = fields[5].cast<const ScalarField<2>&>();
+                const auto f6 = fields[6].cast<const ScalarField<2>&>();
+                const auto f7 = fields[7].cast<const ScalarField<2>&>();
+                const auto f8 = fields[8].cast<const ScalarField<2>&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
                 return;
             }
@@ -965,91 +965,91 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2);
                 return;
             }
             case 4:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3);
                 return;
             }
             case 5:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4);
                 return;
             }
             case 6:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5);
                 return;
             }
             case 7:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f6 = fields[6].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6);
                 return;
             }
             case 8:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto f7 = fields[7].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7);
                 return;
             }
             case 9:
             {
-                const auto& f0 = fields[0].cast<const ScalarField<3>&>();
-                const auto& f1 = fields[1].cast<const ScalarField<3>&>();
-                const auto& f2 = fields[2].cast<const ScalarField<3>&>();
-                const auto& f3 = fields[3].cast<const ScalarField<3>&>();
-                const auto& f4 = fields[4].cast<const ScalarField<3>&>();
-                const auto& f5 = fields[5].cast<const ScalarField<3>&>();
-                const auto& f6 = fields[6].cast<const ScalarField<3>&>();
-                const auto& f7 = fields[7].cast<const ScalarField<3>&>();
-                const auto& f8 = fields[8].cast<const ScalarField<3>&>();
+                const auto f0 = fields[0].cast<const ScalarField<3>&>();
+                const auto f1 = fields[1].cast<const ScalarField<3>&>();
+                const auto f2 = fields[2].cast<const ScalarField<3>&>();
+                const auto f3 = fields[3].cast<const ScalarField<3>&>();
+                const auto f4 = fields[4].cast<const ScalarField<3>&>();
+                const auto f5 = fields[5].cast<const ScalarField<3>&>();
+                const auto f6 = fields[6].cast<const ScalarField<3>&>();
+                const auto f7 = fields[7].cast<const ScalarField<3>&>();
+                const auto f8 = fields[8].cast<const ScalarField<3>&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2, f3, f4, f5, f6, f7, f8);
                 return;
             }
@@ -1404,13 +1404,13 @@ const MRMesh<1>* try_validate_and_get_mesh_vector_1d_2(py::args fields, size_t& 
 
     try
     {
-        const auto& first_field = fields[0].cast<const VectorField1D_2&>();
+        const auto first_field = fields[0].cast<const VectorField1D_2&>();
         const auto* mesh = &first_field.mesh();
 
         // Validate all other fields have the same mesh
         for (size_t i = 1; i < out_n; ++i)
         {
-            const auto& field = fields[i].cast<const VectorField1D_2&>();
+            const auto field = fields[i].cast<const VectorField1D_2&>();
             if (&field.mesh() != mesh)
             {
                 throw std::runtime_error("All vector fields must share the same mesh");
@@ -1468,13 +1468,13 @@ const MRMesh<2>* try_validate_and_get_mesh_vector_2d_2(py::args fields, size_t& 
 
     try
     {
-        const auto& first_field = fields[0].cast<const VectorField2D_2&>();
+        const auto first_field = fields[0].cast<const VectorField2D_2&>();
         const auto* mesh = &first_field.mesh();
 
         // Validate all other fields have the same mesh
         for (size_t i = 1; i < out_n; ++i)
         {
-            const auto& field = fields[i].cast<const VectorField2D_2&>();
+            const auto field = fields[i].cast<const VectorField2D_2&>();
             if (&field.mesh() != mesh)
             {
                 throw std::runtime_error("All vector fields must share the same mesh");
@@ -1500,13 +1500,13 @@ const MRMesh<3>* try_validate_and_get_mesh_vector_3d_3(py::args fields, size_t& 
 
     try
     {
-        const auto& first_field = fields[0].cast<const VectorField3D_3&>();
+        const auto first_field = fields[0].cast<const VectorField3D_3&>();
         const auto* mesh = &first_field.mesh();
 
         // Validate all other fields have the same mesh
         for (size_t i = 1; i < out_n; ++i)
         {
-            const auto& field = fields[i].cast<const VectorField3D_3&>();
+            const auto field = fields[i].cast<const VectorField3D_3&>();
             if (&field.mesh() != mesh)
             {
                 throw std::runtime_error("All vector fields must share the same mesh");
@@ -1545,22 +1545,22 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto f0 = fields[0].cast<const VectorField1D_2&>();
                 samurai::save(directory, basename, *mesh_1d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto f1 = fields[1].cast<const VectorField1D_2&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
-                const auto& f2 = fields[2].cast<const VectorField1D_2&>();
+                const auto f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto f2 = fields[2].cast<const VectorField1D_2&>();
                 samurai::save(directory, basename, *mesh_1d, f0, f1, f2);
                 return;
             }
@@ -1577,22 +1577,22 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto f0 = fields[0].cast<const VectorField2D_2&>();
                 samurai::save(directory, basename, *mesh_2d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto f1 = fields[1].cast<const VectorField2D_2&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
-                const auto& f2 = fields[2].cast<const VectorField2D_2&>();
+                const auto f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto f2 = fields[2].cast<const VectorField2D_2&>();
                 samurai::save(directory, basename, *mesh_2d, f0, f1, f2);
                 return;
             }
@@ -1609,22 +1609,22 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto f0 = fields[0].cast<const VectorField3D_3&>();
                 samurai::save(directory, basename, *mesh_3d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
-                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto f1 = fields[1].cast<const VectorField3D_3&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
-                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
-                const auto& f2 = fields[2].cast<const VectorField3D_3&>();
+                const auto f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto f2 = fields[2].cast<const VectorField3D_3&>();
                 samurai::save(directory, basename, *mesh_3d, f0, f1, f2);
                 return;
             }
@@ -1660,22 +1660,22 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto f0 = fields[0].cast<const VectorField1D_2&>();
                 samurai::dump(directory, basename, *mesh_1d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto f1 = fields[1].cast<const VectorField1D_2&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const VectorField1D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField1D_2&>();
-                const auto& f2 = fields[2].cast<const VectorField1D_2&>();
+                const auto f0 = fields[0].cast<const VectorField1D_2&>();
+                const auto f1 = fields[1].cast<const VectorField1D_2&>();
+                const auto f2 = fields[2].cast<const VectorField1D_2&>();
                 samurai::dump(directory, basename, *mesh_1d, f0, f1, f2);
                 return;
             }
@@ -1692,22 +1692,22 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto f0 = fields[0].cast<const VectorField2D_2&>();
                 samurai::dump(directory, basename, *mesh_2d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto f1 = fields[1].cast<const VectorField2D_2&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const VectorField2D_2&>();
-                const auto& f1 = fields[1].cast<const VectorField2D_2&>();
-                const auto& f2 = fields[2].cast<const VectorField2D_2&>();
+                const auto f0 = fields[0].cast<const VectorField2D_2&>();
+                const auto f1 = fields[1].cast<const VectorField2D_2&>();
+                const auto f2 = fields[2].cast<const VectorField2D_2&>();
                 samurai::dump(directory, basename, *mesh_2d, f0, f1, f2);
                 return;
             }
@@ -1724,22 +1724,22 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
         {
             case 1:
             {
-                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto f0 = fields[0].cast<const VectorField3D_3&>();
                 samurai::dump(directory, basename, *mesh_3d, f0);
                 return;
             }
             case 2:
             {
-                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
-                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto f1 = fields[1].cast<const VectorField3D_3&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1);
                 return;
             }
             case 3:
             {
-                const auto& f0 = fields[0].cast<const VectorField3D_3&>();
-                const auto& f1 = fields[1].cast<const VectorField3D_3&>();
-                const auto& f2 = fields[2].cast<const VectorField3D_3&>();
+                const auto f0 = fields[0].cast<const VectorField3D_3&>();
+                const auto f1 = fields[1].cast<const VectorField3D_3&>();
+                const auto f2 = fields[2].cast<const VectorField3D_3&>();
                 samurai::dump(directory, basename, *mesh_3d, f0, f1, f2);
                 return;
             }
