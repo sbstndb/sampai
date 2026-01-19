@@ -39,8 +39,12 @@ using ListOfIntervals = samurai::ListOfIntervals<int, signed long long int>;
 
 using cell_coord_index_t = typename cell_interval::coord_index_t;
 
+// Cell type aliases
+template <std::size_t dim>
+using Cell = samurai::Cell<dim, cell_interval>;
+
 // ============================================================================
-// Helper functions for coordinate conversion
+// Helper functions for coordinate conversion (must be before bind_cell)
 // ============================================================================
 
 // Convert Python tuple/list to xtensor_fixed coordinate (for yz indexing)
@@ -96,6 +100,217 @@ py::tuple convert_to_tuple(const xt::xtensor_fixed<double, xt::xshape<dim>>& arr
         t[i] = arr[i];
     }
     return t;
+}
+
+// ============================================================================
+// Cell class bindings
+// ============================================================================
+
+template <std::size_t dim>
+void bind_cell(py::module_& m, const std::string& name)
+{
+    using Cell_t = Cell<dim>;
+    using indices_t = typename Cell_t::indices_t;
+    using coords_t = typename Cell_t::coords_t;
+    using index_t = typename Cell_t::index_t;
+
+    py::class_<Cell_t>(m, name.c_str(), R"pbdoc(
+        Cell in adaptive mesh refinement.
+
+        A cell is defined by its level, integer coordinates (indices),
+        and optional origin_point and scaling_factor.
+    )pbdoc")
+        // Full constructor
+        .def(py::init(
+            [](const coords_t& origin_point,
+               double scaling_factor,
+               std::size_t level,
+               const py::object& indices_obj,
+               index_t index)
+            {
+                indices_t indices;
+                if (py::isinstance<py::tuple>(indices_obj) || py::isinstance<py::list>(indices_obj))
+                {
+                    auto seq = indices_obj.cast<py::sequence>();
+                    if (seq.size() != dim)
+                    {
+                        throw std::runtime_error("indices must have " + std::to_string(dim) + " elements");
+                    }
+                    for (std::size_t i = 0; i < dim; ++i)
+                    {
+                        indices[i] = seq[i].cast<typename indices_t::value_type>();
+                    }
+                }
+                else if (py::isinstance<py::array>(indices_obj))
+                {
+                    auto arr = indices_obj.cast<py::array_t<typename indices_t::value_type>>();
+                    if (arr.size() != dim)
+                    {
+                        throw std::runtime_error("indices must have " + std::to_string(dim) + " elements");
+                    }
+                    auto buf = arr.request();
+                    auto* ptr = static_cast<typename indices_t::value_type*>(buf.ptr);
+                    for (std::size_t i = 0; i < dim; ++i)
+                    {
+                        indices[i] = ptr[i];
+                    }
+                }
+                else
+                {
+                    throw std::runtime_error("indices must be tuple, list, or array");
+                }
+                return Cell_t(origin_point, scaling_factor, level, indices, index);
+            }),
+            py::arg("origin_point"),
+            py::arg("scaling_factor"),
+            py::arg("level"),
+            py::arg("indices"),
+            py::arg("index") = 0,
+            "Create a Cell with all parameters")
+
+        // Simplified constructor (inferred origin_point)
+        .def(py::init(
+            [](std::size_t level,
+               const py::object& indices_obj,
+               index_t index,
+               const py::object& origin_obj,
+               double scaling_factor)
+            {
+                coords_t origin = origin_obj.is_none() ? coords_t{} : convert_to_origin_point<dim>(origin_obj);
+
+                indices_t indices;
+                if (py::isinstance<py::tuple>(indices_obj) || py::isinstance<py::list>(indices_obj))
+                {
+                    auto seq = indices_obj.cast<py::sequence>();
+                    if (seq.size() != dim)
+                    {
+                        throw std::runtime_error("indices must have " + std::to_string(dim) + " elements");
+                    }
+                    for (std::size_t i = 0; i < dim; ++i)
+                    {
+                        indices[i] = seq[i].cast<typename indices_t::value_type>();
+                    }
+                }
+                else if (py::isinstance<py::array>(indices_obj))
+                {
+                    auto arr = indices_obj.cast<py::array_t<typename indices_t::value_type>>();
+                    if (arr.size() != dim)
+                    {
+                        throw std::runtime_error("indices must have " + std::to_string(dim) + " elements");
+                    }
+                    auto buf = arr.request();
+                    auto* ptr = static_cast<typename indices_t::value_type*>(buf.ptr);
+                    for (std::size_t i = 0; i < dim; ++i)
+                    {
+                        indices[i] = ptr[i];
+                    }
+                }
+                else
+                {
+                    throw std::runtime_error("indices must be tuple, list, or array");
+                }
+                return Cell_t(origin, scaling_factor, level, indices, index);
+            }),
+            py::arg("level"),
+            py::arg("indices"),
+            py::arg("index") = 0,
+            py::arg("origin_point") = py::none(),
+            py::arg("scaling_factor") = 1.0,
+            "Create a Cell (origin_point and scaling_factor are optional)")
+
+        // Properties
+        .def_property_readonly("level",
+                              [](const Cell_t& c) -> std::size_t
+                              {
+                                  return c.level;
+                              },
+                              "Refinement level")
+        .def_property_readonly("index",
+                              [](const Cell_t& c)
+                              {
+                                  return static_cast<std::size_t>(c.index);
+                              },
+                              "Index in data array")
+        .def_property_readonly("length",
+                              [](const Cell_t& c) -> double
+                              {
+                                  return c.length;
+                              },
+                              "Physical cell size")
+        .def_property_readonly("indices",
+                              [](const Cell_t& c) -> py::tuple
+                              {
+                                  py::tuple t(dim);
+                                  for (std::size_t i = 0; i < dim; ++i)
+                                  {
+                                      t[i] = c.indices[i];
+                                  }
+                                  return t;
+                              },
+                              "Integer coordinates as tuple")
+        .def_property_readonly("origin_point",
+                              [](const Cell_t& c) -> py::tuple
+                              {
+                                  return convert_to_tuple<dim>(c.origin_point);
+                              },
+                              "Origin point as tuple")
+
+        // Methods
+        .def("center",
+             [](const Cell_t& c) -> py::tuple
+             {
+                 auto cent = c.center();
+                 py::tuple t(dim);
+                 for (std::size_t i = 0; i < dim; ++i)
+                 {
+                     t[i] = cent[i];
+                 }
+                 return t;
+             },
+             "Cell center as tuple")
+        .def("center",
+             [](const Cell_t& c, std::size_t i) -> double
+             {
+                 return c.center(i);
+             },
+             py::arg("i"),
+             "Center coordinate in dimension i")
+        .def("corner",
+             [](const Cell_t& c) -> py::tuple
+             {
+                 auto corn = c.corner();
+                 py::tuple t(dim);
+                 for (std::size_t i = 0; i < dim; ++i)
+                 {
+                     t[i] = corn[i];
+                 }
+                 return t;
+             },
+             "Cell corner (min point) as tuple")
+        .def("corner",
+             [](const Cell_t& c, std::size_t i) -> double
+             {
+                 return c.corner(i);
+             },
+             py::arg("i"),
+             "Corner coordinate in dimension i")
+
+        // String representation
+        .def("__repr__",
+             [name](const Cell_t& c)
+             {
+                 std::ostringstream oss;
+                 oss << name << "(level=" << c.level << ", index=";
+                 oss << static_cast<std::size_t>(c.index) << ")";
+                 return oss.str();
+             })
+        .def("__str__",
+             [name](const Cell_t& c)
+             {
+                 std::ostringstream oss;
+                 oss << name << " at level " << c.level;
+                 return oss.str();
+             });
 }
 
 // ============================================================================
@@ -212,14 +427,12 @@ void bind_level_cell_list(py::module_& m, const std::string& name)
         // .def("clear", &LCL::clear, "Clear all cells from this level")
 
         .def("add_cell",
-             [](LCL& lcl, const py::object& cell_obj)
+             [](LCL& lcl, const Cell<dim>& cell)
              {
-                 // For now, skip - would need Cell bindings with correct interval type
-                 // lcl.add_cell(cell);
-                 throw std::runtime_error("add_cell not yet implemented");
+                 lcl.add_cell(cell);
              },
              py::arg("cell"),
-             "Add a cell to this level (not yet implemented)")
+             "Add a cell to this level")
 
         // String representations
         .def("__repr__",
@@ -542,6 +755,170 @@ py::object cell_list_factory(py::object dim_obj, py::object origin_obj, double s
     }
 }
 
+// Infer dimension from indices tuple/list length
+std::size_t infer_dim_from_indices(const py::object& indices_obj)
+{
+    if (py::isinstance<py::tuple>(indices_obj))
+    {
+        auto t = indices_obj.cast<py::tuple>();
+        return t.size();
+    }
+    else if (py::isinstance<py::list>(indices_obj))
+    {
+        auto l = indices_obj.cast<py::list>();
+        return l.size();
+    }
+    else if (py::isinstance<py::array>(indices_obj))
+    {
+        auto a = indices_obj.cast<py::array_t<int>>();
+        return a.size();
+    }
+    else
+    {
+        throw std::runtime_error("Cannot infer dimension from indices type. "
+                                 "Use tuple/list/array or specify 'dim' parameter.");
+    }
+}
+
+// Factory function for Cell with dimension inference
+py::object cell_factory(py::object dim_obj,
+                        std::size_t level,
+                        const py::object& indices_obj,
+                        long long int index,
+                        const py::object& origin_obj,
+                        double scaling_factor)
+{
+    std::size_t dim = 0;
+
+    // Determine dimension
+    if (!dim_obj.is_none())
+    {
+        // Explicit dim parameter
+        dim = dim_obj.cast<std::size_t>();
+    }
+    else
+    {
+        // Infer from indices
+        dim = infer_dim_from_indices(indices_obj);
+    }
+
+    // Validate dimension
+    if (dim < 1 || dim > 3)
+    {
+        throw std::runtime_error("Invalid dimension: must be 1, 2, or 3");
+    }
+
+    // Create appropriate Cell
+    if (dim == 1)
+    {
+        using Cell_t = Cell<1>;
+        using coords_t = typename Cell_t::coords_t;
+        using indices_t = typename Cell_t::indices_t;
+        coords_t origin = origin_obj.is_none() ? coords_t{} : convert_to_origin_point<1>(origin_obj);
+
+        indices_t indices;
+        if (py::isinstance<py::tuple>(indices_obj) || py::isinstance<py::list>(indices_obj))
+        {
+            auto seq = indices_obj.cast<py::sequence>();
+            if (seq.size() != 1)
+            {
+                throw std::runtime_error("indices must have 1 element for 1D");
+            }
+            indices[0] = seq[0].cast<typename indices_t::value_type>();
+        }
+        else if (py::isinstance<py::array>(indices_obj))
+        {
+            auto arr = indices_obj.cast<py::array_t<typename indices_t::value_type>>();
+            if (arr.size() != 1)
+            {
+                throw std::runtime_error("indices must have 1 element for 1D");
+            }
+            auto buf = arr.request();
+            auto* ptr = static_cast<typename indices_t::value_type*>(buf.ptr);
+            indices[0] = ptr[0];
+        }
+        else
+        {
+            throw std::runtime_error("indices must be tuple, list, or array");
+        }
+        return py::cast(Cell_t(origin, scaling_factor, level, indices, static_cast<signed long long int>(index)));
+    }
+    else if (dim == 2)
+    {
+        using Cell_t = Cell<2>;
+        using coords_t = typename Cell_t::coords_t;
+        using indices_t = typename Cell_t::indices_t;
+        coords_t origin = origin_obj.is_none() ? coords_t{} : convert_to_origin_point<2>(origin_obj);
+
+        indices_t indices;
+        if (py::isinstance<py::tuple>(indices_obj) || py::isinstance<py::list>(indices_obj))
+        {
+            auto seq = indices_obj.cast<py::sequence>();
+            if (seq.size() != 2)
+            {
+                throw std::runtime_error("indices must have 2 elements for 2D");
+            }
+            indices[0] = seq[0].cast<typename indices_t::value_type>();
+            indices[1] = seq[1].cast<typename indices_t::value_type>();
+        }
+        else if (py::isinstance<py::array>(indices_obj))
+        {
+            auto arr = indices_obj.cast<py::array_t<typename indices_t::value_type>>();
+            if (arr.size() != 2)
+            {
+                throw std::runtime_error("indices must have 2 elements for 2D");
+            }
+            auto buf = arr.request();
+            auto* ptr = static_cast<typename indices_t::value_type*>(buf.ptr);
+            indices[0] = ptr[0];
+            indices[1] = ptr[1];
+        }
+        else
+        {
+            throw std::runtime_error("indices must be tuple, list, or array");
+        }
+        return py::cast(Cell_t(origin, scaling_factor, level, indices, static_cast<signed long long int>(index)));
+    }
+    else  // dim == 3
+    {
+        using Cell_t = Cell<3>;
+        using coords_t = typename Cell_t::coords_t;
+        using indices_t = typename Cell_t::indices_t;
+        coords_t origin = origin_obj.is_none() ? coords_t{} : convert_to_origin_point<3>(origin_obj);
+
+        indices_t indices;
+        if (py::isinstance<py::tuple>(indices_obj) || py::isinstance<py::list>(indices_obj))
+        {
+            auto seq = indices_obj.cast<py::sequence>();
+            if (seq.size() != 3)
+            {
+                throw std::runtime_error("indices must have 3 elements for 3D");
+            }
+            indices[0] = seq[0].cast<typename indices_t::value_type>();
+            indices[1] = seq[1].cast<typename indices_t::value_type>();
+            indices[2] = seq[2].cast<typename indices_t::value_type>();
+        }
+        else if (py::isinstance<py::array>(indices_obj))
+        {
+            auto arr = indices_obj.cast<py::array_t<typename indices_t::value_type>>();
+            if (arr.size() != 3)
+            {
+                throw std::runtime_error("indices must have 3 elements for 3D");
+            }
+            auto buf = arr.request();
+            auto* ptr = static_cast<typename indices_t::value_type*>(buf.ptr);
+            indices[0] = ptr[0];
+            indices[1] = ptr[1];
+            indices[2] = ptr[2];
+        }
+        else
+        {
+            throw std::runtime_error("indices must be tuple, list, or array");
+        }
+        return py::cast(Cell_t(origin, scaling_factor, level, indices, static_cast<signed long long int>(index)));
+    }
+}
+
 // ============================================================================
 // Module initialization
 // ============================================================================
@@ -556,20 +933,26 @@ void init_cell_list_bindings(py::module_& m)
                                          "Factory Functions:\n"
                                          "  CellList(dim=None, origin_point=None, scaling_factor=1.0) - Create CellList\n"
                                          "    Dimension is inferred from origin_point if not specified.\n\n"
+                                         "  Cell(dim=None, level, indices, index=0, origin_point=None, scaling_factor=1.0) - Create Cell\n"
+                                         "    Dimension is inferred from indices if not specified.\n\n"
                                          "  Interval(start, end, index=0) - Create an Interval\n\n"
                                          "Classes (for advanced use):\n"
+                                         "  Cell1D, Cell2D, Cell3D - Individual cell objects\n"
                                          "  CellList1D, CellList2D, CellList3D - Hierarchical cell containers\n"
                                          "  LevelCellList1D, LevelCellList2D, LevelCellList3D - Single-level cell lists\n"
                                          "  ListOfIntervals - Forward list of intervals along x-axis\n\n"
                                          "Examples:\n"
                                          "    >>> import sampai as sam\n"
-                                         "    >>> # Dimension inferred from origin_point\n"
-                                         "    >>> cl = sam.cell.CellList(origin_point=(0., 0.))\n"
-                                         "    >>> # Explicit dimension\n"
+                                         "    >>> # Create a cell\n"
+                                         "    >>> cell = sam.cell.Cell(level=2, indices=(3, 7))\n"
+                                         "    >>> # Add cell to LevelCellList\n"
                                          "    >>> cl = sam.cell.CellList(dim=2)\n"
-                                         "    >>> lcl = cl[1]  # Access LevelCellList at level 1\n"
-                                         "    >>> lcl.level\n"
-                                         "    1\n");
+                                         "    >>> cl[2].add_cell(cell)\n");
+
+    // Bind Cell classes for each dimension
+    bind_cell<1>(cell, "Cell1D");
+    bind_cell<2>(cell, "Cell2D");
+    bind_cell<3>(cell, "Cell3D");
 
     // Bind ListOfIntervals (used by LevelCellList)
     bind_list_of_intervals(cell);
@@ -629,6 +1012,57 @@ void init_cell_list_bindings(py::module_& m)
     >>> level_0 = cl[0]
     >>> level_0.level
     0
+    )pbdoc");
+
+    // Factory function for Cell
+    cell.def("Cell",
+             &cell_factory,
+             py::arg("dim") = py::none(),
+             py::arg("level"),
+             py::arg("indices"),
+             py::arg("index") = 0,
+             py::arg("origin_point") = py::none(),
+             py::arg("scaling_factor") = 1.0,
+             R"pbdoc(Create a Cell for adding to LevelCellList.
+
+    The dimension is automatically inferred from the indices length
+    if not explicitly specified.
+
+    Parameters
+    ----------
+    dim : int, optional
+        Spatial dimension (1, 2, or 3). If None, inferred from indices.
+    level : int
+        Refinement level of the cell
+    indices : tuple of int
+        Integer coordinates (i, j, k) for the cell
+    index : int, optional
+        Index in data array (default: 0)
+    origin_point : tuple of float, optional
+        Physical origin (default: (0,)*dim)
+    scaling_factor : float, optional
+        Scaling factor (default: 1.0)
+
+    Returns
+    -------
+    Cell1D, Cell2D, or Cell3D
+        Cell object for the specified or inferred dimension
+
+    Raises
+    ------
+    RuntimeError
+        If dimension cannot be determined or is invalid
+
+    Examples
+    --------
+    >>> import sampai as sam
+    >>> # Dimension inferred from indices (2D)
+    >>> cell = sam.cell.Cell(level=2, indices=(3, 7))
+    >>> # Explicit dimension
+    >>> cell = sam.cell.Cell(dim=2, level=2, indices=(3, 7))
+    >>> # Add cell to LevelCellList
+    >>> cl = sam.cell.CellList(dim=2)
+    >>> cl[2].add_cell(cell)
     )pbdoc");
 
     // Also expose Interval for convenience
