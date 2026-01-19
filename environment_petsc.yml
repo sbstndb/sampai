@@ -1,0 +1,79 @@
+# Sampai Development Environment with PETSc Support
+#
+# Usage:
+#   conda env create -f environment_petsc.yml
+#   conda activate sampai-petsc
+#
+# This environment includes PETSc and its dependencies for advanced
+# linear solver support and matrix assembly capabilities.
+
+name: sampai-petsc
+
+channels:
+  - conda-forge
+
+dependencies:
+  # Core C++ dependencies (samurai headers are auto-downloaded from GitHub)
+  # These packages are used for transitive dependencies
+  - xtensor
+  - xtensor-blas
+  - hdf5
+  - highfive
+  - pugixml
+  - fmt
+  - cli11
+
+  # Python dependencies for sampai
+  - python>=3.9
+  - numpy>=1.20
+  - pybind11>=2.13
+
+  # Build tools
+  - meson>=0.64
+  - ninja>=1.10
+
+  # Development tools
+  - pip
+  - build
+
+  # Testing
+  - pytest>=7.0
+  - pytest-cov>=3.0
+
+  # Optional: HDF5 support
+  - h5py>=3.0
+
+  # Optional: Visualization
+  - matplotlib>=3.0
+
+  # Optional: Documentation
+  - sphinx>=5.0
+  - sphinx-rtd-theme>=1.0
+  - myst-parser>=0.18
+
+  # Code quality
+  - black>=22.0
+  - isort>=5.0
+  - ruff>=0.1.0
+
+  # ==================== PETSc Dependencies ====================
+  # MPI implementation (required for PETSc)
+  - mpich
+
+  # PETSc core library
+  - petsc>=3.20
+
+  # PETSc Python bindings
+  - petsc4py>=3.20
+
+  # Optional PETSc external packages (recommended for performance)
+  - hypre         # Scalable linear solvers
+  - metis         # Graph partitioning
+  - superlu-dist  # Distributed memory linear solver
+
+  # pkg-config for PETSc detection
+  - pkg-config
+
+  # Pip packages (if needed from PyPI instead of conda-forge)
+  - pip:
+      - mypy>=1.0
