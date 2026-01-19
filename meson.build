@@ -130,15 +130,6 @@ endif
 # This ensures our downloaded samurai headers are found first
 samurai_dep = samurai_base_dep
 
-# Add samurai include directories explicitly FIRST
-# This ensures our downloaded samurai headers override conda's samurai headers
-samurai_local_path = get_option('samurai_local_path')
-if samurai_local_path != ''
-    samurai_include_dirs = include_directories(samurai_local_path / 'include')
-else
-    samurai_include_dirs = include_directories('subprojects/samurai-headers/samurai/include')
-endif
-
 message('')
 
 # Additional dependencies from samurai (via conda)
@@ -338,7 +329,6 @@ pybind11_module = py.extension_module(
     binding_sources,
     dependencies: all_dependencies,
     include_directories: [
-        samurai_include_dirs,  # CRITICAL: Add samurai headers FIRST to override conda's samurai
         pybind11_include,
         include_directories('src'),
     ] + conda_dep_include_dirs,  # Add conda dependency includes (but NOT samurai headers from conda)

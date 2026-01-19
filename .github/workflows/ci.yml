@@ -156,6 +156,11 @@ jobs:
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda activate sampai-mpi
 
+        # Set PKG_CONFIG_PATH to find MPI via pkg-config (required for pip install)
+        export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+        export MPICC="$CONDA_PREFIX/bin/mpicc"
+        export MPICXX="$CONDA_PREFIX/bin/mpicxx"
+
         cd sampai
         pip install --no-build-isolation --no-deps -e . -Csetup-args=-Dmpi=true
 
