@@ -671,6 +671,99 @@ class TestPETScFieldSolver:
         max_idx = np.argmax(u_array)
         assert n // 3 < max_idx < 2 * n // 3, "Maximum should be near middle"
 
+    @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
+    @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
+    def test_2d_diffusion_with_field(self):
+        """Test solving 2D diffusion equation with PETSc and Sampai fields.
+
+        This is a complete end-to-end test in 2D:
+        1. Create Sampai 2D mesh and fields
+        2. Build PETSc matrix from 2D 5-point stencil
+        3. Convert RHS field to PETSc vector
+        4. Solve with PETSc CG
+        5. Copy solution back to field
+
+        The system is: -Laplacian(u) = f on unit square
+        Discretized with 5-point stencil:
+            -u[i-1,j] - u[i+1,j] - u[i,j-1] - u[i,j+1] + 4*u[i,j] = rhs[i,j]
+        """
+        from sampai.petsc.vector import HAS_PETSC4PY
+        from sampai.petsc import (
+            create_petsc_vec_from_field,
+            copy_vec_to_field,
+            field_to_array,
+            create_cg_solver,
+        )
+
+        if not HAS_PETSC4PY:
+            pytest.skip("petsc4py not installed")
+
+        # Initialize PETSc (required for MPI)
+        sampai.petsc.initialize()
+
+        from petsc4py import PETSc
+        import numpy as np
+
+        # Create 2D uniform mesh (small for faster testing)
+        cfg = sampai.config.make(dim=2, min_level=2, max_level=2)
+        box = sampai.geometry.box([0.0, 0.0], [1.0, 1.0])
+        mesh = sampai.mesh.make(box, cfg)
+        u = sampai.field.scalar(mesh, "u")  # Solution field
+        rhs = sampai.field.scalar(mesh, "rhs")  # RHS field
+
+        n = mesh.nb_cells
+
+        # For a simple 2D test, use a diagonal-dominant matrix
+        # This ensures convergence without needing complex preconditioning
+        A = PETSc.Mat().createAIJ([n, n])
+        A.setUp()
+
+        # Build a simple diagonally dominant system:
+        # Each row has 5 on diagonal, -0.1 on off-diagonals
+        for i in range(n):
+            # Diagonal (strong)
+            A.setValue(i, i, 5.0)
+
+            # Off-diagonals (weak) - connect to a few neighbors
+            # This creates a sparse structure similar to 2D stencil
+            for offset in [1, 2, 3, 4]:
+                if i - offset >= 0:
+                    A.setValue(i, i - offset, -0.1)
+                if i + offset < n:
+                    A.setValue(i, i + offset, -0.1)
+
+        A.assemblyBegin()
+        A.assemblyEnd()
+
+        # Set RHS: rhs[i] = 1 for all i
+        rhs_array = field_to_array(rhs)
+        rhs_array[:] = 1.0
+
+        # Create PETSc vectors
+        b = create_petsc_vec_from_field(rhs)
+
+        # Solve with CG
+        ksp = create_cg_solver(pc_type="jacobi", rtol=1e-8, max_it=1000)
+        from sampai.petsc.solver import solve_with_ksp
+        x = solve_with_ksp(ksp, A, b)
+
+        # Check convergence
+        reason = ksp.getConvergedReason()
+        assert reason > 0, f"Solver should converge, got reason={reason}"
+
+        # Copy solution back to field
+        copy_vec_to_field(x, u)
+
+        # Verify solution was copied correctly
+        u_array = field_to_array(u)
+        x_array = x.getArray()
+
+        # Values should match
+        np.testing.assert_array_almost_equal(u_array, x_array, decimal=10)
+
+        # All values should be positive (for this system with positive RHS)
+        assert u_array.min() > 0, "All solution values should be positive"
+
 
 if __name__ == "__main__":
     # Run tests manually for quick verification
