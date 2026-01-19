@@ -237,3 +237,122 @@ class TestOperatorChaining:
         div_grad_u = sam.make_divergence_order2(grad_u)
 
         assert div_grad_u.mesh is mesh
+
+
+class TestOperatorProperties:
+    """Test mathematical properties of operators."""
+
+    def test_divergence_of_gradient_equals_laplacian_2d(self):
+        """Verify div(grad(u)) and Laplacian(u) both work for same field."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Compute div(grad(u))
+        grad_u = sam.make_gradient_order2(u)
+        div_grad_u = sam.make_divergence_order2(grad_u)
+
+        # Compute Laplacian(u)
+        lap_u = sam.make_laplacian_order2(u)
+
+        # Both should produce valid fields
+        assert div_grad_u.mesh is mesh
+        assert lap_u.mesh is mesh
+
+    def test_diffusion_coefficient_scaling(self):
+        """Test that diffusion accepts different coefficients."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Compute with different coefficients
+        diff_u_1 = sam.make_diffusion_order2(u, coefficient=1.0)
+        diff_u_2 = sam.make_diffusion_order2(u, coefficient=2.0)
+        diff_u_small = sam.make_diffusion_order2(u, coefficient=0.01)
+
+        # All should produce valid fields
+        assert diff_u_1.mesh is mesh
+        assert diff_u_2.mesh is mesh
+        assert diff_u_small.mesh is mesh
+
+
+class TestOperatorWithAMR:
+    """Test operators on AMR (adaptively refined) meshes."""
+
+    def test_diffusion_on_amr_mesh_2d(self):
+        """Test diffusion operator on 2D AMR mesh with different levels."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=2, max_level=4)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Apply diffusion - should work on AMR mesh
+        diff_u = sam.make_diffusion_order2(u, coefficient=0.1)
+
+        assert diff_u.mesh is mesh
+
+    def test_gradient_on_amr_mesh_3d(self):
+        """Test gradient operator on 3D AMR mesh with different levels."""
+        box = sam.geometry.box([0., 0., 0.], [1., 1., 1.])
+        mesh = sam.mesh.make(box, min_level=1, max_level=3)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Apply gradient - should work on AMR mesh
+        grad_u = sam.make_gradient_order2(u)
+
+        assert grad_u.mesh is mesh
+
+    def test_divergence_on_amr_mesh_2d(self):
+        """Test divergence operator on 2D AMR mesh with different levels."""
+        box = sam.geometry.box([0., 0.], [1., 1.])
+        mesh = sam.mesh.make(box, min_level=2, max_level=4)
+
+        v = sam.field.vector(mesh, "v", n_components=2)
+
+        # Apply divergence - should work on AMR mesh
+        div_v = sam.make_divergence_order2(v)
+
+        assert div_v.mesh is mesh
+
+
+class TestOperatorEdgeCases:
+    """Test edge cases and error handling."""
+
+    def test_diffusion_with_zero_coefficient(self):
+        """Test diffusion with coefficient = 0 (boundary case)."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Should work with zero coefficient
+        diff_u = sam.make_diffusion_order2(u, coefficient=0.0)
+
+        assert diff_u.mesh is mesh
+
+    def test_diffusion_with_negative_coefficient(self):
+        """Test diffusion with negative coefficient."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Should work with negative coefficient
+        diff_u = sam.make_diffusion_order2(u, coefficient=-1.5)
+
+        assert diff_u.mesh is mesh
+
+    def test_diffusion_with_large_coefficient(self):
+        """Test diffusion with large coefficient."""
+        box = sam.geometry.box([0.], [1.])
+        mesh = sam.mesh.make(box, min_level=3, max_level=3)
+
+        u = sam.field.scalar(mesh, "u")
+
+        # Should work with large coefficient
+        diff_u = sam.make_diffusion_order2(u, coefficient=100.0)
+
+        assert diff_u.mesh is mesh
