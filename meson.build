@@ -317,6 +317,7 @@ binding_sources = files(
     'src/bindings/subset_bindings.cpp',
     'src/bindings/io_bindings.cpp',
     'src/bindings/mpi_bindings.cpp',
+    'src/bindings/timer_bindings.cpp',
 )
 
 if has_mpi
@@ -402,6 +403,7 @@ py.install_sources(
 # Install utils package
 py.install_sources(
     'src/sampai/utils/__init__.py',
+    'src/sampai/utils/timer.py',
     subdir: 'sampai/utils',
 )
 
