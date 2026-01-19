@@ -169,40 +169,33 @@ def test_for_each_level_callback_signature():
     assert all(t == 'int' for t in received_types)
 
 
-@pytest.mark.skip(reason="CellList not yet bound in Sampai")
 def test_for_each_level_multiresolution_mesh():
     """Test for_each_level on a multiresolution mesh with cells at multiple levels.
 
-    This test requires creating a mesh with cells at multiple refinement levels,
-    which typically happens after adaptation or manual construction using CellList.
-    CellList is not yet bound in Sampai, so this test is skipped.
+    This test creates a mesh with cells at multiple refinement levels using CellList.
     """
-    # TODO: Re-enable when CellList bindings are available
-    # box = sam.geometry.box([0.0], [1.0])
-    # config = sam.config.make(1)
-    # config.min_level = 0
-    # config.max_level = 3
-    #
-    # # Create a multiresolution mesh using CellList
-    # # Add cells at different levels
-    # cl = sam.CellList()
-    # # Level 0: cover entire domain
-    # cl[0, 0].add_interval(0, 8)
-    # # Level 1: refine first half
-    # cl[1, 0].add_interval(0, 8)
-    # # Level 2: refine further
-    # cl[2, 0].add_interval(0, 4)
-    #
-    # mesh = sam.mesh.make(cl, config)
-    #
-    # levels = []
-    # sam.algorithms.for_each_level(mesh, lambda level: levels.append(level))
-    #
-    # # Should visit multiple levels for multiresolution mesh
-    # assert len(levels) > 1
-    # assert 0 in levels  # Level 0 should have cells
-    # # The exact levels depend on the mesh construction
-    pass
+    # Create a multiresolution mesh using CellList
+    cl = sam.cell.CellList(dim=1)
+
+    # Level 0: cover entire domain [0, 1)
+    cl[0].add_interval(sam.cell.Interval(0, 8))
+
+    # Level 1: refine first half [0, 0.5)
+    cl[1].add_interval(sam.cell.Interval(0, 8))
+
+    # Level 2: refine further [0, 0.25)
+    cl[2].add_interval(sam.cell.Interval(0, 4))
+
+    config = sam.config.make(dim=1, min_level=0, max_level=3)
+    mesh = sam.mesh.make(cl, config)
+
+    levels = []
+    sam.algorithms.for_each_level(mesh, lambda level: levels.append(level))
+
+    # Should visit multiple levels for multiresolution mesh
+    assert len(levels) > 1
+    assert 0 in levels  # Level 0 should have cells
+    # The exact levels depend on the mesh construction
 
 
 def test_for_each_level_empty_mesh():

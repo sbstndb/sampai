@@ -87,8 +87,9 @@ namespace samurai::python::bindings
     // CellList type aliases (for building AMR meshes)
     // ============================================================
 
-    // CellList uses Interval<int, long long int> for cell indexing
-    using cell_interval = samurai::Interval<int, long long int>;
+    // CellList uses Interval<int, signed long long int> for cell indexing
+    // Note: Use signed long long int to match samurai::default_config::interval_t
+    using cell_interval = samurai::Interval<int, signed long long int>;
 
     template <std::size_t dim>
     using CellList = samurai::CellList<dim, cell_interval>;
@@ -97,7 +98,7 @@ namespace samurai::python::bindings
     using LevelCellList = samurai::LevelCellList<dim, cell_interval>;
 
     template <std::size_t dim>
-    using ListOfIntervals = samurai::ListOfIntervals<int, long long int>;
+    using ListOfIntervals = samurai::ListOfIntervals<int, signed long long int>;
 
     // Convenience aliases for specific dimensions
     using CellList1D = CellList<1>;

@@ -24,17 +24,18 @@ namespace py = pybind11;
 // Type aliases for CellList bindings
 // ============================================================================
 
-// Use int interval type for CellList (matching algorithm bindings)
-using cell_interval = samurai::Interval<int, long long int>;
+// Use int interval type for CellList (matching Samurai default config)
+// Note: Use signed long long int to match samurai::default_config::interval_t
+using cell_interval = samurai::Interval<int, signed long long int>;
 
 template <std::size_t dim>
-using LevelCellList = samurai::LevelCellList<dim, samurai::Interval<int, long long int>>;
+using LevelCellList = samurai::LevelCellList<dim, samurai::Interval<int, signed long long int>>;
 
 template <std::size_t dim>
-using CellList = samurai::CellList<dim, samurai::Interval<int, long long int>>;
+using CellList = samurai::CellList<dim, samurai::Interval<int, signed long long int>>;
 
 // ListOfIntervals is not dimension-specific
-using ListOfIntervals = samurai::ListOfIntervals<int, long long int>;
+using ListOfIntervals = samurai::ListOfIntervals<int, signed long long int>;
 
 using cell_coord_index_t = typename cell_interval::coord_index_t;
 
@@ -252,8 +253,81 @@ void bind_level_cell_list(py::module_& m, const std::string& name)
              &LCL::empty,
              "False if empty")
 
-        // Nested access operator[] - this is complex due to nested maps
-        // We provide a simplified version that returns the grid structure
+        // Nested access operator[] for adding intervals
+        // For 1D: no key needed (returns ListOfIntervals directly)
+        // For 2D: takes y-coordinate, returns ListOfIntervals
+        // For 3D: takes y,z coordinates as tuple, returns ListOfIntervals
+        .def("__getitem__",
+             [](LCL& lcl, const py::object& key_obj)
+             {
+                 if constexpr (dim == 1)
+                 {
+                     // 1D: Return the grid_yz (ListOfIntervals) directly
+                     // The key is ignored for 1D - we always return the intervals
+                     return const_cast<typename LCL::list_interval_t&>(lcl.grid_yz());
+                 }
+                 else if constexpr (dim == 2)
+                 {
+                     // 2D: key is y-coordinate
+                     using coord_index_t = typename LCL::coord_index_t;
+                     coord_index_t y = key_obj.cast<coord_index_t>();
+                     auto& grid = const_cast<typename LCL::grid_t&>(lcl.grid_yz());
+                     return grid[y];
+                 }
+                 else  // dim == 3
+                 {
+                     // 3D: key is (y, z) tuple
+                     auto t = key_obj.cast<py::sequence>();
+                     using coord_index_t = typename LCL::coord_index_t;
+                     coord_index_t y = t[0].cast<coord_index_t>();
+                     coord_index_t z = t[1].cast<coord_index_t>();
+                     auto& grid = const_cast<typename LCL::grid_t&>(lcl.grid_yz());
+                     return grid[y][z];
+                 }
+             },
+             py::return_value_policy::reference_internal,
+             "Access ListOfIntervals at given yz-index to add intervals")
+
+        // For convenience, also expose add_interval/add_point methods directly on LevelCellList
+        // This allows: cl[0].add_interval(...) instead of cl[0][()].add_interval(...)
+        .def("add_interval",
+             [](LCL& lcl, const py::object& interval_obj)
+             {
+                 if constexpr (dim == 1)
+                 {
+                     // 1D: Add to the grid (which is ListOfIntervals)
+                     using interval_t = typename LCL::interval_t;
+                     auto interval = interval_obj.cast<interval_t>();
+                     auto& grid = const_cast<typename LCL::list_interval_t&>(lcl.grid_yz());
+                     grid.add_interval(interval);
+                 }
+                 else
+                 {
+                     throw std::runtime_error("add_interval requires yz-index for dim > 1. Use: cl[level][y_or_tuple].add_interval(...)");
+                 }
+             },
+             py::arg("interval"),
+             "Add interval to level (only for 1D, use indexing for higher dims)")
+
+        .def("add_point",
+             [](LCL& lcl, py::object point_obj)
+             {
+                 if constexpr (dim == 1)
+                 {
+                     using index_t = typename LCL::index_t;
+                     auto point = point_obj.cast<index_t>();
+                     auto& grid = const_cast<typename LCL::list_interval_t&>(lcl.grid_yz());
+                     grid.add_point(point);
+                 }
+                 else
+                 {
+                     throw std::runtime_error("add_point requires yz-index for dim > 1. Use: cl[level][y_or_tuple].add_point(...)");
+                 }
+             },
+             py::arg("point"),
+             "Add point as interval to level (only for 1D, use indexing for higher dims)")
+
+        // Also keep grid_yz as read-only property for advanced use
         .def_property_readonly("grid_yz",
                                &LCL::grid_yz,
                                "Underlying sparse grid structure (nested maps)");
