@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - Boundary Conditions header
 //
 // Declares the initialization function for boundary condition bindings

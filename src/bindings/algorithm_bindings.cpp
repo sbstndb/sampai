@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - Algorithm functions
 //
 // Bindings for iteration primitives like for_each_interval and for_each_cell

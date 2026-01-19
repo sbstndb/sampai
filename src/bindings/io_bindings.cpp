@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - HDF5 I/O
 //
 // Bindings for save(), dump(), and load() functions for fields and meshes

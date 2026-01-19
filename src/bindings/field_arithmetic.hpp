@@ -1,4 +1,4 @@
-// Copyright 2024-2025 Sebastien D. S.
+// Copyright 2026 Sebastien Dubois (sbstndbs)
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once

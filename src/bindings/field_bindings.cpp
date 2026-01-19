@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - ScalarField and VectorField classes
 //
 // Bindings for samurai::ScalarField and samurai::VectorField classes

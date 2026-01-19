@@ -1,3 +1,6 @@
+# Copyright 2026 Sebastien Dubois (sbstndbs)
+# SPDX-License-Identifier: Apache-2.0
+
 """
 1D HDF5 mesh and field visualization utilities for Sampai.
 

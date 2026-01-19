@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // MPI Bindings for Sampai
 //
 // This file contains the MPI-related Python bindings for distributed memory
