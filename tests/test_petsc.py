@@ -230,13 +230,10 @@ class TestPETScIntegration:
     @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
     def test_petsc_with_box(self):
         """Test that PETSc works alongside basic Sampai geometry."""
-        try:
-            from sampai.geometry import box
-        except (ImportError, ModuleNotFoundError):
-            pytest.skip("sampai.geometry module not available yet")
+        from sampai import geometry
 
         # Create a simple box
-        b = box([0.0, 0.0], [1.0, 1.0])
+        b = geometry.box([0.0, 0.0], [1.0, 1.0])
 
         # PETSc should still work
         assert petsc.is_initialized() or petsc.get_world_size() >= 1
@@ -245,16 +242,12 @@ class TestPETScIntegration:
     @pytest.mark.skipif(not PETSC_ENABLED, reason="PETSc not enabled")
     def test_petsc_with_mesh_config(self):
         """Test that PETSc works alongside mesh configuration."""
-        try:
-            from sampai.config import MeshConfig
-        except (ImportError, ModuleNotFoundError):
-            pytest.skip("sampai.config module not available yet")
+        from sampai import config
 
-        # Create a mesh config
-        cfg = MeshConfig()
-        cfg.level = 4
+        # Create a mesh config (factory function)
+        cfg = config.make(dim=2, min_level=0, max_level=6)
 
-        # PETSc should still work
+        # PETSc should still work alongside config
         assert petsc.is_initialized() or petsc.get_world_size() >= 1
 
     @pytest.mark.skipif(not HAS_SAMPAI, reason="sampai not installed")
