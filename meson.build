@@ -24,7 +24,7 @@ project('sampai', 'cpp', 'c',
         'buildtype=release',
         'optimization=3',
         'b_ndebug=if-release',
-        'b_lto=false',
+        'b_lto=true',
     ],
     meson_version: '>=0.64.0'
 )
