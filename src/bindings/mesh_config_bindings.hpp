@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - MeshConfig class header
 //
 // Declares the initialization function for MeshConfig bindings

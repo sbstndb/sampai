@@ -1,3 +1,6 @@
+# Copyright 2026 Sebastien Dubois (sbstndbs)
+# SPDX-License-Identifier: Apache-2.0
+
 # Tests conftest.py
 # The sampai package must be installed via `pip install -e .` before running tests
 

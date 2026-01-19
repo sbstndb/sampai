@@ -1,3 +1,6 @@
+# Copyright 2026 Sebastien Dubois (sbstndbs)
+# SPDX-License-Identifier: Apache-2.0
+
 """Test bulk save, dump, and load functionality for multiple fields."""
 
 import os

@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - Multiresolution Adaptation
 //
 // Bindings for make_MRAdapt and update_ghost_mr functions

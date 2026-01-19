@@ -116,8 +116,8 @@ about:
   dev_url: https://github.com/hpc-maths/samurai
   doc_url: https://hpc-math-samurai.readthedocs.io
   doc_source_url: https://github.com/hpc-maths/samurai/tree/main/python
-  license: BSD-3-Clause
-  license_family: BSD
+  license: Apache-2.0
+  license_family: Apache
   license_file:
     - ../LICENSE
     - LICENSE

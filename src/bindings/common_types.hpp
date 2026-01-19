@@ -1,3 +1,6 @@
+// Copyright 2026 Sebastien Dubois (sbstndbs)
+// SPDX-License-Identifier: Apache-2.0
+
 // Samurai Python Bindings - Common Type Aliases
 //
 // Centralized type definitions for all Python bindings to eliminate duplication

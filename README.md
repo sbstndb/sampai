@@ -393,4 +393,14 @@ pip install meson
 
 ## License
 
-This project is licensed under the **BSD-3-Clause License**. See the [LICENSE](../LICENSE) file for details.
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](../LICENSE) file for details.
+
+**Key points:**
+- ✅ Commercial use allowed
+- ✅ Modifications allowed
+- ✅ Distribution allowed
+- ✅ Private use allowed
+- ⚠️ Patent retaliation clause (protects you from patent lawsuits)
+- ⚠️ Attribution and copyright notices must be retained
+
+For the underlying Samurai C++ library, see the [Samurai project](https://github.com/hpc-maths/samurai) (BSD 3-Clause).
