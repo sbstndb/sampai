@@ -241,6 +241,41 @@ meson compile -C builddir
 python -c "import sampai; print(sampai.__version__)"
 ```
 
+#### Using dev.py helper
+
+```bash
+# Build with automatic parallelization (uses all CPU cores)
+python dev.py build
+
+# Build with specific number of jobs
+python dev.py build -j 22
+
+# Build and install in one command
+python dev.py reinstall
+```
+
+### Fast Development Builds
+
+The default build configuration is optimized for **fast compilation** during development:
+
+```bash
+# For rapid edit-compile-test cycles (default)
+pip install -e . --no-build-isolation
+
+# Using dev.py with automatic parallelization (uses all CPU cores)
+python dev.py build
+python dev.py build -j 22   # Specify 22 parallel jobs
+python dev.py reinstall     # Clean + build + install
+
+# Incremental rebuild after code changes
+pip install -e . --no-build-isolation --no-deps
+```
+
+**Build Performance Tips:**
+- Default: `optimization=2`, `b_lto=false` - Fast compilation (~2-3 min)
+- Production build (max performance): Add `--config-settings=setup-args="-Doptimization=3" --config-settings=setup-args="-Db_lto=true"`
+- Debug build: Add `--config-settings=setup-args="-Dbuildtype=debug"`
+
 ### Code Quality
 
 ```bash

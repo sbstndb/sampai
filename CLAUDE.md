@@ -23,12 +23,37 @@ pip install -e .
 ```bash
 # Preferred methods
 make build          # Using Makefile
-python dev.py build # Using dev.py helper
+python dev.py build # Using dev.py helper (auto-detects CPU cores)
+python dev.py build -j 22  # Specify number of parallel jobs
 
 # Direct Meson
 meson setup builddir
 meson compile -C builddir
 ```
+
+### Build Performance Tips
+
+The default build configuration is optimized for **fast compilation** during development:
+- `optimization=2` (good performance, fast compilation)
+- `b_lto=false` (Link Time Optimization disabled - speeds up build 2-3x)
+
+**For development iterations** (edit-compile-test cycle):
+```bash
+# Clean build from scratch
+pip install -e . --no-build-isolation
+
+# Incremental rebuild after changes
+pip install -e . --no-build-isolation --no-deps
+```
+
+**For production/benchmark builds** (maximum runtime performance):
+```bash
+# Enable LTO and O3 optimization
+pip install . --config-settings=setup-args="-Doptimization=3" \
+               --config-settings=setup-args="-Db_lto=true"
+```
+
+**Note:** The default configuration balances build speed and runtime performance. Only enable LTO/O3 for final benchmarks or production releases.
 
 ### Testing
 ```bash
