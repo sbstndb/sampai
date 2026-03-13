@@ -71,6 +71,41 @@ For development/editable mode:
 pip install -e .
 ```
 
+### Choosing a Specific Samurai Version
+
+By default, Sampai uses the latest `main` branch of Samurai. You can specify a different version using Meson options:
+
+```bash
+# Use a specific release tag
+meson setup builddir -Dsamurai_commit=v0.27.1
+
+# Use a specific commit hash
+meson setup builddir -Dsamurai_commit=b39857a2780426f96562cfd8d0a4e31c929fc681
+
+# Use a different branch
+meson setup builddir -Dsamurai_commit=develop
+
+# Use a local Samurai installation
+meson setup builddir -Dsamurai_local_path=/path/to/samurai
+
+# Full clone (no shallow) for more flexibility
+meson setup builddir -Dsamurai_depth=0
+```
+
+**Examples:**
+
+```bash
+# Build with Samurai v0.27.1
+meson setup builddir -Dsamurai_commit=v0.27.1
+pip install -e .
+
+# Build with a local development copy of Samurai
+meson setup builddir -Dsamurai_local_path=~/dev/samurai
+pip install -e .
+```
+
+For more details on dependency management, see [DEPENDENCIES.md](DEPENDENCIES.md).
+
 ### Option 3: Build with pip
 
 ```bash

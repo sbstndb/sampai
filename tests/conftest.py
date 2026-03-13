@@ -76,7 +76,7 @@ def cpp_reference_dir():
     """
     Get path to C++ reference files.
 
-    Points to subprojects/samurai/tests/reference/finite_volume/
+    Points to subprojects/samurai-headers/samurai/tests/reference/finite_volume/
     """
-    samurai_tests = Path(__file__).parent.parent / "subprojects" / "samurai" / "tests"
+    samurai_tests = Path(__file__).parent.parent / "subprojects" / "samurai-headers" / "samurai" / "tests"
     return samurai_tests / "reference" / "finite_volume"

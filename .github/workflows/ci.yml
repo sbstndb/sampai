@@ -156,6 +156,11 @@ jobs:
         source $HOME/miniforge3/etc/profile.d/conda.sh
         conda activate sampai-mpi
 
+        # Set PKG_CONFIG_PATH to find MPI via pkg-config (required for pip install)
+        export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+        export MPICC="$CONDA_PREFIX/bin/mpicc"
+        export MPICXX="$CONDA_PREFIX/bin/mpicxx"
+
         cd sampai
         pip install --no-build-isolation --no-deps -e . -Csetup-args=-Dmpi=true
 
@@ -251,10 +256,10 @@ jobs:
         conda activate sampai-validation
 
         cd sampai
-        # Download samurai if not already present
-        if [ ! -d "subprojects/samurai/include/samurai" ]; then
+        # Download samurai if not already present (via samurai-headers subproject)
+        if [ ! -d "subprojects/samurai-headers/samurai/include/samurai" ]; then
             echo "Downloading Samurai from GitHub..."
-            git clone --depth=1 --single-branch https://github.com/hpc-maths/samurai.git subprojects/samurai
+            git clone --depth=1 --single-branch https://github.com/hpc-maths/samurai.git subprojects/samurai-headers/samurai
             echo "Samurai downloaded successfully!"
         else
             echo "Samurai already present, skipping download"
@@ -267,7 +272,7 @@ jobs:
         conda activate sampai-validation
 
         # Configure CMake for samurai - disable MPI, PETSc to save memory
-        cd sampai/subprojects/samurai
+        cd sampai/subprojects/samurai-headers/samurai
         mkdir -p build
         cd build
 
@@ -301,13 +306,13 @@ jobs:
         mkdir -p test_output
 
         # Run C++ advection_1d demo
-        ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-advection-1d \
+        ./subprojects/samurai-headers/samurai/build/demos/FiniteVolume/finite-volume-advection-1d \
           --path test_output \
           --filename cpp_advection_1d \
           --Tf 0.1
 
         # Run C++ advection_2d demo
-        ./subprojects/samurai/build/demos/FiniteVolume/finite-volume-advection-2d \
+        ./subprojects/samurai-headers/samurai/build/demos/FiniteVolume/finite-volume-advection-2d \
           --path test_output \
           --filename cpp_advection_2d \
           --Tf 0.01

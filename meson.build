@@ -74,50 +74,61 @@ else
 endif
 
 # ============================================================================
-# FIND SAMURAI C++ LIBRARY (auto-downloaded from GitHub)
+# FIND SAMURAI C++ LIBRARY (via subproject)
 # ============================================================================
-# IMPORTANT: We use samurai from source (auto-downloaded) because conda version is outdated.
-# Samurai is a header-only library, so no compiled library is needed.
-# The conda package is only used for dependencies (xtensor, fmt, CLI, hdf5, etc.).
-# Samurai is automatically cloned from GitHub into subprojects/samurai
+# Samurai is a header-only library downloaded via the samurai-headers subproject.
+# The subproject handles fetching Samurai from GitHub and exposing the headers.
+#
+# You can control which Samurai version is used with Meson options:
+#
+#   meson setup builddir                                    # Uses main (default)
+#   meson setup builddir -Dsamurai_commit=v0.27.1            # Uses release tag
+#   meson setup builddir -Dsamurai_commit=b39857a278...      # Uses specific commit
+#   meson setup builddir -Dsamurai_local_path=/path/to/samurai  # Uses local copy
+# ============================================================================
 
-# Define samurai download location (relative path for Meson)
-samurai_subproj_dir = 'subprojects/samurai'
-samurai_headers_check = run_command('test', '-d', samurai_subproj_dir / 'include/samurai', check: false)
+# Forward Samurai options to the subproject
+samurai_commit = get_option('samurai_commit')
+samurai_depth = get_option('samurai_depth')
+samurai_local_path = get_option('samurai_local_path')
 
-# Check if samurai is already downloaded, if not clone it
-if samurai_headers_check.returncode() != 0
-    message('Samurai not found locally, downloading from GitHub...')
-    # Clone samurai repository (shallow clone for speed)
-    samurai_clone = run_command('git', 'clone', '--depth=1', '--single-branch',
-                               'https://github.com/hpc-maths/samurai.git', samurai_subproj_dir,
-                               check: true)
-    message('Samurai downloaded successfully!')
-endif
+# Use the samurai-headers subproject to fetch Samurai
+samurai_subproj = subproject('samurai-headers',
+                             required: true)
 
-# Samurai is header-only - just need headers (use relative path)
-samurai_include = include_directories(samurai_subproj_dir / 'include')
+# Get the samurai dependency from the subproject
+samurai_base_dep = samurai_subproj.get_variable('samurai_dep')
 
-message('=== Using Samurai (header-only) from GitHub ===')
-message('  Source: https://github.com/hpc-maths/samurai.git (main branch)')
-message('  Location: subprojects/samurai')
-
-# Add conda include for dependencies (xtensor, fmt, CLI, hdf5, etc.)
-# These are needed by samurai headers but we don't want conda samurai headers
+# Store conda prefix for dependency includes (but NOT for samurai headers)
+# We'll add these separately to avoid conda's samurai headers taking precedence
 conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
+conda_dep_include_dirs = []
+
 if conda_prefix != ''
-    # Add conda include for dependencies
-    conda_include = include_directories(conda_prefix / 'include')
     message('  Conda prefix: ' + conda_prefix + ' (for dependencies)')
-    # Combine samurai headers with conda dependency headers
-    samurai_dep = declare_dependency(
-        include_directories: [samurai_include, conda_include],
-    )
-else
-    samurai_dep = declare_dependency(
-        include_directories: samurai_include,
-    )
+    # Extract only the dependency subdirectories, NOT the entire include dir
+    # This avoids picking up conda's samurai headers
+    conda_include_root = conda_prefix / 'include'
+
+    # Check for specific dependency subdirectories
+    dep_subdirs = ['xtensor', 'xtl', 'nlohmann', 'fmt', 'CLI', 'highfive', 'hdf5', 'pugixml']
+
+    foreach subdir : dep_subdirs
+        subdir_path = conda_include_root / subdir
+        if run_command('test', '-d', subdir_path, check: false).returncode() == 0
+            conda_dep_include_dirs += include_directories(subdir_path)
+        endif
+    endforeach
+
+    # Also add the root include for dependencies that don't have subdirs
+    # but mark it as NON-system to avoid overriding our samurai headers
+    # The key is that samurai headers from subproject will be searched FIRST
+    conda_dep_include_dirs += include_directories(conda_include_root)
 endif
+
+# Use samurai from subproject WITHOUT conda include
+# This ensures our downloaded samurai headers are found first
+samurai_dep = samurai_base_dep
 
 message('')
 
@@ -133,14 +144,12 @@ pugixml_dep = dependency('pugixml', required: false)
 # ============================================================================
 # MPI DETECTION (optional)
 # ============================================================================
-# Get C++ compiler for finding libraries
-cpp = meson.get_compiler('cpp')
-
-# Try to find MPI via dependency() first (works with system MPI)
+# MPI detection via pkg-config (works with system MPI and conda-forge)
+# Note: Set PKG_CONFIG_PATH if MPI is in a non-standard location
 mpi_dep = dependency('mpi', required: false)
 
-# If not found, try OpenMPI/MPICH pkg-config names explicitly (conda-forge)
 if not mpi_dep.found() and enable_mpi
+    # Try OpenMPI/MPICH pkg-config names explicitly (conda-forge)
     ompi_cxx_dep = dependency('ompi-cxx', method: 'pkg-config', required: false)
     ompi_c_dep = dependency('ompi-c', method: 'pkg-config', required: false)
 
@@ -166,100 +175,48 @@ if not mpi_dep.found() and enable_mpi
     endif
 endif
 
-# If not found, try finding MPI libraries explicitly (works with conda-forge)
-if not mpi_dep.found() and enable_mpi
-    # Get conda prefix if available
+# If still not found, provide helpful error message
+if enable_mpi and not mpi_dep.found()
+    error('MPI requested but not found via pkg-config. Install one of:\n' +
+          '  - conda install -c conda-forge mpich\n' +
+          '  - conda install -c conda-forge openmpi\n' +
+          '  - Set PKG_CONFIG_PATH to your MPI installation')
+endif
+
+# Find Boost.MPI via pkg-config
+boost_mpi_dep = dependency('boost_mpi', required: false)
+
+# Fallback to find_library for Boost (some systems don't provide pkg-config)
+if not boost_mpi_dep.found() and enable_mpi
+    cpp = meson.get_compiler('cpp')
     conda_prefix = run_command('printenv', 'CONDA_PREFIX', check: false).stdout().strip()
 
+    boost_search_dirs = []
     if conda_prefix != ''
-        # Try to find MPI in conda environment
-        mpi_lib_dirs = [
+        boost_search_dirs += [
             join_paths(conda_prefix, 'lib'),
-            join_paths(conda_prefix, 'lib/openmpi'),
             join_paths(conda_prefix, 'lib64'),
-            join_paths(conda_prefix, 'lib64/openmpi'),
         ]
-
-        mpi_lib = cpp.find_library('mpi', dirs: mpi_lib_dirs, required: false)
-        mpi_cxx_lib = cpp.find_library('mpi_cxx', dirs: mpi_lib_dirs, required: false)
-
-        if mpi_lib.found()
-            mpi_libs = [mpi_lib]
-            mpi_include_dirs = []
-
-            mpi_include_path = join_paths(conda_prefix, 'include')
-            mpi_include_openmpi = join_paths(conda_prefix, 'include/openmpi')
-
-            if run_command('test', '-d', mpi_include_path, check: false).returncode() == 0
-                mpi_include_dirs += [include_directories(mpi_include_path)]
-            endif
-            if run_command('test', '-d', mpi_include_openmpi, check: false).returncode() == 0
-                mpi_include_dirs += [include_directories(mpi_include_openmpi)]
-            endif
-
-            if mpi_cxx_lib.found()
-                mpi_libs += [mpi_cxx_lib]
-                message('Found MPI C++ library in conda')
-            else
-                message('MPI C++ library not found (using C bindings only)')
-            endif
-
-            mpi_dep = declare_dependency(
-                include_directories: mpi_include_dirs,
-                dependencies: mpi_libs,
-            )
-            message('Found MPI libraries via conda environment')
-        endif
     endif
 
-    # Fallback to system-wide search if conda detection failed
-    if not mpi_dep.found()
-        mpi_lib = cpp.find_library('mpi', required: false)
-        if mpi_lib.found()
-            mpi_dep = declare_dependency(dependencies: mpi_lib)
-            message('Found MPI libraries via system search')
-        endif
+    boost_mpi_lib = cpp.find_library('boost_mpi', dirs: boost_search_dirs, required: false)
+    boost_serialization_lib = cpp.find_library('boost_serialization', dirs: boost_search_dirs, required: false)
+
+    if boost_mpi_lib.found() and boost_serialization_lib.found()
+        boost_mpi_dep = declare_dependency(
+            dependencies: [boost_mpi_lib, boost_serialization_lib]
+        )
+        message('Found Boost.MPI via find_library')
     endif
 endif
 
-# Still not found and MPI is required?
-if enable_mpi and not mpi_dep.found()
-    error('MPI requested but not found. Install system MPI or conda-forge openmpi')
-endif
+has_boost_mpi = boost_mpi_dep.found()
 
-# Find boost-mpi and boost-serialization libraries explicitly
-# Using find_library is more reliable than dependency() for MPI
-boost_search_dirs = []
-if conda_prefix != ''
-    boost_search_dirs += [
-        join_paths(conda_prefix, 'lib'),
-        join_paths(conda_prefix, 'lib64'),
-    ]
-endif
-
-boost_mpi_lib = cpp.find_library('boost_mpi', dirs: boost_search_dirs, required: false)
-boost_serialization_lib = cpp.find_library('boost_serialization', dirs: boost_search_dirs, required: false)
-
-has_boost_mpi = boost_mpi_lib.found() and boost_serialization_lib.found()
-
-# Combine into a dependency-like object
-if has_boost_mpi
-    boost_mpi_dep = declare_dependency(
-        dependencies: [boost_mpi_lib, boost_serialization_lib]
-    )
-    message('Found boost-mpi and boost-serialization libraries')
-else
-    boost_mpi_dep = declare_dependency()
-    if enable_mpi
-        warning('boost-mpi or boost-serialization not found - MPI support may be limited')
-    endif
+if enable_mpi and not has_boost_mpi
+    error('MPI support requires Boost.MPI; install libboost-mpi or conda-forge boost')
 endif
 
 has_mpi = enable_mpi and mpi_dep.found()
-
-if enable_mpi and not has_boost_mpi
-    error('MPI support requires Boost.MPI and Boost.Serialization; install libboost-mpi and libboost-serialization')
-endif
 
 # Collect cpp_args for conditional compilation
 extra_cpp_args = []
@@ -374,7 +331,7 @@ pybind11_module = py.extension_module(
     include_directories: [
         pybind11_include,
         include_directories('src'),
-    ],
+    ] + conda_dep_include_dirs,  # Add conda dependency includes (but NOT samurai headers from conda)
     install: true,
     install_tag: 'runtime',
     # Optimization flags for better performance
