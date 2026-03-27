@@ -9,6 +9,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <samurai/box.hpp>
+#include <samurai/cell_list.hpp>
 #include <samurai/domain_builder.hpp>
 #include <samurai/mesh_config.hpp>
 #include <samurai/mr/mesh.hpp>
@@ -520,7 +521,55 @@ void init_mesh_bindings(py::module_& m)
                 {
                 }
 
-                throw std::runtime_error("Box/Domain and Config dimension mismatch or unsupported types");
+                // Try CellList1D + MeshConfig1D
+                try
+                {
+                    using Config1D = samurai::mesh_config<1>;
+                    using CompleteConfig1D = samurai::complete_mesh_config<Config1D, samurai::MRMeshId>;
+                    using Mesh1D = samurai::MRMesh<CompleteConfig1D>;
+                    using CellList1D = typename Mesh1D::cl_type;  // Use mesh's cl_type for exact match
+                    auto cl = py::cast<CellList1D>(box_or_domain);
+                    auto cfg = py::cast<Config1D>(config_obj);
+                    Mesh1D mesh(cl, cfg);
+                    return py::cast(mesh);
+                }
+                catch (...)
+                {
+                }
+
+                // Try CellList2D + MeshConfig2D
+                try
+                {
+                    using Config2D = samurai::mesh_config<2>;
+                    using CompleteConfig2D = samurai::complete_mesh_config<Config2D, samurai::MRMeshId>;
+                    using Mesh2D = samurai::MRMesh<CompleteConfig2D>;
+                    using CellList2D = typename Mesh2D::cl_type;  // Use mesh's cl_type for exact match
+                    auto cl = py::cast<CellList2D>(box_or_domain);
+                    auto cfg = py::cast<Config2D>(config_obj);
+                    Mesh2D mesh(cl, cfg);
+                    return py::cast(mesh);
+                }
+                catch (...)
+                {
+                }
+
+                // Try CellList3D + MeshConfig3D
+                try
+                {
+                    using Config3D = samurai::mesh_config<3>;
+                    using CompleteConfig3D = samurai::complete_mesh_config<Config3D, samurai::MRMeshId>;
+                    using Mesh3D = samurai::MRMesh<CompleteConfig3D>;
+                    using CellList3D = typename Mesh3D::cl_type;  // Use mesh's cl_type for exact match
+                    auto cl = py::cast<CellList3D>(box_or_domain);
+                    auto cfg = py::cast<Config3D>(config_obj);
+                    Mesh3D mesh(cl, cfg);
+                    return py::cast(mesh);
+                }
+                catch (...)
+                {
+                }
+
+                throw std::runtime_error("Box/Domain/CellList and Config dimension mismatch or unsupported types");
             }
 
             // Case 2: Inline config parameters

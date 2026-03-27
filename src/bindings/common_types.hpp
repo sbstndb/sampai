@@ -83,4 +83,30 @@ namespace samurai::python::bindings
     using VectorField3D_2 = VectorField<3, 2, false>;
     using VectorField3D_3 = VectorField<3, 3, false>;
 
+    // ============================================================
+    // CellList type aliases (for building AMR meshes)
+    // ============================================================
+
+    // CellList uses Interval<int, signed long long int> for cell indexing
+    // Note: Use signed long long int to match samurai::default_config::interval_t
+    using cell_interval = samurai::Interval<int, signed long long int>;
+
+    template <std::size_t dim>
+    using CellList = samurai::CellList<dim, cell_interval>;
+
+    template <std::size_t dim>
+    using LevelCellList = samurai::LevelCellList<dim, cell_interval>;
+
+    template <std::size_t dim>
+    using ListOfIntervals = samurai::ListOfIntervals<int, signed long long int>;
+
+    // Convenience aliases for specific dimensions
+    using CellList1D = CellList<1>;
+    using CellList2D = CellList<2>;
+    using CellList3D = CellList<3>;
+
+    using LevelCellList1D = LevelCellList<1>;
+    using LevelCellList2D = LevelCellList<2>;
+    using LevelCellList3D = LevelCellList<3>;
+
 } // namespace samurai::python::bindings

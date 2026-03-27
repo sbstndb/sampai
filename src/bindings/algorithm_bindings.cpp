@@ -6,6 +6,7 @@
 // Bindings for iteration primitives like for_each_interval and for_each_cell
 
 #include <pybind11/functional.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <samurai/algorithm.hpp>
@@ -214,6 +215,121 @@ void for_each_cell_3d(const Mesh3D& mesh, py::function func)
                            });
 }
 
+// ============================================================
+// for_each_level bindings
+// ============================================================
+
+// Wrapper functions for for_each_level for each dimension
+// Callback receives std::size_t level parameter
+void for_each_level_1d(const Mesh1D& mesh, py::function func, bool include_empty_levels = false)
+{
+    samurai::for_each_level(mesh,
+                           [&func](std::size_t level)
+                           {
+                               func(level);
+                           },
+                           include_empty_levels);
+}
+
+void for_each_level_2d(const Mesh2D& mesh, py::function func, bool include_empty_levels = false)
+{
+    samurai::for_each_level(mesh,
+                           [&func](std::size_t level)
+                           {
+                               func(level);
+                           },
+                           include_empty_levels);
+}
+
+void for_each_level_3d(const Mesh3D& mesh, py::function func, bool include_empty_levels = false)
+{
+    samurai::for_each_level(mesh,
+                           [&func](std::size_t level)
+                           {
+                               func(level);
+                           },
+                           include_empty_levels);
+}
+
+// ============================================================
+// Helper function to convert Python object to xtensor_fixed point
+// ============================================================
+
+template <std::size_t dim>
+xt::xtensor_fixed<double, xt::xshape<dim>>
+convert_to_point(const py::object& obj)
+{
+    using point_t = xt::xtensor_fixed<double, xt::xshape<dim>>;
+    point_t point;
+
+    // Try to convert from list/tuple
+    try
+    {
+        py::sequence seq = obj.cast<py::sequence>();
+        if (seq.size() != dim)
+        {
+            throw std::runtime_error("Expected sequence of length " + std::to_string(dim) +
+                                   ", got " + std::to_string(seq.size()));
+        }
+        for (std::size_t i = 0; i < dim; ++i)
+        {
+            point[i] = seq[i].cast<double>();
+        }
+        return point;
+    }
+    catch (const py::cast_error&)
+    {
+        // Try numpy array
+        try
+        {
+            py::array_t<double> arr = obj.cast<py::array_t<double>>();
+            if (arr.size() != dim)
+            {
+                throw std::runtime_error("Expected array of length " + std::to_string(dim) +
+                                       ", got " + std::to_string(arr.size()));
+            }
+            auto buf = arr.request();
+            auto* ptr = static_cast<double*>(buf.ptr);
+            for (std::size_t i = 0; i < dim; ++i)
+            {
+                point[i] = ptr[i];
+            }
+            return point;
+        }
+        catch (const py::cast_error&)
+        {
+            throw std::runtime_error("Cannot convert to point: expected tuple, list, or numpy array of length " +
+                                   std::to_string(dim));
+        }
+    }
+}
+
+// ============================================================
+// find_cell bindings
+// ============================================================
+
+// Wrapper functions for find_cell for each dimension
+CellWrapper<1> find_cell_1d(const Mesh1D& mesh, const py::object& coords_obj)
+{
+    auto coords = convert_to_point<1>(coords_obj);
+    auto cell = samurai::find_cell(mesh, coords);
+    return CellWrapper<1>(cell);
+}
+
+CellWrapper<2> find_cell_2d(const Mesh2D& mesh, const py::object& coords_obj)
+{
+    auto coords = convert_to_point<2>(coords_obj);
+    auto cell = samurai::find_cell(mesh, coords);
+    return CellWrapper<2>(cell);
+}
+
+CellWrapper<3> find_cell_3d(const Mesh3D& mesh, const py::object& coords_obj)
+{
+    auto coords = convert_to_point<3>(coords_obj);
+    auto cell = samurai::find_cell(mesh, coords);
+    return CellWrapper<3>(cell);
+}
+
 // Module initialization function for algorithm bindings
 void init_algorithm_bindings(py::module_& m)
 {
@@ -229,13 +345,19 @@ void init_algorithm_bindings(py::module_& m)
                                              "Algorithmic primitives for mesh traversal and field operations\n\n"
                                              "Factory Functions:\n"
                                              "  for_each_cell(mesh, function) - Iterate over all cells in mesh\n"
-                                             "  for_each_interval(mesh, function) - Iterate over all intervals in mesh\n\n"
+                                             "  for_each_interval(mesh, function) - Iterate over all intervals in mesh\n"
+                                             "  for_each_level(mesh, function, include_empty_levels=False) - Iterate over refinement levels\n"
+                                             "  find_cell(mesh, coords) - Find cell containing point at given coordinates\n\n"
                                              "Classes:\n"
                                              "  Cell1D, Cell2D, Cell3D - Cell wrapper objects for iteration\n\n"
                                              "Examples:\n"
                                              "    >>> import sampai as sam\n"
                                              "    >>> sam.algorithms.for_each_cell(mesh, lambda cell: print(cell.center()))\n"
-                                             "    >>> sam.algorithms.for_each_interval(mesh, lambda interval, index: ...)\n");
+                                             "    >>> sam.algorithms.for_each_interval(mesh, lambda level, interval, index: ...)\n"
+                                             "    >>> sam.algorithms.for_each_level(mesh, lambda level: print(f'Level {level}'))\n"
+                                             "    >>> cell = sam.algorithms.find_cell(mesh, [0.5, 0.3])\n"
+                                             "    >>> if cell.length > 0:\n"
+                                             "    ...     u[cell.index] = 1.0\n");
 
     // Bind CellWrapper classes ONLY to algorithms submodule (not to main module)
     bind_cell_wrapper<1>(algorithms, "Cell1D");
@@ -263,4 +385,83 @@ void init_algorithm_bindings(py::module_& m)
     algorithms.def("for_each_cell", &for_each_cell_1d, py::arg("mesh"), py::arg("function"), "Iterate over all cells in the 1D mesh.");
     algorithms.def("for_each_cell", &for_each_cell_2d, py::arg("mesh"), py::arg("function"), "Iterate over all cells in the 2D mesh.");
     algorithms.def("for_each_cell", &for_each_cell_3d, py::arg("mesh"), py::arg("function"), "Iterate over all cells in the 3D mesh.");
+
+    // Bind for_each_level functions ONLY to algorithms submodule (not to main module)
+    algorithms.def("for_each_level",
+                   &for_each_level_1d,
+                   py::arg("mesh"),
+                   py::arg("function"),
+                   py::arg("include_empty_levels") = false,
+                   "Iterate over all refinement levels in the 1D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to iterate over\n"
+                   "    function: Callback function(level) - called with level number (int)\n"
+                   "    include_empty_levels: If False (default), skip levels with no cells");
+    algorithms.def("for_each_level",
+                   &for_each_level_2d,
+                   py::arg("mesh"),
+                   py::arg("function"),
+                   py::arg("include_empty_levels") = false,
+                   "Iterate over all refinement levels in the 2D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to iterate over\n"
+                   "    function: Callback function(level) - called with level number (int)\n"
+                   "    include_empty_levels: If False (default), skip levels with no cells");
+    algorithms.def("for_each_level",
+                   &for_each_level_3d,
+                   py::arg("mesh"),
+                   py::arg("function"),
+                   py::arg("include_empty_levels") = false,
+                   "Iterate over all refinement levels in the 3D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to iterate over\n"
+                   "    function: Callback function(level) - called with level number (int)\n"
+                   "    include_empty_levels: If False (default), skip levels with no cells");
+
+    // Bind find_cell functions ONLY to algorithms submodule (not to main module)
+    algorithms.def("find_cell",
+                   &find_cell_1d,
+                   py::arg("mesh"),
+                   py::arg("coords"),
+                   "Find cell containing point in 1D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to search in\n"
+                   "    coords: Tuple, list, or numpy array of Cartesian coordinates (x,)\n\n"
+                   "Returns:\n"
+                   "    Cell1D: Cell wrapper with level, index, length, center, corner methods.\n"
+                   "           Returns cell with length=0 if point not found in mesh.\n\n"
+                   "Example:\n"
+                   "    >>> cell = sam.algorithms.find_cell(mesh, [0.5])\n"
+                   "    >>> if cell.length > 0:\n"
+                   "    ...     u[cell.index] = 1.0");
+    algorithms.def("find_cell",
+                   &find_cell_2d,
+                   py::arg("mesh"),
+                   py::arg("coords"),
+                   "Find cell containing point in 2D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to search in\n"
+                   "    coords: Tuple, list, or numpy array of Cartesian coordinates (x, y)\n\n"
+                   "Returns:\n"
+                   "    Cell2D: Cell wrapper with level, index, length, center, corner methods.\n"
+                   "           Returns cell with length=0 if point not found in mesh.\n\n"
+                   "Example:\n"
+                   "    >>> cell = sam.algorithms.find_cell(mesh, [0.5, 0.3])\n"
+                   "    >>> if cell.length > 0:\n"
+                   "    ...     u[cell.index] = 1.0");
+    algorithms.def("find_cell",
+                   &find_cell_3d,
+                   py::arg("mesh"),
+                   py::arg("coords"),
+                   "Find cell containing point in 3D mesh.\n\n"
+                   "Args:\n"
+                   "    mesh: The mesh to search in\n"
+                   "    coords: Tuple, list, or numpy array of Cartesian coordinates (x, y, z)\n\n"
+                   "Returns:\n"
+                   "    Cell3D: Cell wrapper with level, index, length, center, corner methods.\n"
+                   "           Returns cell with length=0 if point not found in mesh.\n\n"
+                   "Example:\n"
+                   "    >>> cell = sam.algorithms.find_cell(mesh, [0.5, 0.3, 0.7])\n"
+                   "    >>> if cell.length > 0:\n"
+                   "    ...     u[cell.index] = 1.0");
 }
