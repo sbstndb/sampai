@@ -18,6 +18,7 @@
 #include "bc_bindings.hpp"
 #include "box_bindings.hpp"
 #include "domain_builder_bindings.hpp"
+#include "exception_bindings.hpp"
 #include "field_bindings.hpp"
 #include "interval_bindings.hpp"
 #include "io_bindings.hpp"
@@ -100,6 +101,9 @@ PYBIND11_MODULE(_sampai, m)
 
     // Version attribute
     m.attr("__version__") = SAMURAI_PYTHON_VERSION;
+
+    // Initialize exception bindings first (other bindings may use them)
+    init_exception_bindings(m);
 
     // Initialize bindings
     init_box_bindings(m);

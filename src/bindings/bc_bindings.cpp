@@ -17,6 +17,8 @@
 #include <samurai/stencil.hpp>
 #include "common_types.hpp"
 
+#include "exception_bindings.hpp"
+
 namespace py = pybind11;
 
 // Use centralized type aliases from common_types.hpp
@@ -51,7 +53,7 @@ void make_dirichlet_bc_dispatch(ScalarField<dim>& field, double value, std::size
         case 4:
             return make_dirichlet_bc_scalar<dim, 4>(field, value);
         default:
-            throw std::runtime_error("Dirichlet BC order must be between 1 and 4, got " + std::to_string(order));
+            throw make_bc_error("Dirichlet BC order must be between 1 and 4, got " + std::to_string(order));
     }
 }
 
@@ -136,7 +138,7 @@ void make_dirichlet_bc_vector_2d_2(VectorField2D_2& field, const std::vector<dou
 {
     if (values.size() != 2)
     {
-        throw std::runtime_error("Expected 2 values for VectorField2D_2, got " + std::to_string(values.size()));
+        throw make_bc_error("Expected 2 values for VectorField2D_2, got " + std::to_string(values.size()));
     }
     using DirichletOrder = samurai::Dirichlet<order>;
     samurai::make_bc<DirichletOrder>(field, values[0], values[1]);
@@ -156,7 +158,7 @@ void make_dirichlet_bc_vector_2d_2_dispatch(VectorField2D_2& field, const std::v
         case 4:
             return make_dirichlet_bc_vector_2d_2<4>(field, values);
         default:
-            throw std::runtime_error("Dirichlet BC order must be between 1 and 4, got " + std::to_string(order));
+            throw make_bc_error("Dirichlet BC order must be between 1 and 4, got " + std::to_string(order));
     }
 }
 
@@ -166,7 +168,7 @@ void make_dirichlet_bc_vector_3d_3(VectorField3D_3& field, const std::vector<dou
 {
     if (values.size() != 3)
     {
-        throw std::runtime_error("Expected 3 values for VectorField3D_3, got " + std::to_string(values.size()));
+        throw make_bc_error("Expected 3 values for VectorField3D_3, got " + std::to_string(values.size()));
     }
     using DirichletOrder = samurai::Dirichlet<order>;
     samurai::make_bc<DirichletOrder>(field, values[0], values[1], values[2]);
@@ -186,7 +188,7 @@ void make_dirichlet_bc_vector_3d_3_dispatch(VectorField3D_3& field, const std::v
         case 4:
             return make_dirichlet_bc_vector_3d_3<4>(field, values);
         default:
-            throw std::runtime_error("Dirichlet BC order must be between 1 and 4, got " + std::to_string(order));
+            throw make_bc_error("Dirichlet BC order must be between 1 and 4, got " + std::to_string(order));
     }
 }
 
@@ -204,7 +206,7 @@ void make_polynomial_extrapolation_bc_dispatch(ScalarField<dim>& field, std::siz
     std::size_t stencil_size = order * 2;
     if (stencil_size < 2 || stencil_size > 6 || stencil_size % 2 != 0)
     {
-        throw std::runtime_error("Polynomial extrapolation order must be 1, 2, or 3 (stencil sizes 2, 4, or 6), got "
+        throw make_bc_error("Polynomial extrapolation order must be 1, 2, or 3 (stencil sizes 2, 4, or 6), got "
                                  + std::to_string(order));
     }
 
@@ -238,7 +240,7 @@ void make_polynomial_extrapolation_bc_dispatch(ScalarField<dim>& field, std::siz
             break;
         }
         default:
-            throw std::runtime_error("Unsupported stencil size for polynomial extrapolation: " + std::to_string(stencil_size));
+            throw make_bc_error("Unsupported stencil size for polynomial extrapolation: " + std::to_string(stencil_size));
     }
 }
 

@@ -13,6 +13,8 @@
 #include <samurai/mesh_config.hpp>
 #include <samurai/mr/mesh.hpp>
 
+#include "exception_bindings.hpp"
+
 namespace py = pybind11;
 
 // Helper to bind common Mesh_base methods for any mesh type
@@ -520,7 +522,7 @@ void init_mesh_bindings(py::module_& m)
                 {
                 }
 
-                throw std::runtime_error("Box/Domain and Config dimension mismatch or unsupported types");
+                throw make_mesh_error("Box/Domain and Config dimension mismatch or unsupported types");
             }
 
             // Case 2: Inline config parameters
@@ -734,7 +736,7 @@ void init_mesh_bindings(py::module_& m)
             {
             }
 
-            throw std::runtime_error("Unsupported box_or_domain type (expected Box or DomainBuilder)");
+            throw make_mesh_error("Unsupported box_or_domain type (expected Box or DomainBuilder)");
         },
         py::arg("box_or_domain"),
         py::arg("config")                      = py::none(),

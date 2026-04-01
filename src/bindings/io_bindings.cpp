@@ -16,6 +16,7 @@
 #include <samurai/mesh_config.hpp>
 #include <samurai/mr/mesh.hpp>
 #include "common_types.hpp"
+#include "exception_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -368,7 +369,7 @@ const MRMesh<dim>* try_validate_and_get_mesh(py::args fields, size_t& out_n)
             const auto& field = fields[i].cast<const ScalarField<dim>&>();
             if (&field.mesh() != mesh)
             {
-                throw std::runtime_error("All fields must share the same mesh");
+                throw make_io_error("All fields must share the same mesh");
             }
         }
 
@@ -402,7 +403,7 @@ MRMesh<dim>* try_validate_and_get_mesh_nonconst(py::args fields, size_t& out_n)
             auto& field = fields[i].cast<ScalarField<dim>&>();
             if (&field.mesh() != mesh)
             {
-                throw std::runtime_error("All fields must share the same mesh");
+                throw make_io_error("All fields must share the same mesh");
             }
         }
 
@@ -422,7 +423,7 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
 
     if (n == 0)
     {
-        throw std::runtime_error("At least one field must be provided");
+        throw make_io_error("At least one field must be provided");
     }
 
     // Try to detect dimension by attempting to cast the first field
@@ -528,7 +529,7 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk save, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 1D bulk save, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -629,7 +630,7 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk save, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 2D bulk save, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -730,11 +731,11 @@ void save_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk save, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 3D bulk save, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
-    throw std::runtime_error("Unable to determine field dimension or invalid field types");
+    throw make_io_error("Unable to determine field dimension or invalid field types");
 }
 
 // ============================================================
@@ -749,7 +750,7 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
 
     if (n == 0)
     {
-        throw std::runtime_error("At least one field must be provided");
+        throw make_io_error("At least one field must be provided");
     }
 
     // Try to detect dimension by attempting to cast the first field
@@ -855,7 +856,7 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk dump, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 1D bulk dump, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -956,7 +957,7 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk dump, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 2D bulk dump, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1057,11 +1058,11 @@ void dump_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk dump, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 3D bulk dump, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
-    throw std::runtime_error("Unable to determine field dimension or invalid field types");
+    throw make_io_error("Unable to determine field dimension or invalid field types");
 }
 
 // ============================================================
@@ -1076,7 +1077,7 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
 
     if (n == 0)
     {
-        throw std::runtime_error("At least one field must be provided");
+        throw make_io_error("At least one field must be provided");
     }
 
     // Try to detect dimension by attempting to cast the first field (non-const for load)
@@ -1182,7 +1183,7 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 1D bulk load, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 1D bulk load, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1283,7 +1284,7 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 2D bulk load, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 2D bulk load, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
@@ -1384,11 +1385,11 @@ void load_bulk(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("Maximum {} fields supported for 3D bulk load, got {}", MAX_BULK_FIELDS, n));
+                throw make_io_error(fmt::format("Maximum {} fields supported for 3D bulk load, got {}", MAX_BULK_FIELDS, n));
         }
     }
 
-    throw std::runtime_error("Unable to determine field dimension or invalid field types");
+    throw make_io_error("Unable to determine field dimension or invalid field types");
 }
 
 // ============================================================
@@ -1416,7 +1417,7 @@ const MRMesh<1>* try_validate_and_get_mesh_vector_1d_2(py::args fields, size_t& 
             const auto& field = fields[i].cast<const VectorField1D_2&>();
             if (&field.mesh() != mesh)
             {
-                throw std::runtime_error("All vector fields must share the same mesh");
+                throw make_io_error("All vector fields must share the same mesh");
             }
         }
 
@@ -1448,7 +1449,7 @@ MRMesh<1>* try_validate_and_get_mesh_vector_1d_2_nonconst(py::args fields, size_
             auto& field = fields[i].cast<VectorField1D_2&>();
             if (&field.mesh() != mesh)
             {
-                throw std::runtime_error("All vector fields must share the same mesh");
+                throw make_io_error("All vector fields must share the same mesh");
             }
         }
 
@@ -1480,7 +1481,7 @@ const MRMesh<2>* try_validate_and_get_mesh_vector_2d_2(py::args fields, size_t& 
             const auto& field = fields[i].cast<const VectorField2D_2&>();
             if (&field.mesh() != mesh)
             {
-                throw std::runtime_error("All vector fields must share the same mesh");
+                throw make_io_error("All vector fields must share the same mesh");
             }
         }
 
@@ -1512,7 +1513,7 @@ const MRMesh<3>* try_validate_and_get_mesh_vector_3d_3(py::args fields, size_t& 
             const auto& field = fields[i].cast<const VectorField3D_3&>();
             if (&field.mesh() != mesh)
             {
-                throw std::runtime_error("All vector fields must share the same mesh");
+                throw make_io_error("All vector fields must share the same mesh");
             }
         }
 
@@ -1532,12 +1533,12 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
 
     if (n == 0)
     {
-        throw std::runtime_error("At least one vector field must be provided");
+        throw make_io_error("At least one vector field must be provided");
     }
 
     if (n > 3)
     {
-        throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+        throw make_io_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
     }
 
     // Try 1D VectorField (n_comp=2)
@@ -1568,7 +1569,7 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
@@ -1600,7 +1601,7 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
@@ -1632,11 +1633,11 @@ void save_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_save() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
-    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+    throw make_io_error("Unable to determine vector field dimension or invalid field types");
 }
 
 // Bulk dump for VectorFields
@@ -1647,12 +1648,12 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
 
     if (n == 0)
     {
-        throw std::runtime_error("At least one vector field must be provided");
+        throw make_io_error("At least one vector field must be provided");
     }
 
     if (n > 3)
     {
-        throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+        throw make_io_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
     }
 
     // Try 1D VectorField (n_comp=2)
@@ -1683,7 +1684,7 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
@@ -1715,7 +1716,7 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
@@ -1747,11 +1748,11 @@ void dump_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_dump() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
-    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+    throw make_io_error("Unable to determine vector field dimension or invalid field types");
 }
 
 // Bulk load for VectorFields (non-const version)
@@ -1762,12 +1763,12 @@ void load_bulk_vector(const py::object& filepath_obj, py::args fields)
 
     if (n == 0)
     {
-        throw std::runtime_error("At least one vector field must be provided");
+        throw make_io_error("At least one vector field must be provided");
     }
 
     if (n > 3)
     {
-        throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+        throw make_io_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
     }
 
     // Try 1D VectorField (n_comp=2) - non-const
@@ -1798,7 +1799,7 @@ void load_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
@@ -1815,7 +1816,7 @@ void load_bulk_vector(const py::object& filepath_obj, py::args fields)
             auto& field = fields[i].cast<VectorField2D_2&>();
             if (&field.mesh() != mesh_2d)
             {
-                throw std::runtime_error("All vector fields must share the same mesh");
+                throw make_io_error("All vector fields must share the same mesh");
             }
         }
     }
@@ -1850,7 +1851,7 @@ void load_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
@@ -1867,7 +1868,7 @@ void load_bulk_vector(const py::object& filepath_obj, py::args fields)
             auto& field = fields[i].cast<VectorField3D_3&>();
             if (&field.mesh() != mesh_3d)
             {
-                throw std::runtime_error("All vector fields must share the same mesh");
+                throw make_io_error("All vector fields must share the same mesh");
             }
         }
     }
@@ -1902,11 +1903,11 @@ void load_bulk_vector(const py::object& filepath_obj, py::args fields)
                 return;
             }
             default:
-                throw std::runtime_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
+                throw make_io_error(fmt::format("bulk_vector_load() supports 1-3 vector fields, but {} fields were provided", n));
         }
     }
 
-    throw std::runtime_error("Unable to determine vector field dimension or invalid field types");
+    throw make_io_error("Unable to determine vector field dimension or invalid field types");
 }
 
 // ============================================================

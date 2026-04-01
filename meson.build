@@ -303,6 +303,7 @@ message('')
 # Core binding sources (always included)
 binding_sources = files(
     'src/bindings/main.cpp',
+    'src/bindings/exception_bindings.cpp',
     'src/bindings/box_bindings.cpp',
     'src/bindings/domain_builder_bindings.cpp',
     'src/bindings/mesh_config_bindings.cpp',
@@ -393,9 +394,10 @@ message('')
 # Install pure Python utilities using meson-python's py.install_sources()
 # This is the correct way to install Python files with meson-python
 
-# Install __init__.py at package root
+# Install __init__.py and exceptions.py at package root
 py.install_sources(
     'src/sampai/__init__.py',
+    'src/sampai/exceptions.py',
     subdir: 'sampai',
 )
 

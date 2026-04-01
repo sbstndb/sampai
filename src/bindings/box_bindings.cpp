@@ -11,6 +11,8 @@
 #include <pybind11/stl.h>
 #include <samurai/box.hpp>
 
+#include "exception_bindings.hpp"
+
 namespace py = pybind11;
 
 // Type aliases for convenience
@@ -30,7 +32,7 @@ auto convert_to_point(const py::object& obj)
         py::list list = py::cast<py::list>(obj);
         if (list.size() != dim)
         {
-            throw std::runtime_error("Expected list of length " + std::to_string(dim));
+            throw make_mesh_error("Expected list of length " + std::to_string(dim));
         }
         point_t point;
         for (std::size_t i = 0; i < dim; ++i)
@@ -47,7 +49,7 @@ auto convert_to_point(const py::object& obj)
             py::array_t<double> arr = py::cast<py::array_t<double>>(obj);
             if (arr.size() != dim)
             {
-                throw std::runtime_error("Expected array of length " + std::to_string(dim));
+                throw make_mesh_error("Expected array of length " + std::to_string(dim));
             }
             point_t point;
             auto buf  = arr.request();
@@ -60,7 +62,7 @@ auto convert_to_point(const py::object& obj)
         }
         catch (const py::cast_error&)
         {
-            throw std::runtime_error("Cannot convert to point: expected list or numpy array");
+            throw make_mesh_error("Cannot convert to point: expected list or numpy array");
         }
     }
 }
@@ -279,7 +281,7 @@ std::size_t detect_dimension_from_input(const py::object& obj)
         }
         catch (const py::cast_error&)
         {
-            throw std::runtime_error("Cannot determine dimension: expected list or numpy array");
+            throw make_mesh_error("Cannot determine dimension: expected list or numpy array");
         }
     }
 }
@@ -331,7 +333,7 @@ void init_box_bindings(py::module_& m)
             std::size_t dim_max = detect_dimension_from_input(max_obj);
             if (dim != dim_max)
             {
-                throw std::runtime_error("min_corner and max_corner must have the same dimension");
+                throw make_mesh_error("min_corner and max_corner must have the same dimension");
             }
 
             // Create appropriate Box based on dimension
@@ -358,7 +360,7 @@ void init_box_bindings(py::module_& m)
             }
             else
             {
-                throw std::runtime_error("Unsupported dimension: " + std::to_string(dim) + " (must be 1, 2, or 3)");
+                throw make_mesh_error("Unsupported dimension: " + std::to_string(dim) + " (must be 1, 2, or 3)");
             }
         },
         py::arg("min_corner"),

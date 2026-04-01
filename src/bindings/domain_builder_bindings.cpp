@@ -10,6 +10,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <samurai/domain_builder.hpp>
+#include "exception_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -34,7 +35,7 @@ auto convert_to_point(const py::object& obj)
         py::list list = py::cast<py::list>(obj);
         if (list.size() != dim)
         {
-            throw std::runtime_error("Expected list of length " + std::to_string(dim));
+            throw make_mesh_error("Expected list of length " + std::to_string(dim));
         }
         point_t point;
         for (std::size_t i = 0; i < dim; ++i)
@@ -51,7 +52,7 @@ auto convert_to_point(const py::object& obj)
             py::array_t<double> arr = py::cast<py::array_t<double>>(obj);
             if (arr.size() != dim)
             {
-                throw std::runtime_error("Expected array of length " + std::to_string(dim));
+                throw make_mesh_error("Expected array of length " + std::to_string(dim));
             }
             point_t point;
             auto buf  = arr.request();
@@ -64,7 +65,7 @@ auto convert_to_point(const py::object& obj)
         }
         catch (const py::cast_error&)
         {
-            throw std::runtime_error("Cannot convert to point: expected list or numpy array");
+            throw make_mesh_error("Cannot convert to point: expected list or numpy array");
         }
     }
 }
