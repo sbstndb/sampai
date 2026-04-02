@@ -35,6 +35,7 @@ project('sampai', 'cpp', 'c',
 
 build_python_tests = get_option('build_python_tests')
 enable_mpi = get_option('mpi')
+enable_petsc = get_option('petsc')
 
 message('=== Sampai - Python Interface for Samurai AMR Library ===')
 message('')
@@ -257,7 +258,9 @@ endif
 
 has_mpi = enable_mpi and mpi_dep.found()
 
-if enable_mpi and not has_boost_mpi
+# Boost.MPI is required for Samurai's MPI features, but NOT for PETSc
+# PETSc has its own MPI implementation and doesn't need Boost.MPI
+if enable_mpi and not has_boost_mpi and not enable_petsc
     error('MPI support requires Boost.MPI and Boost.Serialization; install libboost-mpi and libboost-serialization')
 endif
 
@@ -278,6 +281,68 @@ if has_mpi
     extra_cpp_args += '-DSAMURAI_WITH_MPI'
 endif
 
+# ============================================================================
+# PETSc DETECTION (optional, requires MPI)
+# ============================================================================
+# PETSc is detected only if MPI is enabled
+petsc_dep = dependency('PETSc', required: false)
+
+if not petsc_dep.found() and enable_petsc and has_mpi
+    # Try pkg-config for PETSc (works with conda-forge)
+    petsc_pkgconfig = dependency('PETSc', method: 'pkg-config', required: false)
+    if petsc_pkgconfig.found()
+        petsc_dep = petsc_pkgconfig
+        message('Found PETSc via pkg-config')
+    endif
+endif
+
+# If not found, try finding PETSc libraries explicitly (conda-forge)
+if not petsc_dep.found() and enable_petsc and has_mpi
+    if conda_prefix != ''
+        petsc_lib_dirs = [
+            join_paths(conda_prefix, 'lib'),
+            join_paths(conda_prefix, 'lib64'),
+        ]
+
+        petsc_lib = cpp.find_library('petsc', dirs: petsc_lib_dirs, required: false)
+
+        if petsc_lib.found()
+            petsc_include_path = join_paths(conda_prefix, 'include')
+            petsc_include_dirs = []
+
+            if run_command('test', '-d', petsc_include_path, check: false).returncode() == 0
+                petsc_include_dirs += [include_directories(petsc_include_path)]
+            endif
+
+            petsc_dep = declare_dependency(
+                include_directories: petsc_include_dirs,
+                dependencies: petsc_lib,
+            )
+            message('Found PETSc libraries via conda environment')
+        endif
+    endif
+endif
+
+# PETSc requires MPI - ensure this is enforced
+if enable_petsc and not has_mpi
+    error('PETSc support requires MPI to be enabled (use -Dmpi=true)')
+endif
+
+has_petsc = enable_petsc and petsc_dep.found()
+
+if enable_petsc and not has_petsc
+    error('PETSc requested but not found. Install conda-forge PETSc: conda install -c conda-forge petsc')
+endif
+
+if has_petsc
+    message('')
+    message('=== PETSc Support Enabled ===')
+    message('PETSc library: @0@'.format(petsc_dep.name()))
+
+    # Define SAMURAI_WITH_PETSC for conditional compilation
+    extra_cpp_args += '-DSAMURAI_WITH_PETSC'
+endif
+
 message('')
 message('=== Dependencies Summary ===')
 message('Python: @0@'.format(py_version))
@@ -293,6 +358,11 @@ if has_mpi
     message('MPI: ENABLED (@0@)'.format(mpi_dep.name()))
 else
     message('MPI: DISABLED (use -Dmpi=true to enable)')
+endif
+if has_petsc
+    message('PETSc: ENABLED (@0@)'.format(petsc_dep.name()))
+else
+    message('PETSc: DISABLED (use -Dmpi=true -Dpetsc=true to enable)')
 endif
 message('')
 
@@ -317,12 +387,19 @@ binding_sources = files(
     'src/bindings/subset_bindings.cpp',
     'src/bindings/io_bindings.cpp',
     'src/bindings/mpi_bindings.cpp',
+    'src/bindings/petsc_bindings.cpp',
 )
 
 if has_mpi
     message('MPI bindings: ENABLED')
 else
     message('MPI bindings: STUB (MPI disabled)')
+endif
+
+if has_petsc
+    message('PETSc bindings: ENABLED')
+else
+    message('PETSc bindings: STUB (PETSc disabled)')
 endif
 
 message('Binding source files: @0@'.format(binding_sources.length()))
@@ -354,7 +431,29 @@ all_dependencies = [
 # Add MPI dependencies if enabled
 if has_mpi
     all_dependencies += [mpi_dep]
-    all_dependencies += [boost_mpi_dep]
+    # Always link boost_serialization with MPI if found (Samurai needs it)
+    if boost_serialization_lib.found()
+        all_dependencies += [boost_serialization_lib]
+    endif
+    # Always link boost_mpi if found (needed by mpi_bindings.cpp)
+    if has_boost_mpi
+        all_dependencies += [boost_mpi_dep]
+    endif
+endif
+
+# Add boost_serialization if found (required by Samurai for Interval types)
+# even without MPI
+if not has_mpi and boost_serialization_lib.found()
+    boost_serialization_dep = declare_dependency(
+        dependencies: [boost_serialization_lib],
+        link_args: ['-lboost_serialization']
+    )
+    all_dependencies += [boost_serialization_dep]
+endif
+
+# Add PETSc dependencies if enabled
+if has_petsc
+    all_dependencies += [petsc_dep]
 endif
 
 # Collect all cpp_args
@@ -364,6 +463,11 @@ all_cpp_args = [
 
 # Add MPI-specific cpp_args
 if has_mpi
+    all_cpp_args += extra_cpp_args
+endif
+
+# Add PETSc-specific cpp_args (includes SAMURAI_WITH_PETSC)
+if has_petsc
     all_cpp_args += extra_cpp_args
 endif
 
@@ -435,6 +539,16 @@ if has_mpi
         'src/sampai/mpi/__init__.py',
         'src/sampai/mpi/comm.py',
         subdir: 'sampai/mpi',
+    )
+endif
+
+# Install PETSc subpackage (if enabled)
+if has_petsc
+    py.install_sources(
+        'src/sampai/petsc/__init__.py',
+        'src/sampai/petsc/vector.py',
+        'src/sampai/petsc/solver.py',
+        subdir: 'sampai/petsc',
     )
 endif
 

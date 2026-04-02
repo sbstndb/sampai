@@ -22,3 +22,9 @@ option('mpi',
     value: false,
     description: 'Enable MPI support for distributed memory parallelization'
 )
+
+option('petsc',
+    type: 'boolean',
+    value: false,
+    description: 'Enable PETSc support for linear solvers and matrix assembly (requires MPI)'
+)
