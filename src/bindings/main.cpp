@@ -27,6 +27,7 @@
 #include "mpi_bindings.hpp"
 #include "operator_bindings.hpp"
 #include "subset_bindings.hpp"
+#include "timer_bindings.hpp"
 
 namespace py = pybind11;
 
@@ -116,6 +117,7 @@ PYBIND11_MODULE(_sampai, m)
     init_subset_bindings(m);
     init_io_bindings(m);
     sampai::bindings::init_mpi_bindings(m);  // MPI support (conditional compilation)
+    init_timer_bindings(m);  // Timer utilities
 
     // TODO: Add more submodule initializers as they are implemented
     // init_fv_bindings(m);  // Finite volume schemes

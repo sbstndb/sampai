@@ -317,6 +317,7 @@ binding_sources = files(
     'src/bindings/subset_bindings.cpp',
     'src/bindings/io_bindings.cpp',
     'src/bindings/mpi_bindings.cpp',
+    'src/bindings/timer_bindings.cpp',
 )
 
 if has_mpi

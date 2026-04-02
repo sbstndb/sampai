@@ -7,9 +7,15 @@ Utility functions and helpers for Sampai.
 This module provides various utilities for working with Sampai simulations,
 including progress tracking, visualization, and I/O operations.
 
-The progress module is always available. The viz and io modules require
-optional dependencies (matplotlib, h5py) and will raise ImportError if
-those dependencies are not installed.
+Timer functionality is available directly from the main sampai module:
+    >>> import sampai as sam
+    >>> sam.Timers.start('adaptation')
+    >>> # ... do work ...
+    >>> sam.Timers.stop('adaptation')
+    >>> elapsed = sam.Timers.get_elapsed('adaptation')
+
+The viz and io modules require optional dependencies (matplotlib, h5py)
+and will raise ImportError if those dependencies are not installed.
 
 To install optional dependencies:
     pip install sampai[viz]    # For visualization
