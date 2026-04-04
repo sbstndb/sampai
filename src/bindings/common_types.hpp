@@ -72,6 +72,7 @@ namespace samurai::python::bindings
     // ============================================================
 
     // 1D VectorFields
+    using VectorField1D_1 = VectorField<1, 1, false>;
     using VectorField1D_2 = VectorField<1, 2, false>;
     using VectorField1D_3 = VectorField<1, 3, false>;
 
